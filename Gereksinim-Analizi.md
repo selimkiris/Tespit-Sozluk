@@ -1,4 +1,4 @@
-\# Gereksinim Analizi
+# Gereksinim Analizi
 
 
 
@@ -6,9 +6,9 @@ Projemiz "Solo Team" (Tek kişilik takım) olarak geliştirilmektedir. Aşağıd
 
 
 
-\## Tüm Gereksinimler
+## Tüm Gereksinimler
 
-1\. Kullanıcı Kaydı (Selim Kırış)
+1. Kullanıcı Kaydı (Selim Kırış)
 
 2\. Kullanıcı Girişi (Selim Kırış)
 
@@ -38,7 +38,7 @@ Projemiz "Solo Team" (Tek kişilik takım) olarak geliştirilmektedir. Aşağıd
 
 
 
-\## Gereksinim Dağılımları
+## Gereksinim Dağılımları
 
-1\. \[Selim Kırış'ın Gereksinimleri](Selim-Kiris/Selim-Kiris-Gereksinimler.md)
+1. [Selim Kırış'ın Gereksinimleri](Selim-Kiris/Selim-Kiris-Gereksinimler.md)
 
