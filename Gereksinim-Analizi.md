@@ -40,5 +40,5 @@ Projemiz "Solo Team" (Tek kişilik takım) olarak geliştirilmektedir. Aşağıd
 
 ## Gereksinim Dağılımları
 
-1. [Selim Kırış'ın Gereksinimleri]([Selim Kırış/Selim-Kiris-Gereksinimler.md](https://github.com/selimkiris/Tespit-Sozluk/blob/d87f21ae2e9ef5b533d434bceba4865b64645db5/Selim%20K%C4%B1r%C4%B1%C5%9F/Selim-Kiris-Gereksinimler.md))
+1. [Selim Kırış'ın Gereksinimleri](https://github.com/selimkiris/Tespit-Sozluk/blob/main/Selim%20K%C4%B1r%C4%B1%C5%9F/Selim-Kiris-Gereksinimler.md)
 
