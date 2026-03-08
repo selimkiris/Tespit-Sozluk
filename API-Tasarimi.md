@@ -1,12 +1,4 @@
-API Tasarımı - OpenAPI Specification
-
-OpenAPI Spesifikasyon Dosyası: tespit-sozluk.yaml
-
-Bu doküman, OpenAPI Specification (OAS) 3.0 standardına göre hazırlanmış "Tespit Sözlük" platformu için RESTful API tasarımını içermektedir.
-
-OpenAPI Specification
-
-openapi: 3.0.3
+API Tasarımı - OpenAPI SpecificationOpenAPI Spesifikasyon Dosyası: tespit-sozluk.yamlBu doküman, OpenAPI Specification (OAS) 3.0 standardına göre hazırlanmış "Tespit Sözlük" platformu için RESTful API tasarımını içermektedir.OpenAPI Specificationopenapi: 3.0.3
 info:
   title: Tespit Sözlük API
   description: |
@@ -32,36 +24,36 @@ info:
   contact:
     name: Solo Team - Selim Kırış
     email: selimkiris1@gmail.com
-    url: https://api.tespit-sozluk.dev/support
+    url: [https://api.tespit-sozluk.dev/support](https://api.tespit-sozluk.dev/support)
   license:
     name: MIT
-    url: https://opensource.org/licenses/MIT
+    url: [https://opensource.org/licenses/MIT](https://opensource.org/licenses/MIT)
 
 servers:
-  - url: https://api.tespit-sozluk.dev/v1
+  - url: [https://api.tespit-sozluk.dev](https://api.tespit-sozluk.dev)
     description: Production server
-  - url: https://staging-api.tespit-sozluk.dev/v1
+  - url: [https://staging-api.tespit-sozluk.dev](https://staging-api.tespit-sozluk.dev)
     description: Staging server
-  - url: http://localhost:3000/v1
+  - url: http://localhost:3000
     description: Development server
 
 tags:
-  - name: auth
-    description: Kimlik doğrulama ve kullanıcı işlemleri
-  - name: users
+  - name: Auth
+    description: Kimlik doğrulama ve kullanıcı kayıt işlemleri
+  - name: Users
     description: Kullanıcı profil işlemleri
-  - name: topics
+  - name: Topics
     description: Başlık (Topic) işlemleri
-  - name: entries
+  - name: Entries
     description: İçerik (Entry) ve oylama işlemleri
-  - name: search
+  - name: Search
     description: Sistem geneli arama işlemleri
 
 paths:
-  /auth/register:
+  /api/auth/register:
     post:
       tags:
-        - auth
+        - Auth
       summary: 1. Kullanıcı Kaydı
       description: Sisteme yeni bir kullanıcı kaydeder ve hesap oluşturur.
       operationId: registerUser
@@ -94,10 +86,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /auth/login:
+  /api/auth/login:
     post:
       tags:
-        - auth
+        - Auth
       summary: 2. Kullanıcı Girişi
       description: Email ve şifre ile giriş yapar, JWT token döner.
       operationId: loginUser
@@ -123,25 +115,25 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /auth/logout:
+  /api/auth/logout:
     post:
       tags:
-        - auth
+        - Auth
       summary: 14. Çıkış Yapma
       description: Kullanıcının aktif JWT oturumunu güvenli bir şekilde sonlandırır.
       operationId: logoutUser
       security:
-        - bearerAuth: []
+        - BearerAuth: []
       responses:
         '200':
           description: Çıkış başarılı
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /users/{userId}:
+  /api/users/{userId}:
     get:
       tags:
-        - users
+        - Users
       summary: 3. Profil Görüntüleme
       description: ID'si verilen kullanıcının profil bilgilerini getirir.
       operationId: getUserProfile
@@ -157,10 +149,10 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /topics/latest:
+  /api/topics/latest:
     get:
       tags:
-        - topics
+        - Topics
       summary: 4. Başlıkları Listeleme
       description: Son entry girilen başlıkları kronolojik olarak listeler (Sol panel akışı).
       operationId: getLatestTopics
@@ -174,10 +166,10 @@ paths:
                 items:
                   $ref: '#/components/schemas/Topic'
 
-  /topics/alphabetical:
+  /api/topics/alphabetical:
     get:
       tags:
-        - topics
+        - Topics
       summary: 5. Alfabetik Başlık Listeleme
       description: Sistemdeki tüm başlıkları A-Z'ye alfabetik olarak listeler.
       operationId: getAlphabeticalTopics
@@ -191,15 +183,15 @@ paths:
                 items:
                   $ref: '#/components/schemas/Topic'
 
-  /topics:
+  /api/topics:
     post:
       tags:
-        - topics
+        - Topics
       summary: 6. Yeni Başlık Açma
       description: Belirtilen konu hakkında sistemde yeni bir başlık açar.
       operationId: createTopic
       security:
-        - bearerAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -223,15 +215,15 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /topics/{topicId}:
+  /api/topics/{topicId}:
     delete:
       tags:
-        - topics
+        - Topics
       summary: 7. Başlık Silme
       description: Yetkili bir kullanıcının veya yöneticinin başlığı tamamen kaldırması.
       operationId: deleteTopic
       security:
-        - bearerAuth: []
+        - BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/TopicIdParam'
       responses:
@@ -244,15 +236,15 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /entries:
+  /api/entries:
     post:
       tags:
-        - entries
+        - Entries
       summary: 8. Entry Girme
       description: Mevcut bir başlık altına yeni bir içerik (entry) ekler.
       operationId: createEntry
       security:
-        - bearerAuth: []
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -277,15 +269,15 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /entries/{entryId}:
+  /api/entries/{entryId}:
     put:
       tags:
-        - entries
+        - Entries
       summary: 9. Entry Düzenleme
       description: Kullanıcının kendi yazdığı entry'nin içeriğini günceller.
       operationId: updateEntry
       security:
-        - bearerAuth: []
+        - BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/EntryIdParam'
       requestBody:
@@ -313,12 +305,12 @@ paths:
           $ref: '#/components/responses/NotFound'
     delete:
       tags:
-        - entries
+        - Entries
       summary: 10. Entry Silme
       description: Kullanıcının kendi yazdığı entry'yi sistemden siler.
       operationId: deleteEntry
       security:
-        - bearerAuth: []
+        - BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/EntryIdParam'
       responses:
@@ -329,15 +321,15 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /entries/{entryId}/vote:
+  /api/entries/{entryId}/vote:
     post:
       tags:
-        - entries
+        - Entries
       summary: 11. Entry Oylama
       description: Yazarların entry'lere olumlu (upvote) veya olumsuz (downvote) puan vermesi.
       operationId: voteEntry
       security:
-        - bearerAuth: []
+        - BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/EntryIdParam'
       requestBody:
@@ -361,10 +353,10 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /search:
+  /api/search:
     get:
       tags:
-        - search
+        - Search
       summary: 12. Arama Yapma
       description: Sistem genelinde başlıklar ve yazarlar arasında kelime bazlı arama yapar.
       operationId: searchAll
@@ -394,10 +386,10 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
 
-  /entries/random:
+  /api/entries/random:
     get:
       tags:
-        - entries
+        - Entries
       summary: 13. Rastgele İçerik Listeleme
       description: Farklı başlıklardan rastgele seçilen entryleri getirir.
       operationId: getRandomEntries
@@ -413,7 +405,7 @@ paths:
 
 components:
   securitySchemes:
-    bearerAuth:
+    BearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
