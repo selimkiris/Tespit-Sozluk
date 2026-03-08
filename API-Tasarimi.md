@@ -1,4 +1,13 @@
-API Tasarımı - OpenAPI SpecificationOpenAPI Spesifikasyon Dosyası: tespit-sozluk.yamlBu doküman, OpenAPI Specification (OAS) 3.0 standardına göre hazırlanmış "Tespit Sözlük" platformu için RESTful API tasarımını içermektedir.OpenAPI Specificationopenapi: 3.0.3
+# API Tasarımı - OpenAPI Specification
+
+OpenAPI Spesifikasyon Dosyası: [tespit-sozluk.yaml](tespit-sozluk.yaml)
+
+Bu doküman, OpenAPI Specification (OAS) 3.0 standardına göre hazırlanmış "Tespit Sözlük" platformu için RESTful API tasarımını içermektedir.
+
+## OpenAPI Specification
+
+```yaml
+openapi: 3.0.3
 info:
   title: Tespit Sözlük API
   description: |
