@@ -1,188 +1,293 @@
-# API Tasarımı - OpenAPI Specification Örneği
+API Tasarımı - OpenAPI Specification
 
-OpenAPI Spesifikasyon Dosyası: [tespit-sozluk.yaml](tespit-sozluk.yaml)
+OpenAPI Spesifikasyon Dosyası: tespit-sozluk.yaml
 
-Bu doküman, OpenAPI Specification (OAS) 3.0 standardına göre hazırlanmış "Tespit Sözlük" RESTful API tasarımını içermektedir.
+Bu doküman, OpenAPI Specification (OAS) 3.0 standardına göre hazırlanmış "Tespit Sözlük" platformu için RESTful API tasarımını içermektedir.
 
-## OpenAPI Specification
+OpenAPI Specification
 
-```yaml
 openapi: 3.0.3
 info:
   title: Tespit Sözlük API
+  description: |
+    Yeni nesil katılımcı sözlük platformu "Tespit Sözlük" için RESTful API.
+    
+    ## Özellikler
+    - 1. Kullanıcı Kaydı (POST)
+    - 2. Kullanıcı Girişi (POST)
+    - 3. Profil Görüntüleme (GET)
+    - 4. Başlıkları Listeleme (GET)
+    - 5. Alfabetik Başlık Listeleme (GET)
+    - 6. Yeni Başlık Açma (POST)
+    - 7. Başlık Silme (DELETE)
+    - 8. Entry Girme (POST)
+    - 9. Entry Düzenleme (PUT)
+    - 10. Entry Silme (DELETE)
+    - 11. Entry Oylama (POST)
+    - 12. Arama Yapma (GET)
+    - 13. Rastgele İçerik Listeleme (GET)
+    - 14. Çıkış Yapma (POST)
+    - JWT tabanlı kimlik doğrulama
   version: 1.0.0
-  description: >
-    Yeni nesil katılımcı sözlük platformu Tespit Sözlük için RESTful API tasarımı.
-    Kullanıcılar başlık açabilir, entry girebilir, oylama yapabilir ve arama işlemlerini gerçekleştirebilir.
   contact:
     name: Solo Team - Selim Kırış
-    email: selimkiris@example.com
+    email: selimkiris1@gmail.com
+    url: [https://api.tespit-sozluk.dev/support](https://api.tespit-sozluk.dev/support)
+  license:
+    name: MIT
+    url: [https://opensource.org/licenses/MIT](https://opensource.org/licenses/MIT)
 
 servers:
-  - url: [https://api.tespit-sozluk.dev/api](https://api.tespit-sozluk.dev/api)
-    description: Production Server
+  - url: [https://api.tespit-sozluk.dev/v1](https://api.tespit-sozluk.dev/v1)
+    description: Production server
+  - url: [https://staging-api.tespit-sozluk.dev/v1](https://staging-api.tespit-sozluk.dev/v1)
+    description: Staging server
+  - url: http://localhost:3000/v1
+    description: Development server
 
 tags:
-  - name: Auth
-    description: Kullanıcı kayıt, giriş ve çıkış işlemleri
-  - name: Users
+  - name: auth
+    description: Kimlik doğrulama ve kullanıcı işlemleri
+  - name: users
     description: Kullanıcı profil işlemleri
-  - name: Topics
+  - name: topics
     description: Başlık (Topic) işlemleri
-  - name: Entries
-    description: Entry (İçerik) işlemleri
-  - name: Search
-    description: Arama işlemleri
-
-security:
-  - BearerAuth: []
+  - name: entries
+    description: İçerik (Entry) ve oylama işlemleri
+  - name: search
+    description: Sistem geneli arama işlemleri
 
 paths:
   /auth/register:
     post:
       tags:
-        - Auth
+        - auth
       summary: 1. Kullanıcı Kaydı
-      description: Sisteme yeni bir kullanıcının kayıt olmasını sağlar.
-      security: []
+      description: Sisteme yeni bir kullanıcı kaydeder ve hesap oluşturur.
+      operationId: registerUser
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RegisterInput'
+              $ref: '#/components/schemas/UserRegistration'
+            examples:
+              example1:
+                summary: Örnek kullanıcı kaydı
+                value:
+                  username: selimkiris
+                  email: selimkiris1@gmail.com
+                  password: GuvenliPassword123!
       responses:
         '201':
           description: Kullanıcı başarıyla oluşturuldu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
         '400':
-          description: Geçersiz veri (Geçersiz email veya şifre)
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Email adresi veya kullanıcı adı zaten kullanımda
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /auth/login:
     post:
       tags:
-        - Auth
+        - auth
       summary: 2. Kullanıcı Girişi
-      description: Kayıtlı kullanıcıların sisteme kimlik doğrulaması yaparak giriş yapması sağlanır.
-      security: []
+      description: Email ve şifre ile giriş yapar, JWT token döner.
+      operationId: loginUser
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LoginInput'
+              $ref: '#/components/schemas/LoginCredentials'
+            examples:
+              example1:
+                summary: Örnek giriş isteği
+                value:
+                  email: selimkiris1@gmail.com
+                  password: GuvenliPassword123!
       responses:
         '200':
-          description: Giriş başarılı, JWT token döner
+          description: Giriş başarılı
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthToken'
         '401':
-          description: Hatalı e-posta veya şifre
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags:
+        - auth
+      summary: 14. Çıkış Yapma
+      description: Kullanıcının aktif JWT oturumunu güvenli bir şekilde sonlandırır.
+      operationId: logoutUser
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Çıkış başarılı
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /users/{userId}:
     get:
       tags:
-        - Users
+        - users
       summary: 3. Profil Görüntüleme
-      description: Yazarların kendi veya diğer kullanıcıların profil bilgilerini görebilmesi sağlanır.
+      description: ID'si verilen kullanıcının profil bilgilerini getirir.
+      operationId: getUserProfile
       parameters:
-        - name: userId
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/UserIdParam'
       responses:
         '200':
-          description: Profil bilgileri getirildi
+          description: Başarılı
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
         '404':
-          description: Kullanıcı bulunamadı
+          $ref: '#/components/responses/NotFound'
 
   /topics/latest:
     get:
       tags:
-        - Topics
+        - topics
       summary: 4. Başlıkları Listeleme
-      description: Sol panelde, son entry girilen başlıkların kronolojik listelenmesi sağlanır.
-      security: []
+      description: Son entry girilen başlıkları kronolojik olarak listeler (Sol panel akışı).
+      operationId: getLatestTopics
       responses:
         '200':
-          description: Başarılı liste döndü
+          description: Başarılı liste
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Topic'
 
   /topics/alphabetical:
     get:
       tags:
-        - Topics
+        - topics
       summary: 5. Alfabetik Başlık Listeleme
-      description: Kullanıcıların sistemdeki tüm başlıkları alfabetik olarak sıralanmış şekilde görmesi sağlanır.
-      security: []
+      description: Sistemdeki tüm başlıkları A-Z'ye alfabetik olarak listeler.
+      operationId: getAlphabeticalTopics
       responses:
         '200':
-          description: Alfabetik liste döndü
+          description: Başarılı alfabetik liste
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Topic'
 
   /topics:
     post:
       tags:
-        - Topics
+        - topics
       summary: 6. Yeni Başlık Açma
-      description: Yazarların mevcut olmayan bir konu hakkında ilk içeriği girerek başlık oluşturması sağlanır.
+      description: Belirtilen konu hakkında sistemde yeni bir başlık açar.
+      operationId: createTopic
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                title:
-                  type: string
+              $ref: '#/components/schemas/TopicInput'
+            examples:
+              example1:
+                summary: Örnek başlık açma
+                value:
+                  title: "Yapay zekanın yazılım mühendisliğine etkisi"
       responses:
         '201':
-          description: Başlık oluşturuldu
+          description: Başlık başarıyla oluşturuldu
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Topic'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /topics/{topicId}:
     delete:
       tags:
-        - Topics
+        - topics
       summary: 7. Başlık Silme
-      description: Yetkili bir kullanıcının hatalı açılan bir başlığı sistemden kaldırması sağlanır.
+      description: Yetkili bir kullanıcının veya yöneticinin başlığı tamamen kaldırması.
+      operationId: deleteTopic
+      security:
+        - bearerAuth: []
       parameters:
-        - name: topicId
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/TopicIdParam'
       responses:
         '204':
           description: Başlık başarıyla silindi
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Bu işlem için yetkiniz bulunmuyor
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /entries:
     post:
       tags:
-        - Entries
+        - entries
       summary: 8. Entry Girme
-      description: Yazarların mevcut başlıklar altına metin içeriği eklemesi sağlanır.
+      description: Mevcut bir başlık altına yeni bir içerik (entry) ekler.
+      operationId: createEntry
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/EntryInput'
+            examples:
+              example1:
+                summary: Örnek entry ekleme
+                value:
+                  topicId: "tpc_987654"
+                  content: "Bu konu hakkında benim de şöyle bir tespitim var..."
       responses:
         '201':
-          description: Entry eklendi
+          description: Entry başarıyla eklendi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /entries/{entryId}:
     put:
       tags:
-        - Entries
+        - entries
       summary: 9. Entry Düzenleme
-      description: Yazarların kendi yazdıkları entry'lerin içeriğini güncelleyebilmesi sağlanır.
+      description: Kullanıcının kendi yazdığı entry'nin içeriğini günceller.
+      operationId: updateEntry
+      security:
+        - bearerAuth: []
       parameters:
-        - name: entryId
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/EntryIdParam'
       requestBody:
         required: true
         content:
@@ -192,84 +297,149 @@ paths:
               properties:
                 content:
                   type: string
+            examples:
+              example1:
+                summary: Örnek entry güncelleme
+                value:
+                  content: "Düzeltilmiş entry içeriği buraya gelecek."
       responses:
         '200':
-          description: Entry güncellendi
+          description: Entry başarıyla güncellendi
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
     delete:
       tags:
-        - Entries
+        - entries
       summary: 10. Entry Silme
-      description: Yazarların kendi yazdıkları bir entry'yi sistemden tamamen kaldırması sağlanır.
+      description: Kullanıcının kendi yazdığı entry'yi sistemden siler.
+      operationId: deleteEntry
+      security:
+        - bearerAuth: []
       parameters:
-        - name: entryId
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/EntryIdParam'
       responses:
         '204':
-          description: Entry silindi
+          description: Entry başarıyla silindi
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /entries/{entryId}/vote:
     post:
       tags:
-        - Entries
+        - entries
       summary: 11. Entry Oylama
-      description: Yazarların entry'lere olumlu veya olumsuz puan vererek etkileşimde bulunması sağlanır.
+      description: Yazarların entry'lere olumlu (upvote) veya olumsuz (downvote) puan vermesi.
+      operationId: voteEntry
+      security:
+        - bearerAuth: []
       parameters:
-        - name: entryId
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: '#/components/parameters/EntryIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoteInput'
+            examples:
+              example1:
+                summary: Olumlu oy verme
+                value:
+                  voteType: "upvote"
       responses:
         '200':
           description: Oylama başarılı
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /search:
     get:
       tags:
-        - Search
+        - search
       summary: 12. Arama Yapma
-      description: Kullanıcıların başlıklar veya yazarlar arasında kelime bazlı arama yapması sağlanır.
-      security: []
+      description: Sistem genelinde başlıklar ve yazarlar arasında kelime bazlı arama yapar.
+      operationId: searchAll
       parameters:
         - name: q
           in: query
           required: true
+          description: Aranacak kelime
           schema:
             type: string
       responses:
         '200':
-          description: Arama sonuçları döndü
+          description: Arama sonuçları
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  topics:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Topic'
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
 
   /entries/random:
     get:
       tags:
-        - Entries
+        - entries
       summary: 13. Rastgele İçerik Listeleme
-      description: Ana sayfada farklı başlıklardan seçilen rastgele içeriklerin kullanıcıya sunulması sağlanır.
-      security: []
+      description: Farklı başlıklardan rastgele seçilen entryleri getirir.
+      operationId: getRandomEntries
       responses:
         '200':
-          description: Rastgele entryler döndü
-
-  /auth/logout:
-    post:
-      tags:
-        - Auth
-      summary: 14. Çıkış Yapma
-      description: Kullanıcının aktif oturumunun güvenli bir şekilde sonlandırılması sağlanır.
-      responses:
-        '200':
-          description: Çıkış başarılı
+          description: Rastgele entryler başarıyla getirildi
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Entry'
 
 components:
   securitySchemes:
-    BearerAuth:
+    bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+
+  parameters:
+    UserIdParam:
+      name: userId
+      in: path
+      required: true
+      description: Kullanıcının benzersiz ID'si
+      schema:
+        type: string
+    TopicIdParam:
+      name: topicId
+      in: path
+      required: true
+      description: Başlığın benzersiz ID'si
+      schema:
+        type: string
+    EntryIdParam:
+      name: entryId
+      in: path
+      required: true
+      description: Entry'nin benzersiz ID'si
+      schema:
+        type: string
 
   schemas:
     User:
@@ -281,8 +451,11 @@ components:
           type: string
         email:
           type: string
+        createdAt:
+          type: string
+          format: date-time
 
-    RegisterInput:
+    UserRegistration:
       type: object
       required:
         - username
@@ -291,6 +464,7 @@ components:
       properties:
         username:
           type: string
+          minLength: 3
         email:
           type: string
           format: email
@@ -298,7 +472,7 @@ components:
           type: string
           minLength: 6
 
-    LoginInput:
+    LoginCredentials:
       type: object
       required:
         - email
@@ -306,8 +480,62 @@ components:
       properties:
         email:
           type: string
+          format: email
         password:
           type: string
+
+    AuthToken:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT Bearer token
+        expiresIn:
+          type: integer
+          description: Token geçerlilik süresi (saniye)
+
+    Topic:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        authorId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        entryCount:
+          type: integer
+
+    TopicInput:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          minLength: 3
+
+    Entry:
+      type: object
+      properties:
+        id:
+          type: string
+        topicId:
+          type: string
+        authorId:
+          type: string
+        content:
+          type: string
+        upvotes:
+          type: integer
+        downvotes:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
 
     EntryInput:
       type: object
@@ -319,3 +547,39 @@ components:
           type: string
         content:
           type: string
+          minLength: 1
+
+    VoteInput:
+      type: object
+      required:
+        - voteType
+      properties:
+        voteType:
+          type: string
+          enum: [upvote, downvote]
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Geçersiz istek verisi
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Kimlik doğrulama başarısız veya yetki yok
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: İstenen kaynak bulunamadı
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
