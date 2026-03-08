@@ -10,8 +10,14 @@ Bu doküman, OpenAPI Specification (OAS) 3.0 standardına göre hazırlanmış "
 openapi: 3.0.3
 info:
   title: Tespit Sözlük API
-  description: |
-    Yeni nesil katılımcı sözlük platformu "Tespit Sözlük" için RESTful API.
+  description: >
+    Bu API, Yeni nesil bir katılımcı sözlük platformu
+    olan Tespit Sözlük'ün yönetilmesi ve işletilmesi için tasarlanmış bir RESTful servistir.
+    Temel CRUD (Create, Read, Update, Delete) işlemlerini destekler. Sistem içerisinde
+    kullanıcılar özgün başlıklar açabilir, bu başlıklar altında kendi tespitlerini entry olarak
+    girebilir ve diğer kullanıcıların içeriklerini oylayabilirler. Ayrıca sistem genelinde kelime
+    bazlı arama yapılmasına ve içeriklerin kronolojik veya alfabetik olarak listelenmesine
+    olanak tanır. API, JWT tabanlı kimlik doğrulama ile korunmaktadır.
     
     ## Özellikler
     - 1. Kullanıcı Kaydı (POST)
