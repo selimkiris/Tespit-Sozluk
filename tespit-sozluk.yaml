@@ -30,18 +30,9 @@ info:
   contact:
     name: Solo Team - Selim Kırış
     email: selimkiris1@gmail.com
-    url: [https://api.tespit-sozluk.dev/support](https://api.tespit-sozluk.dev/support)
   license:
     name: MIT
-    url: [https://opensource.org/licenses/MIT](https://opensource.org/licenses/MIT)
-
-servers:
-  - url: [https://api.tespit-sozluk.dev](https://api.tespit-sozluk.dev)
-    description: Production server
-  - url: [https://staging-api.tespit-sozluk.dev](https://staging-api.tespit-sozluk.dev)
-    description: Staging server
-  - url: http://localhost:3000
-    description: Development server
+    url: https://opensource.org/licenses/MIT
 
 tags:
   - name: Auth

@@ -15,8 +15,8 @@ Sosyal Medya / Sözlük
 
 ## Proje Linkleri
 
-* **REST API Adresi:** api.tespit-sozluk.dev
-* **Web Frontend Adresi:** tespit-sozluk.dev
+* **REST API Adresi:** Hazırlanıyor (deploy sonrası eklenecek)
+* **Web Frontend Adresi:** Hazırlanıyor (deploy sonrası eklenecek)
 
 ## Proje Ekibi
 
