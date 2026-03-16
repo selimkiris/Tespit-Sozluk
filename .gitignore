@@ -1,1 +1,4 @@
 .DS_Store
+
+# Hassas yapılandırma - şifreler ve bağlantı dizeleri
+TespitSozluk.API/appsettings.Development.json
