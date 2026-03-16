@@ -89,4 +89,58 @@ public class TopicsController : ControllerBase
 
         return topics;
     }
+
+    [AllowAnonymous]
+    [HttpGet("random")]
+    public async Task<ActionResult<TopicResponseDto>> GetRandom()
+    {
+        var recentTopics = await _context.Topics
+            .Include(t => t.Author)
+            .OrderByDescending(t => t.CreatedAt)
+            .Take(50)
+            .Select(t => new TopicResponseDto
+            {
+                Id = t.Id,
+                Title = t.Title,
+                AuthorId = t.AuthorId,
+                AuthorName = t.Author.FirstName + " " + t.Author.LastName,
+                CreatedAt = t.CreatedAt
+            })
+            .ToListAsync();
+
+        if (recentTopics.Count == 0)
+        {
+            return NotFound("Henüz başlık bulunmuyor.");
+        }
+
+        var randomIndex = Random.Shared.Next(recentTopics.Count);
+        return recentTopics[randomIndex];
+    }
+
+    [Authorize]
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteTopic(Guid id)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var authorId))
+        {
+            return Unauthorized();
+        }
+
+        var topic = await _context.Topics.FindAsync(id);
+        if (topic == null)
+        {
+            return NotFound();
+        }
+
+        if (topic.AuthorId != authorId)
+        {
+            return StatusCode(403, "Bu başlığı silme yetkiniz yok.");
+        }
+
+        _context.Topics.Remove(topic);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
 }

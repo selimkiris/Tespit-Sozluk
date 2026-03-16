@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -79,6 +80,13 @@ public class AuthController : ControllerBase
         };
 
         return Ok(response);
+    }
+
+    [Authorize]
+    [HttpPost("logout")]
+    public IActionResult Logout()
+    {
+        return Ok("Çıkış başarılı. İstemci tarafında token silinmelidir.");
     }
 
     private string GenerateJwtToken(User user)
