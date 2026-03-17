@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<User> Users { get; set; }
     public DbSet<Topic> Topics { get; set; }
     public DbSet<Entry> Entries { get; set; }
+    public DbSet<EntryVote> EntryVotes { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,5 +42,21 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Entry>()
             .Property(e => e.Downvotes)
             .HasDefaultValue(0);
+
+        modelBuilder.Entity<EntryVote>()
+            .HasOne(v => v.Entry)
+            .WithMany()
+            .HasForeignKey(v => v.EntryId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<EntryVote>()
+            .HasOne(v => v.User)
+            .WithMany()
+            .HasForeignKey(v => v.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<EntryVote>()
+            .HasIndex(v => new { v.EntryId, v.UserId })
+            .IsUnique();
     }
 }

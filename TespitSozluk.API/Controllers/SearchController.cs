@@ -21,46 +21,42 @@ public class SearchController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<SearchResultDto>> Search([FromQuery] string? q)
     {
-        if (string.IsNullOrWhiteSpace(q))
+        if (string.IsNullOrWhiteSpace(q) || q.Trim().Length < 2)
         {
             return new SearchResultDto();
         }
 
         var searchTerm = q.Trim().ToLowerInvariant();
+        var searchPattern = $"%{searchTerm}%";
 
         var topics = await _context.Topics
-            .Include(t => t.Author)
-            .Where(t => t.Title.ToLower().Contains(searchTerm))
-            .Select(t => new TopicResponseDto
+            .Where(t => EF.Functions.ILike(t.Title, searchPattern))
+            .Select(t => new TopicSearchResultDto
             {
                 Id = t.Id,
-                Title = t.Title,
-                AuthorId = t.AuthorId,
-                AuthorName = t.Author.FirstName + " " + t.Author.LastName,
-                CreatedAt = t.CreatedAt
+                Title = t.Title
             })
+            .Take(10)
             .ToListAsync();
 
-        var entries = await _context.Entries
-            .Include(e => e.Author)
-            .Where(e => e.Content.ToLower().Contains(searchTerm))
-            .Select(e => new EntryResponseDto
+        var users = await _context.Users
+            .Where(u =>
+                EF.Functions.ILike(u.FirstName, searchPattern) ||
+                EF.Functions.ILike(u.LastName, searchPattern) ||
+                EF.Functions.ILike(u.FirstName + " " + u.LastName, searchPattern) ||
+                EF.Functions.ILike(u.LastName + " " + u.FirstName, searchPattern))
+            .Select(u => new UserSearchResultDto
             {
-                Id = e.Id,
-                Content = e.Content,
-                Upvotes = e.Upvotes,
-                Downvotes = e.Downvotes,
-                TopicId = e.TopicId,
-                AuthorId = e.AuthorId,
-                AuthorName = e.Author.FirstName + " " + e.Author.LastName,
-                CreatedAt = e.CreatedAt
+                Id = u.Id,
+                Name = (u.FirstName + " " + u.LastName).Trim()
             })
+            .Take(10)
             .ToListAsync();
 
         return new SearchResultDto
         {
             Topics = topics,
-            Entries = entries
+            Users = users
         };
     }
 }
