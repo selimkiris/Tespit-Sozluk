@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TespitSozluk.API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+31fce810a12675e946ea3d648ec1d77a6d3c18ad")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5cf915816b41957aaee6c565db51b314b1566028")]
 [assembly: System.Reflection.AssemblyProductAttribute("TespitSozluk.API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TespitSozluk.API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -20,9 +20,11 @@ type ApiEntry = {
   authorId: string
   authorName: string
   createdAt: string
+  updatedAt?: string | null
   upvotes: number
   downvotes: number
   userVoteType?: number
+  validBkzs?: Record<string, string> | null
 }
 
 function mapApiEntry(e: ApiEntry) {
@@ -35,9 +37,11 @@ function mapApiEntry(e: ApiEntry) {
     content: e.content,
     author: { id: String(e.authorId), nickname: e.authorName },
     date: e.createdAt,
+    updatedAt: e.updatedAt ?? null,
     upvotes: e.upvotes,
     downvotes: e.downvotes,
     userVote,
+    validBkzs: e.validBkzs ?? null,
   }
 }
 
@@ -148,6 +152,7 @@ function HomePageContent() {
   const loginFromUrl = searchParams.get("login")
   const registerFromUrl = searchParams.get("register")
   const topicsFromUrl = searchParams.get("topics")
+  const searchFromUrl = searchParams.get("search")
 
   // URL'deki topic parametresi tek kaynak — selectedTopicId buna göre güncellenir
   useEffect(() => {
@@ -434,6 +439,7 @@ function HomePageContent() {
         onClose={() => setShowAllTopicsModal(false)}
         topics={topicsList}
         onTopicSelect={handleTopicSelect}
+        initialSearchQuery={searchFromUrl}
       />
     </div>
   )

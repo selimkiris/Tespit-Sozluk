@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -54,7 +55,8 @@ public class EntriesController : ControllerBase
                 TopicTitle = e.Topic.Title,
                 e.AuthorId,
                 AuthorName = e.Author.FirstName + " " + e.Author.LastName,
-                e.CreatedAt
+                e.CreatedAt,
+                e.UpdatedAt
             })
             .ToListAsync();
 
@@ -69,19 +71,26 @@ public class EntriesController : ControllerBase
             userVotes = votes.ToDictionary(v => v.EntryId, v => v.IsUpvote ? 1 : -1);
         }
 
-        var result = entries.Select(e => new EntryResponseDto
+        var result = new List<EntryResponseDto>();
+        foreach (var e in entries)
         {
-            Id = e.Id,
-            Content = e.Content,
-            Upvotes = e.Upvotes,
-            Downvotes = e.Downvotes,
-            TopicId = e.TopicId,
-            TopicTitle = e.TopicTitle,
-            AuthorId = e.AuthorId,
-            AuthorName = e.AuthorName,
-            CreatedAt = e.CreatedAt,
-            UserVoteType = userId.HasValue && userVotes.TryGetValue(e.Id, out var vt) ? vt : 0
-        }).ToList();
+            var validBkzs = await BuildValidBkzsAsync(e.Content);
+            result.Add(new EntryResponseDto
+            {
+                Id = e.Id,
+                Content = e.Content,
+                Upvotes = e.Upvotes,
+                Downvotes = e.Downvotes,
+                TopicId = e.TopicId,
+                TopicTitle = e.TopicTitle,
+                AuthorId = e.AuthorId,
+                AuthorName = e.AuthorName,
+                CreatedAt = e.CreatedAt,
+                UpdatedAt = e.UpdatedAt,
+                ValidBkzs = validBkzs,
+                UserVoteType = userId.HasValue && userVotes.TryGetValue(e.Id, out var vt) ? vt : 0
+            });
+        }
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
@@ -128,7 +137,8 @@ public class EntriesController : ControllerBase
                 TopicTitle = e.Topic.Title,
                 e.AuthorId,
                 AuthorName = e.Author.FirstName + " " + e.Author.LastName,
-                e.CreatedAt
+                e.CreatedAt,
+                e.UpdatedAt
             })
             .ToListAsync();
 
@@ -143,19 +153,26 @@ public class EntriesController : ControllerBase
             userVotes = votes.ToDictionary(v => v.EntryId, v => v.IsUpvote ? 1 : -1);
         }
 
-        var result = entries.Select(e => new EntryResponseDto
+        var result = new List<EntryResponseDto>();
+        foreach (var e in entries)
         {
-            Id = e.Id,
-            Content = e.Content,
-            Upvotes = e.Upvotes,
-            Downvotes = e.Downvotes,
-            TopicId = e.TopicId,
-            TopicTitle = e.TopicTitle,
-            AuthorId = e.AuthorId,
-            AuthorName = e.AuthorName,
-            CreatedAt = e.CreatedAt,
-            UserVoteType = userId.HasValue && userVotes.TryGetValue(e.Id, out var vt) ? vt : 0
-        }).ToList();
+            var validBkzs = await BuildValidBkzsAsync(e.Content);
+            result.Add(new EntryResponseDto
+            {
+                Id = e.Id,
+                Content = e.Content,
+                Upvotes = e.Upvotes,
+                Downvotes = e.Downvotes,
+                TopicId = e.TopicId,
+                TopicTitle = e.TopicTitle,
+                AuthorId = e.AuthorId,
+                AuthorName = e.AuthorName,
+                CreatedAt = e.CreatedAt,
+                UpdatedAt = e.UpdatedAt,
+                ValidBkzs = validBkzs,
+                UserVoteType = userId.HasValue && userVotes.TryGetValue(e.Id, out var vt) ? vt : 0
+            });
+        }
 
         return result;
     }
@@ -191,6 +208,7 @@ public class EntriesController : ControllerBase
         var author = await _context.Users.FindAsync(authorId);
         var topic = await _context.Topics.FindAsync(entry.TopicId);
         var response = MapToResponseDto(entry, author!, topic!);
+        response.ValidBkzs = await BuildValidBkzsAsync(entry.Content);
 
         return Created($"/api/entries/{entry.Id}", response);
     }
@@ -217,6 +235,7 @@ public class EntriesController : ControllerBase
         }
 
         entry.Content = dto.Content.Trim();
+        entry.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
         var author = await _context.Users.FindAsync(entry.AuthorId);
@@ -226,6 +245,7 @@ public class EntriesController : ControllerBase
             .FirstOrDefaultAsync(v => v.EntryId == id && v.UserId == authorId);
         if (vote != null) userVoteType = vote.IsUpvote ? 1 : -1;
         var response = MapToResponseDto(entry, author!, topic!, userVoteType);
+        response.ValidBkzs = await BuildValidBkzsAsync(entry.Content);
         return Ok(response);
     }
 
@@ -365,7 +385,37 @@ public class EntriesController : ControllerBase
             AuthorId = entry.AuthorId,
             AuthorName = author.FirstName + " " + author.LastName,
             CreatedAt = entry.CreatedAt,
+            UpdatedAt = entry.UpdatedAt,
+            ValidBkzs = new Dictionary<string, Guid>(),
             UserVoteType = userVoteType
         };
+    }
+
+    private async Task<Dictionary<string, Guid>> BuildValidBkzsAsync(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return new Dictionary<string, Guid>();
+
+        var regex = new Regex(@"\(bkz:\s*([^)]+)\)", RegexOptions.IgnoreCase);
+        var matches = regex.Matches(content);
+        var terms = matches
+            .Select(m => m.Groups[1].Value.Trim())
+            .Where(s => !string.IsNullOrEmpty(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (terms.Count == 0) return new Dictionary<string, Guid>();
+
+        var lowerTerms = terms.Select(t => t.ToLower()).ToList();
+        var topics = await _context.Topics
+            .Where(t => lowerTerms.Contains(t.Title.ToLower()))
+            .Select(t => new { t.Title, t.Id })
+            .ToListAsync();
+
+        var dict = new Dictionary<string, Guid>();
+        foreach (var t in topics)
+        {
+            dict[t.Title] = t.Id;
+        }
+        return dict;
     }
 }

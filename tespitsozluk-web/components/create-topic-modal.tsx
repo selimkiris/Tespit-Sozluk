@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 
+const TITLE_MAX_LENGTH = 70
+
 interface CreateTopicModalProps {
   isOpen: boolean
   onClose: () => void
@@ -29,7 +31,7 @@ export function CreateTopicModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim() || !firstEntry.trim()) return
+    if (!title.trim() || !firstEntry.trim() || title.length > TITLE_MAX_LENGTH) return
 
     setIsLoading(true)
     setError("")
@@ -88,10 +90,16 @@ export function CreateTopicModal({
                 type="text"
                 placeholder="başlık adı"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX_LENGTH))}
                 required
+                maxLength={TITLE_MAX_LENGTH}
                 className="h-10 bg-secondary/50 border-border focus:border-ring"
               />
+              <div className="flex items-center justify-between">
+                <span className={`text-xs ${title.length > TITLE_MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                  {title.length > TITLE_MAX_LENGTH ? "Başlık en fazla 70 karakter olabilir." : `${title.length}/${TITLE_MAX_LENGTH}`}
+                </span>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -111,7 +119,7 @@ export function CreateTopicModal({
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button
               type="submit"
-              disabled={!title.trim() || !firstEntry.trim() || isLoading}
+              disabled={!title.trim() || !firstEntry.trim() || title.length > TITLE_MAX_LENGTH || isLoading}
               className="w-full h-10 bg-foreground text-background hover:bg-foreground/90"
             >
               {isLoading ? "Oluşturuluyor..." : "Başlık Oluştur"}

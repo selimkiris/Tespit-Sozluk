@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { ArrowLeft, MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { EntryCard } from "@/components/entry-card"
@@ -65,7 +66,7 @@ interface TopicDetailProps {
   refreshTrigger?: number
 }
 
-function mapApiEntry(e: { id: string; topicId: string; topicTitle: string; content: string; authorId: string; authorName: string; createdAt: string; upvotes: number; downvotes: number; userVoteType?: number }) {
+function mapApiEntry(e: { id: string; topicId: string; topicTitle: string; content: string; authorId: string; authorName: string; createdAt: string; updatedAt?: string | null; upvotes: number; downvotes: number; userVoteType?: number; validBkzs?: Record<string, string> | null }) {
   const userVote: "up" | "down" | null =
     e.userVoteType === 1 ? "up" : e.userVoteType === -1 ? "down" : null
   return {
@@ -75,9 +76,11 @@ function mapApiEntry(e: { id: string; topicId: string; topicTitle: string; conte
     content: e.content,
     author: { id: String(e.authorId), nickname: e.authorName },
     date: e.createdAt,
+    updatedAt: e.updatedAt ?? null,
     upvotes: e.upvotes,
     downvotes: e.downvotes,
     userVote,
+    validBkzs: e.validBkzs ?? null,
   }
 }
 
@@ -104,6 +107,7 @@ export function TopicDetail({
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const entriesContainerRef = useRef<HTMLDivElement>(null)
+  const router = useRouter()
 
   const fetchEntries = useCallback(async (pageNum: number) => {
     setEntriesLoading(true)
@@ -221,8 +225,18 @@ export function TopicDetail({
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold text-foreground truncate">{topic.title}</h1>
+          <div className="flex items-start gap-2 min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={() => {
+                router.push(`/?topic=${topic.id}&page=1`)
+                setPage(1)
+                entriesContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+              }}
+              className="text-xl font-semibold text-foreground whitespace-normal break-words min-w-0 hover:underline underline-offset-2 text-left"
+            >
+              {topic.title}
+            </button>
             {canManage && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -263,9 +277,11 @@ export function TopicDetail({
           <div className="space-y-2">
             <Input
               value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
+              onChange={(e) => setEditTitle(e.target.value.slice(0, 70))}
               placeholder="Başlık adı..."
+              maxLength={70}
             />
+            <span className="text-xs text-muted-foreground">{editTitle.length}/70</span>
             {editError && <p className="text-sm text-destructive">{editError}</p>}
           </div>
           <DialogFooter>

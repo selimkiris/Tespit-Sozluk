@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -29,8 +30,14 @@ public class TopicsController : ControllerBase
             return Unauthorized();
         }
 
+        var trimmedTitle = dto.Title?.Trim() ?? string.Empty;
+        if (trimmedTitle.Length > 70)
+        {
+            return BadRequest("Başlık en fazla 70 karakter olabilir.");
+        }
+
         var titleExists = await _context.Topics
-            .AnyAsync(t => t.Title.ToLower() == dto.Title.Trim().ToLower());
+            .AnyAsync(t => t.Title.ToLower() == trimmedTitle.ToLower());
         if (titleExists)
         {
             return BadRequest("Bu başlık zaten mevcut.");
@@ -39,7 +46,7 @@ public class TopicsController : ControllerBase
         var topic = new Topic
         {
             Id = Guid.NewGuid(),
-            Title = dto.Title.Trim(),
+            Title = trimmedTitle,
             AuthorId = authorId,
             CreatedAt = DateTime.UtcNow
         };
@@ -177,7 +184,8 @@ public class TopicsController : ControllerBase
                 TopicTitle = e.Topic.Title,
                 e.AuthorId,
                 AuthorName = e.Author.FirstName + " " + e.Author.LastName,
-                e.CreatedAt
+                e.CreatedAt,
+                e.UpdatedAt
             })
             .ToListAsync();
 
@@ -192,19 +200,26 @@ public class TopicsController : ControllerBase
             userVotes = votes.ToDictionary(v => v.EntryId, v => v.IsUpvote ? 1 : -1);
         }
 
-        var entries = entriesData.Select(e => new EntryResponseDto
+        var entries = new List<EntryResponseDto>();
+        foreach (var e in entriesData)
         {
-            Id = e.Id,
-            Content = e.Content,
-            Upvotes = e.Upvotes,
-            Downvotes = e.Downvotes,
-            TopicId = e.TopicId,
-            TopicTitle = e.TopicTitle,
-            AuthorId = e.AuthorId,
-            AuthorName = e.AuthorName,
-            CreatedAt = e.CreatedAt,
-            UserVoteType = userId.HasValue && userVotes.TryGetValue(e.Id, out var vt) ? vt : 0
-        }).ToList();
+            var validBkzs = await BuildValidBkzsAsync(e.Content);
+            entries.Add(new EntryResponseDto
+            {
+                Id = e.Id,
+                Content = e.Content,
+                Upvotes = e.Upvotes,
+                Downvotes = e.Downvotes,
+                TopicId = e.TopicId,
+                TopicTitle = e.TopicTitle,
+                AuthorId = e.AuthorId,
+                AuthorName = e.AuthorName,
+                CreatedAt = e.CreatedAt,
+                UpdatedAt = e.UpdatedAt,
+                ValidBkzs = validBkzs,
+                UserVoteType = userId.HasValue && userVotes.TryGetValue(e.Id, out var vt) ? vt : 0
+            });
+        }
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
@@ -282,6 +297,11 @@ public class TopicsController : ControllerBase
         }
 
         var newTitle = dto.Title.Trim();
+        if (newTitle.Length > 70)
+        {
+            return BadRequest("Başlık en fazla 70 karakter olabilir.");
+        }
+
         var titleExists = await _context.Topics
             .AnyAsync(t => t.Title.ToLower() == newTitle.ToLower() && t.Id != id);
         if (titleExists)
@@ -328,5 +348,33 @@ public class TopicsController : ControllerBase
         await _context.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    private async Task<Dictionary<string, Guid>> BuildValidBkzsAsync(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return new Dictionary<string, Guid>();
+
+        var regex = new Regex(@"\(bkz:\s*([^)]+)\)", RegexOptions.IgnoreCase);
+        var matches = regex.Matches(content);
+        var terms = matches
+            .Select(m => m.Groups[1].Value.Trim())
+            .Where(s => !string.IsNullOrEmpty(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (terms.Count == 0) return new Dictionary<string, Guid>();
+
+        var lowerTerms = terms.Select(t => t.ToLower()).ToList();
+        var topics = await _context.Topics
+            .Where(t => lowerTerms.Contains(t.Title.ToLower()))
+            .Select(t => new { t.Title, t.Id })
+            .ToListAsync();
+
+        var dict = new Dictionary<string, Guid>();
+        foreach (var t in topics)
+        {
+            dict[t.Title] = t.Id;
+        }
+        return dict;
     }
 }

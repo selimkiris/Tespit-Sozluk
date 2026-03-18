@@ -11,4 +11,5 @@ public class Entry
     public Guid AuthorId { get; set; }
     public User Author { get; set; } = null!;
     public DateTime CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
 }

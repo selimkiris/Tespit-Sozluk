@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Plus, Hash, ChevronDown } from "lucide-react"
+import Link from "next/link"
+import { Plus, ChevronDown } from "lucide-react"
 import { getApiUrl } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -165,27 +166,27 @@ export function TopicSidebar({
                 <>
                   <nav className="space-y-0.5">
                     {topics.map((topic) => (
-                      <button
+                      <Link
                         key={topic.id}
+                        href={`/?topic=${topic.id}`}
                         onClick={() => {
                           onTopicSelect(topic.id)
                           onClose()
                         }}
                         className={cn(
-                          "w-full flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors text-left",
+                          "flex items-start w-full h-auto py-2 px-3 my-1 rounded-md transition-colors text-left group",
                           selectedTopicId === topic.id
                             ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+                            : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
                         )}
                       >
-                        <span className="truncate pr-2 flex items-center gap-1.5">
-                          <Hash className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                        <span className="flex-1 min-w-0 whitespace-normal break-words text-sm leading-snug pr-2">
                           {topic.title}
                         </span>
-                        <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+                        <span className="shrink-0 whitespace-nowrap inline-flex items-center justify-center bg-secondary text-secondary-foreground text-xs font-medium px-2 py-0.5 rounded-full mt-0.5 ml-1">
                           {topic.entryCount}
                         </span>
-                      </button>
+                      </Link>
                     ))}
                   </nav>
                   {hasNextPage && (

@@ -42,9 +42,12 @@ interface Entry {
     nickname: string
   }
   date: string
+  updatedAt?: string | null
   upvotes: number
   downvotes: number
   userVote?: "up" | "down" | null
+  /** Backend-validated (bkz:) - sadece DB'de var olan başlıklar. Key: Topic Title, Value: Topic Id */
+  validBkzs?: Record<string, string> | null
 }
 
 interface EntryCardProps {
@@ -88,6 +91,40 @@ export function EntryCard({
     setDownvotes(entry.downvotes)
     setContent(entry.content)
   }, [entry.id, entry.userVote, entry.upvotes, entry.downvotes, entry.content])
+
+  const renderContentWithBkz = (text: string, validBkzs: Record<string, string> | null | undefined): React.ReactNode[] => {
+    const regex = /\(bkz:\s*([^)]+)\)/gi
+    const parts: React.ReactNode[] = []
+    let lastIndex = 0
+    let keyIndex = 0
+    let match
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(text.slice(lastIndex, match.index))
+      }
+      const term = match[1].trim()
+      const found = validBkzs && Object.entries(validBkzs).find(([title]) => title.toLowerCase() === term.toLowerCase())
+      const topicId = found ? found[1] : null
+      if (topicId) {
+        parts.push(
+          <Link
+            key={`bkz-${keyIndex++}`}
+            href={`/?topic=${topicId}`}
+            className="text-emerald-600 dark:text-emerald-400 hover:underline font-medium"
+          >
+            {match[0]}
+          </Link>
+        )
+      } else {
+        parts.push(<span key={`bkz-${keyIndex++}`}>{match[0]}</span>)
+      }
+      lastIndex = regex.lastIndex
+    }
+    if (lastIndex < text.length) {
+      parts.push(text.slice(lastIndex))
+    }
+    return parts.length > 0 ? parts : [text]
+  }
 
   const handleEdit = async () => {
     const trimmed = content.trim()
@@ -198,6 +235,16 @@ export function EntryCard({
     }).format(date)
   }
 
+  const formatEditDate = (dateString: string) => {
+    const d = new Date(dateString)
+    const day = String(d.getDate()).padStart(2, "0")
+    const month = String(d.getMonth() + 1).padStart(2, "0")
+    const year = d.getFullYear()
+    const h = String(d.getHours()).padStart(2, "0")
+    const m = String(d.getMinutes()).padStart(2, "0")
+    return `${day}.${month}.${year} ${h}:${m}`
+  }
+
   return (
     <article className="group bg-card border border-border rounded-lg p-5 transition-colors hover:border-border/80">
       {/* Topic Title + Actions */}
@@ -205,7 +252,7 @@ export function EntryCard({
         {showTopicTitle ? (
           <button
             onClick={() => onTopicClick?.(entry.topicId)}
-            className="text-sm font-medium text-foreground hover:underline underline-offset-2 block text-left flex-1 min-w-0"
+            className="text-sm font-medium text-foreground hover:underline underline-offset-2 block text-left flex-1 min-w-0 whitespace-normal break-words"
           >
             {entry.topicTitle}
           </button>
@@ -242,7 +289,7 @@ export function EntryCard({
 
       {/* Content */}
       <div className="text-foreground leading-relaxed whitespace-pre-wrap mb-4">
-        {entry.content}
+        {renderContentWithBkz(entry.content, entry.validBkzs)}
       </div>
 
       {/* Footer */}
@@ -256,7 +303,14 @@ export function EntryCard({
             {entry.author.nickname}
           </Link>
           <span className="text-muted-foreground/50">·</span>
-          <time className="text-muted-foreground text-xs">{formatDate(entry.date)}</time>
+          <span className="text-muted-foreground text-xs">
+            {formatDate(entry.date)}
+            {entry.updatedAt && (
+              <span className="italic text-muted-foreground/80 text-sm ml-1">
+                (Düzenlendi {formatEditDate(entry.updatedAt)})
+              </span>
+            )}
+          </span>
         </div>
 
         {/* Vote Actions */}

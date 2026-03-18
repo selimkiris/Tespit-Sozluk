@@ -24,6 +24,7 @@ interface AllTopicsViewProps {
   onClose: () => void
   topics?: Topic[]
   onTopicSelect: (topicId: string) => void
+  initialSearchQuery?: string | null
 }
 
 export function AllTopicsView({
@@ -31,8 +32,9 @@ export function AllTopicsView({
   onClose,
   topics: topicsProp,
   onTopicSelect,
+  initialSearchQuery,
 }: AllTopicsViewProps) {
-  const [searchQuery, setSearchQuery] = useState("")
+  const [searchQuery, setSearchQuery] = useState(initialSearchQuery ?? "")
   const [topics, setTopics] = useState<Topic[]>([])
   const [page, setPage] = useState(1)
   const [hasNextPage, setHasNextPage] = useState(false)
@@ -66,8 +68,11 @@ export function AllTopicsView({
     if (isOpen) {
       setPage(1)
       fetchTopics(1, false)
+      if (initialSearchQuery != null) {
+        setSearchQuery(initialSearchQuery)
+      }
     }
-  }, [isOpen, fetchTopics])
+  }, [isOpen, fetchTopics, initialSearchQuery])
 
   const handleLoadMore = useCallback(() => {
     fetchTopics(page + 1, true)
@@ -160,13 +165,13 @@ export function AllTopicsView({
                             <button
                               key={topic.id}
                               onClick={() => handleTopicClick(topic.id)}
-                              className="flex items-center justify-between w-full px-3 py-2.5 text-left rounded-lg hover:bg-secondary/70 transition-colors group"
+                              className="flex items-start justify-between w-full px-3 py-2.5 text-left rounded-lg hover:bg-secondary/70 transition-colors group"
                             >
-                              <div className="flex items-center gap-2">
-                                <Hash className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                                <span className="text-sm text-foreground">{topic.title}</span>
+                              <div className="flex items-start gap-2 flex-1 min-w-0">
+                                <Hash className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0 mt-0.5" />
+                                <span className="text-sm text-foreground whitespace-normal break-words min-w-0">{topic.title}</span>
                               </div>
-                              <span className="text-xs text-muted-foreground tabular-nums">
+                              <span className="text-xs text-muted-foreground tabular-nums shrink-0 whitespace-nowrap ml-3 mt-0.5">
                                 {topic.entryCount} entry
                               </span>
                             </button>

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TespitSozluk.API.Data;
@@ -11,9 +12,11 @@ using TespitSozluk.API.Data;
 namespace TespitSozluk.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260318162907_AddEntryUpdatedAtAndTopicTitleLimit")]
+    partial class AddEntryUpdatedAtAndTopicTitleLimit
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -102,8 +105,8 @@ namespace TespitSozluk.API.Migrations
 
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasMaxLength(70)
-                        .HasColumnType("character varying(70)");
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.HasKey("Id");
 
