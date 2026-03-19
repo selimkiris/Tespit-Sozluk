@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
+import { toast } from "sonner"
 
 export interface AuthResponse {
   token: string
@@ -14,6 +15,10 @@ export interface AuthResponse {
   email: string
   firstName: string
   lastName: string
+  username?: string
+  avatar?: string | null
+  hasChangedUsername?: boolean
+  role?: string
 }
 
 interface LoginModalProps {
@@ -48,13 +53,17 @@ export function LoginModal({ isOpen, onClose, onLogin, onSwitchToRegister }: Log
         const msg = typeof data === "string" ? data : (data.message ?? data.title ?? "E-posta veya şifre hatalı.")
         throw new Error(msg)
       }
-      // C# AuthResponseDto: token, userId, email, firstName, lastName (camelCase)
+      // C# AuthResponseDto: token, userId, email, firstName, lastName, avatar, hasChangedUsername (camelCase)
       onLogin({
         token: data.token,
         userId: String(data.userId),
         email: data.email ?? "",
         firstName: data.firstName ?? "",
         lastName: data.lastName ?? "",
+        username: data.username ?? "",
+        avatar: data.avatar ?? null,
+        hasChangedUsername: data.hasChangedUsername ?? false,
+        role: data.role ?? "User",
       })
       onClose()
     } catch (err) {
@@ -210,6 +219,14 @@ export function RegisterModal({
       })
 
       const registerData = await registerRes.json().catch(() => ({}))
+      if (registerRes.status === 429) {
+        const seconds = Math.ceil(registerData.retryAfterSeconds ?? 60)
+        toast.warning(`Çok fazla kayıt denemesi. Lütfen ${seconds} saniye sonra tekrar deneyin.`, {
+          duration: 6000,
+          style: { background: "#78350f", color: "#fef3c7", border: "1px solid #d97706" },
+        })
+        return
+      }
       if (!registerRes.ok) {
         throw new Error(registerData.message || registerData.title || "Kayıt yapılamadı")
       }
@@ -230,6 +247,10 @@ export function RegisterModal({
         email: loginData.email ?? "",
         firstName: loginData.firstName ?? "",
         lastName: loginData.lastName ?? "",
+        username: loginData.username ?? "",
+        avatar: loginData.avatar ?? null,
+        hasChangedUsername: loginData.hasChangedUsername ?? false,
+        role: loginData.role ?? "User",
       })
       onClose()
     } catch (err) {
@@ -258,6 +279,14 @@ export function RegisterModal({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div
+            role="alert"
+            className="rounded-lg border border-amber-500/60 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200 dark:border-amber-400/40 dark:bg-amber-950/40"
+          >
+            <p className="font-medium">
+              ⚠️ Önemli: Şu anda &quot;Şifremi Unuttum&quot; altyapımız bulunmamaktadır. Lütfen şifrenizi güvenli bir yere kaydedin ve unutmayın!
+            </p>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="nickname" className="text-sm text-foreground">
               Kullanıcı Adı

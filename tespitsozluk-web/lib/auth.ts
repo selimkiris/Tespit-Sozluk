@@ -7,6 +7,9 @@ export interface AuthUser {
   email: string
   joinDate: string
   name: string
+  avatar?: string | null
+  hasChangedUsername?: boolean
+  role?: string
 }
 
 export interface AuthData {
@@ -42,4 +45,13 @@ export function clearAuth(): void {
   if (typeof window === "undefined") return
   localStorage.removeItem(AUTH_TOKEN_KEY)
   localStorage.removeItem(AUTH_USER_KEY)
+}
+
+export function updateAuthUser(updates: Partial<AuthUser>): AuthUser | null {
+  if (typeof window === "undefined") return null
+  const auth = getAuth()
+  if (!auth) return null
+  const newUser: AuthUser = { ...auth.user, ...updates }
+  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(newUser))
+  return newUser
 }

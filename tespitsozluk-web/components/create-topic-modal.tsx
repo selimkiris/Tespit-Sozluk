@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
-const TITLE_MAX_LENGTH = 70
+const TITLE_MAX_LENGTH = 54
 
 interface CreateTopicModalProps {
   isOpen: boolean
   onClose: () => void
-  onCreate: (title: string, firstEntry: string) => void | Promise<string | null>
+  onCreate: (title: string, firstEntry: string, isAnonymous?: boolean) => void | Promise<string | null>
   isLoggedIn: boolean
   onLoginClick: () => void
 }
@@ -26,6 +27,7 @@ export function CreateTopicModal({
 }: CreateTopicModalProps) {
   const [title, setTitle] = useState("")
   const [firstEntry, setFirstEntry] = useState("")
+  const [isAnonymous, setIsAnonymous] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
 
@@ -36,7 +38,7 @@ export function CreateTopicModal({
     setIsLoading(true)
     setError("")
     try {
-      await onCreate(title, firstEntry)
+      await onCreate(title, firstEntry, isAnonymous)
       setTitle("")
       setFirstEntry("")
       onClose()
@@ -97,7 +99,7 @@ export function CreateTopicModal({
               />
               <div className="flex items-center justify-between">
                 <span className={`text-xs ${title.length > TITLE_MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                  {title.length > TITLE_MAX_LENGTH ? "Başlık en fazla 70 karakter olabilir." : `${title.length}/${TITLE_MAX_LENGTH}`}
+                  {title.length > TITLE_MAX_LENGTH ? "Başlık en fazla 54 karakter olabilir." : `${title.length}/${TITLE_MAX_LENGTH}`}
                 </span>
               </div>
             </div>
@@ -114,6 +116,32 @@ export function CreateTopicModal({
                 required
                 className="min-h-[120px] bg-secondary/50 border-border focus:border-ring resize-none"
               />
+            </div>
+
+            <div className="space-y-1">
+              <RadioGroup
+                value={isAnonymous ? "anonymous" : "account"}
+                onValueChange={(v) => setIsAnonymous(v === "anonymous")}
+                className="flex gap-4"
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="account" id="create-topic-account" />
+                  <Label htmlFor="create-topic-account" className="text-sm font-normal cursor-pointer">
+                    Kendi hesabınla paylaş
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="anonymous" id="create-topic-anonymous" />
+                  <Label htmlFor="create-topic-anonymous" className="text-sm font-normal cursor-pointer">
+                    Tam anonim paylaş
+                  </Label>
+                </div>
+              </RadioGroup>
+              {isAnonymous && (
+                <p className="text-xs text-muted-foreground">
+                  Tam Anonim modda paylaşılan entrylerde Kullanıcı adı görünmez, profile erişilemez. Kullanıcı adı kısmında sadece Anonim yazar ve profil fotoğrafı gösterilmez. Sadece tarih bilgisi yer alır.
+                </p>
+              )}
             </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}

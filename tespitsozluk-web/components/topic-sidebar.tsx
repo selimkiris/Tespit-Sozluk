@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { Plus, ChevronDown } from "lucide-react"
-import { getApiUrl } from "@/lib/api"
+import { getApiUrl, getAuthHeaders } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -14,6 +14,7 @@ interface Topic {
   title: string
   entryCount: number
   authorId?: string
+  isFollowedByCurrentUser?: boolean
 }
 
 interface TopicSidebarProps {
@@ -27,12 +28,13 @@ interface TopicSidebarProps {
   refreshTrigger?: number
 }
 
-function mapApiTopic(apiTopic: { id: string; title: string; entryCount?: number; authorId?: string }): Topic {
+function mapApiTopic(apiTopic: { id: string; title: string; entryCount?: number; authorId?: string; isFollowedByCurrentUser?: boolean }): Topic {
   return {
     id: apiTopic.id,
     title: apiTopic.title,
     entryCount: apiTopic.entryCount ?? 0,
     authorId: apiTopic.authorId,
+    isFollowedByCurrentUser: apiTopic.isFollowedByCurrentUser,
   }
 }
 
@@ -62,7 +64,7 @@ export function TopicSidebar({
         setIsLoading(true)
       }
       setError(null)
-      const res = await fetch(url)
+      const res = await fetch(url, { headers: getAuthHeaders() })
       if (!res.ok) {
         throw new Error(`Sunucu hatası: ${res.status}`)
       }
@@ -180,7 +182,7 @@ export function TopicSidebar({
                             : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
                         )}
                       >
-                        <span className="flex-1 min-w-0 whitespace-normal break-words text-sm leading-snug pr-2">
+                        <span className="flex-1 min-w-0 break-all hyphens-auto whitespace-pre-wrap text-sm leading-snug pr-2">
                           {topic.title}
                         </span>
                         <span className="shrink-0 whitespace-nowrap inline-flex items-center justify-center bg-secondary text-secondary-foreground text-xs font-medium px-2 py-0.5 rounded-full mt-0.5 ml-1">

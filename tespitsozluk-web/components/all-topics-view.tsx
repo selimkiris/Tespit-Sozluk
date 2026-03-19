@@ -169,7 +169,7 @@ export function AllTopicsView({
                             >
                               <div className="flex items-start gap-2 flex-1 min-w-0">
                                 <Hash className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0 mt-0.5" />
-                                <span className="text-sm text-foreground whitespace-normal break-words min-w-0">{topic.title}</span>
+                                <span className="text-sm text-foreground break-all hyphens-auto whitespace-pre-wrap min-w-0">{topic.title}</span>
                               </div>
                               <span className="text-xs text-muted-foreground tabular-nums shrink-0 whitespace-nowrap ml-3 mt-0.5">
                                 {topic.entryCount} entry

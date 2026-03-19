@@ -6,6 +6,8 @@ using Microsoft.EntityFrameworkCore;
 using TespitSozluk.API.Data;
 using TespitSozluk.API.DTOs;
 using TespitSozluk.API.Entities;
+using TespitSozluk.API.Filters;
+using TespitSozluk.API.Services;
 
 namespace TespitSozluk.API.Controllers;
 
@@ -21,6 +23,7 @@ public class TopicsController : ControllerBase
     }
 
     [Authorize]
+    [RateLimit(RateLimitAction.CreateTopic)]
     [HttpPost]
     public async Task<IActionResult> CreateTopic([FromBody] CreateTopicDto dto)
     {
@@ -57,6 +60,20 @@ public class TopicsController : ControllerBase
         return Ok(topic);
     }
 
+    private Guid? GetCurrentUserId()
+    {
+        var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return !string.IsNullOrEmpty(claim) && Guid.TryParse(claim, out var uid) ? uid : null;
+    }
+
+    private async Task<HashSet<Guid>> GetFollowedTopicIdsAsync(Guid userId)
+    {
+        return (await _context.UserTopicFollows
+            .Where(utf => utf.UserId == userId)
+            .Select(utf => utf.TopicId)
+            .ToListAsync()).ToHashSet();
+    }
+
     [AllowAnonymous]
     [HttpGet("latest")]
     public async Task<ActionResult<PagedTopicsDto>> GetLatest(
@@ -66,6 +83,9 @@ public class TopicsController : ControllerBase
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 50;
         if (pageSize > 100) pageSize = 100;
+
+        var userId = GetCurrentUserId();
+        var followedIds = userId.HasValue ? await GetFollowedTopicIdsAsync(userId.Value) : new HashSet<Guid>();
 
         var query = _context.Topics
             .Include(t => t.Author)
@@ -77,22 +97,25 @@ public class TopicsController : ControllerBase
         var topics = await query
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(t => new TopicResponseDto
-            {
-                Id = t.Id,
-                Title = t.Title,
-                AuthorId = t.AuthorId,
-                AuthorName = t.Author.FirstName + " " + t.Author.LastName,
-                CreatedAt = t.CreatedAt,
-                EntryCount = t.Entries.Count
-            })
             .ToListAsync();
+
+        var items = topics.Select(t => new TopicResponseDto
+        {
+            Id = t.Id,
+            Title = t.Title,
+            AuthorId = t.AuthorId,
+            AuthorName = t.Author != null ? (t.Author.FirstName + " " + t.Author.LastName).Trim() : "Anonim",
+            AuthorRole = t.Author?.Role ?? "User",
+            CreatedAt = t.CreatedAt,
+            EntryCount = t.Entries.Count,
+            IsFollowedByCurrentUser = followedIds.Contains(t.Id)
+        }).ToList();
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
         return new PagedTopicsDto
         {
-            Items = topics,
+            Items = items,
             Page = page,
             PageSize = pageSize,
             TotalCount = totalCount,
@@ -100,6 +123,26 @@ public class TopicsController : ControllerBase
             HasPreviousPage = page > 1,
             HasNextPage = page < totalPages
         };
+    }
+
+    [AllowAnonymous]
+    [HttpGet("search")]
+    public async Task<IActionResult> SearchTopics([FromQuery] string? q, [FromQuery] int limit = 10)
+    {
+        if (string.IsNullOrWhiteSpace(q) || q.Trim().Length < 1)
+            return Ok(Array.Empty<object>());
+
+        if (limit < 1 || limit > 50) limit = 10;
+        var pattern = $"%{q.Trim()}%";
+
+        var results = await _context.Topics
+            .Where(t => EF.Functions.ILike(t.Title, pattern))
+            .OrderBy(t => t.Title)
+            .Take(limit)
+            .Select(t => new { t.Id, t.Title })
+            .ToListAsync();
+
+        return Ok(results);
     }
 
     [AllowAnonymous]
@@ -112,6 +155,9 @@ public class TopicsController : ControllerBase
         if (pageSize < 1) pageSize = 50;
         if (pageSize > 100) pageSize = 100;
 
+        var userId = GetCurrentUserId();
+        var followedIds = userId.HasValue ? await GetFollowedTopicIdsAsync(userId.Value) : new HashSet<Guid>();
+
         var query = _context.Topics
             .Include(t => t.Author)
             .Include(t => t.Entries)
@@ -122,22 +168,25 @@ public class TopicsController : ControllerBase
         var topics = await query
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(t => new TopicResponseDto
-            {
-                Id = t.Id,
-                Title = t.Title,
-                AuthorId = t.AuthorId,
-                AuthorName = t.Author.FirstName + " " + t.Author.LastName,
-                CreatedAt = t.CreatedAt,
-                EntryCount = t.Entries.Count
-            })
             .ToListAsync();
+
+        var items = topics.Select(t => new TopicResponseDto
+        {
+            Id = t.Id,
+            Title = t.Title,
+            AuthorId = t.AuthorId,
+            AuthorName = t.Author != null ? (t.Author.FirstName + " " + t.Author.LastName).Trim() : "Anonim",
+            AuthorRole = t.Author?.Role ?? "User",
+            CreatedAt = t.CreatedAt,
+            EntryCount = t.Entries.Count,
+            IsFollowedByCurrentUser = followedIds.Contains(t.Id)
+        }).ToList();
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
         return new PagedTopicsDto
         {
-            Items = topics,
+            Items = items,
             Page = page,
             PageSize = pageSize,
             TotalCount = totalCount,
@@ -151,6 +200,8 @@ public class TopicsController : ControllerBase
     [HttpGet("{id:guid}/entries")]
     public async Task<ActionResult<PagedEntriesDto>> GetEntriesByTopic(
         Guid id,
+        [FromQuery] string? search,
+        [FromQuery] string sortBy = "oldest",
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10)
     {
@@ -166,8 +217,28 @@ public class TopicsController : ControllerBase
         var query = _context.Entries
             .Include(e => e.Author)
             .Include(e => e.Topic)
-            .Where(e => e.TopicId == id)
-            .OrderBy(e => e.CreatedAt);
+            .Where(e => e.TopicId == id);
+
+        // Arama: Content VEYA Author (FirstName + LastName) içinde kelime geçenler (case insensitive)
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            query = query.Where(e =>
+                EF.Functions.ILike(e.Content, $"%{term}%") ||
+                EF.Functions.ILike((e.Author.FirstName + " " + e.Author.LastName).Trim(), $"%{term}%"));
+        }
+
+        // Sıralama
+        var effectiveSort = (sortBy ?? "oldest").ToLowerInvariant();
+        query = effectiveSort switch
+        {
+            "newest" => query.OrderByDescending(e => e.CreatedAt),
+            "most_liked" => query.OrderByDescending(e => e.Upvotes).ThenBy(e => e.Downvotes),
+            "most_disliked" => query.OrderByDescending(e => e.Downvotes).ThenBy(e => e.Upvotes),
+            "most_saved" => query
+                .OrderByDescending(e => _context.UserSavedEntries.Count(s => s.EntryId == e.Id)),
+            _ => query.OrderBy(e => e.CreatedAt) // oldest (varsayılan)
+        };
 
         var totalCount = await query.CountAsync();
 
@@ -184,41 +255,41 @@ public class TopicsController : ControllerBase
                 TopicTitle = e.Topic.Title,
                 e.AuthorId,
                 AuthorName = e.Author.FirstName + " " + e.Author.LastName,
+                AuthorAvatar = e.Author.Avatar,
+                AuthorRole = e.Author.Role,
                 e.CreatedAt,
-                e.UpdatedAt
+                e.UpdatedAt,
+                e.IsAnonymous
             })
             .ToListAsync();
 
         Dictionary<Guid, int> userVotes = new();
-        if (userId.HasValue && entriesData.Count > 0)
+        Dictionary<Guid, int> saveCounts = new();
+        HashSet<Guid> userSavedIds = new();
+        if (entriesData.Count > 0)
         {
             var entryIds = entriesData.Select(e => e.Id).ToList();
-            var votes = await _context.EntryVotes
-                .Where(v => v.UserId == userId.Value && entryIds.Contains(v.EntryId))
-                .Select(v => new { v.EntryId, v.IsUpvote })
-                .ToListAsync();
-            userVotes = votes.ToDictionary(v => v.EntryId, v => v.IsUpvote ? 1 : -1);
+            if (userId.HasValue)
+            {
+                var votes = await _context.EntryVotes
+                    .Where(v => v.UserId == userId.Value && entryIds.Contains(v.EntryId))
+                    .Select(v => new { v.EntryId, v.IsUpvote })
+                    .ToListAsync();
+                userVotes = votes.ToDictionary(v => v.EntryId, v => v.IsUpvote ? 1 : -1);
+            }
+            (saveCounts, userSavedIds) = await GetSaveDataAsync(entryIds, userId);
         }
 
         var entries = new List<EntryResponseDto>();
         foreach (var e in entriesData)
         {
             var validBkzs = await BuildValidBkzsAsync(e.Content);
-            entries.Add(new EntryResponseDto
-            {
-                Id = e.Id,
-                Content = e.Content,
-                Upvotes = e.Upvotes,
-                Downvotes = e.Downvotes,
-                TopicId = e.TopicId,
-                TopicTitle = e.TopicTitle,
-                AuthorId = e.AuthorId,
-                AuthorName = e.AuthorName,
-                CreatedAt = e.CreatedAt,
-                UpdatedAt = e.UpdatedAt,
-                ValidBkzs = validBkzs,
-                UserVoteType = userId.HasValue && userVotes.TryGetValue(e.Id, out var vt) ? vt : 0
-            });
+            var dto = BuildEntryResponse(e.Id, e.Content, e.Upvotes, e.Downvotes, e.TopicId, e.TopicTitle,
+                e.AuthorId, e.AuthorName, e.AuthorAvatar, e.AuthorRole, e.CreatedAt, e.UpdatedAt, e.IsAnonymous, userId, userVotes,
+                saveCounts.TryGetValue(e.Id, out var sc) ? sc : 0,
+                userSavedIds.Contains(e.Id));
+            dto.ValidBkzs = validBkzs;
+            entries.Add(dto);
         }
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
@@ -239,18 +310,14 @@ public class TopicsController : ControllerBase
     [HttpGet("random")]
     public async Task<ActionResult<TopicResponseDto>> GetRandom()
     {
+        var userId = GetCurrentUserId();
+        var followedIds = userId.HasValue ? await GetFollowedTopicIdsAsync(userId.Value) : new HashSet<Guid>();
+
         var recentTopics = await _context.Topics
             .Include(t => t.Author)
+            .Include(t => t.Entries)
             .OrderByDescending(t => t.CreatedAt)
             .Take(50)
-            .Select(t => new TopicResponseDto
-            {
-                Id = t.Id,
-                Title = t.Title,
-                AuthorId = t.AuthorId,
-                AuthorName = t.Author.FirstName + " " + t.Author.LastName,
-                CreatedAt = t.CreatedAt
-            })
             .ToListAsync();
 
         if (recentTopics.Count == 0)
@@ -259,7 +326,83 @@ public class TopicsController : ControllerBase
         }
 
         var randomIndex = Random.Shared.Next(recentTopics.Count);
-        return recentTopics[randomIndex];
+        var t = recentTopics[randomIndex];
+        return new TopicResponseDto
+        {
+            Id = t.Id,
+            Title = t.Title,
+            AuthorId = t.AuthorId,
+            AuthorName = t.Author != null ? (t.Author.FirstName + " " + t.Author.LastName).Trim() : "Anonim",
+            AuthorRole = t.Author?.Role ?? "User",
+            CreatedAt = t.CreatedAt,
+            EntryCount = t.Entries.Count,
+            IsFollowedByCurrentUser = followedIds.Contains(t.Id)
+        };
+    }
+
+    [AllowAnonymous]
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<TopicResponseDto>> GetById(Guid id)
+    {
+        var topic = await _context.Topics
+            .Include(t => t.Author)
+            .Include(t => t.Entries)
+            .FirstOrDefaultAsync(t => t.Id == id);
+        if (topic == null) return NotFound();
+
+        var userId = GetCurrentUserId();
+        var isFollowed = userId.HasValue && await _context.UserTopicFollows
+            .AnyAsync(utf => utf.UserId == userId.Value && utf.TopicId == id);
+
+        return new TopicResponseDto
+        {
+            Id = topic.Id,
+            Title = topic.Title,
+            AuthorId = topic.AuthorId,
+            AuthorName = topic.Author != null ? (topic.Author.FirstName + " " + topic.Author.LastName).Trim() : "Anonim",
+            AuthorRole = topic.Author?.Role ?? "User",
+            CreatedAt = topic.CreatedAt,
+            EntryCount = topic.Entries.Count,
+            IsFollowedByCurrentUser = isFollowed
+        };
+    }
+
+    [Authorize]
+    [HttpPost("{id:guid}/follow")]
+    public async Task<IActionResult> ToggleFollow(Guid id)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var topicExists = await _context.Topics.AnyAsync(t => t.Id == id);
+        if (!topicExists)
+        {
+            return NotFound("Başlık bulunamadı.");
+        }
+
+        var existing = await _context.UserTopicFollows
+            .FirstOrDefaultAsync(utf => utf.UserId == userId && utf.TopicId == id);
+
+        if (existing != null)
+        {
+            _context.UserTopicFollows.Remove(existing);
+            await _context.SaveChangesAsync();
+            return Ok(new { isFollowed = false });
+        }
+        else
+        {
+            _context.UserTopicFollows.Add(new UserTopicFollow
+            {
+                UserId = userId,
+                TopicId = id,
+                CreatedAt = DateTime.UtcNow
+            });
+            await _context.SaveChangesAsync();
+            return Ok(new { isFollowed = true });
+        }
     }
 
     [Authorize]
@@ -285,7 +428,7 @@ public class TopicsController : ControllerBase
             return NotFound();
         }
 
-        if (topic.AuthorId != userId)
+        if (topic.AuthorId != (Guid?)userId)
         {
             return StatusCode(403, "Bu başlığı düzenleme yetkiniz yok.");
         }
@@ -333,7 +476,7 @@ public class TopicsController : ControllerBase
             return NotFound();
         }
 
-        if (topic.AuthorId != userId)
+        if (topic.AuthorId != (Guid?)userId)
         {
             return StatusCode(403, "Bu başlığı silme yetkiniz yok.");
         }
@@ -348,6 +491,56 @@ public class TopicsController : ControllerBase
         await _context.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    private async Task<(Dictionary<Guid, int> saveCounts, HashSet<Guid> userSavedIds)> GetSaveDataAsync(List<Guid> entryIds, Guid? userId)
+    {
+        if (entryIds.Count == 0) return (new Dictionary<Guid, int>(), new HashSet<Guid>());
+        var saveCounts = await _context.UserSavedEntries
+            .Where(s => entryIds.Contains(s.EntryId))
+            .GroupBy(s => s.EntryId)
+            .Select(g => new { EntryId = g.Key, Count = g.Count() })
+            .ToListAsync();
+        var dict = saveCounts.ToDictionary(x => x.EntryId, x => x.Count);
+        var userSavedIds = new HashSet<Guid>();
+        if (userId.HasValue)
+        {
+            var ids = await _context.UserSavedEntries
+                .Where(s => s.UserId == userId.Value && entryIds.Contains(s.EntryId))
+                .Select(s => s.EntryId)
+                .ToListAsync();
+            userSavedIds = ids.ToHashSet();
+        }
+        return (dict, userSavedIds);
+    }
+
+    private static EntryResponseDto BuildEntryResponse(
+        Guid id, string content, int upvotes, int downvotes, Guid topicId, string topicTitle,
+        Guid authorId, string authorName, string? authorAvatar, string authorRole, DateTime createdAt, DateTime? updatedAt, bool isAnonymous,
+        Guid? requestorId, Dictionary<Guid, int> userVotes, int saveCount = 0, bool isSavedByCurrentUser = false)
+    {
+        var canManage = requestorId.HasValue && requestorId.Value == authorId;
+        return new EntryResponseDto
+        {
+            Id = id,
+            Content = content,
+            Upvotes = upvotes,
+            Downvotes = downvotes,
+            TopicId = topicId,
+            TopicTitle = topicTitle,
+            AuthorId = isAnonymous ? Guid.Empty : authorId,
+            AuthorName = isAnonymous ? "Anonim" : authorName,
+            AuthorAvatar = isAnonymous ? null : authorAvatar,
+            AuthorRole = isAnonymous ? "User" : (authorRole ?? "User"),
+            CreatedAt = createdAt,
+            UpdatedAt = updatedAt,
+            IsAnonymous = isAnonymous,
+            CanManage = canManage,
+            SaveCount = saveCount,
+            IsSavedByCurrentUser = isSavedByCurrentUser,
+            ValidBkzs = new Dictionary<string, Guid>(),
+            UserVoteType = requestorId.HasValue && userVotes.TryGetValue(id, out var vt) ? vt : 0
+        };
     }
 
     private async Task<Dictionary<string, Guid>> BuildValidBkzsAsync(string content)

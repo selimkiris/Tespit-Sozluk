@@ -12,4 +12,6 @@ public class Entry
     public User Author { get; set; } = null!;
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    /// <summary>Tam anonim modda yazar bilgisi gösterilmez.</summary>
+    public bool IsAnonymous { get; set; }
 }

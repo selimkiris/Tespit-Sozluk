@@ -7,6 +7,6 @@ public class UpdateTopicDto
 {
     [JsonPropertyName("title")]
     [Required(ErrorMessage = "Başlık boş olamaz.")]
-    [StringLength(70, ErrorMessage = "Başlık en fazla 70 karakter olabilir.")]
+    [StringLength(54, ErrorMessage = "Başlık en fazla 54 karakter olabilir.")]
     public string Title { get; set; } = string.Empty;
 }

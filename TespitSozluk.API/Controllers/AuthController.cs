@@ -8,6 +8,8 @@ using Microsoft.IdentityModel.Tokens;
 using TespitSozluk.API.Data;
 using TespitSozluk.API.DTOs;
 using TespitSozluk.API.Entities;
+using TespitSozluk.API.Filters;
+using TespitSozluk.API.Services;
 
 namespace TespitSozluk.API.Controllers;
 
@@ -24,6 +26,7 @@ public class AuthController : ControllerBase
         _configuration = configuration;
     }
 
+    [RateLimit(RateLimitAction.Register)]
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterDto dto)
     {
@@ -33,8 +36,16 @@ public class AuthController : ControllerBase
             return BadRequest("Bu e-posta adresi zaten kayıtlı.");
         }
 
+        // Şifre kuralları: min 8 karakter, 1 büyük harf, 1 rakam
+        if (string.IsNullOrEmpty(dto.Password) || dto.Password.Length < 8 ||
+            !dto.Password.Any(char.IsUpper) || !dto.Password.Any(char.IsDigit))
+        {
+            return BadRequest(new { message = "Şifreniz en az 8 karakter olmalı, 1 büyük harf ve 1 rakam içermelidir." });
+        }
+
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
 
+        var displayName = (dto.FirstName + " " + dto.LastName).Trim();
         var user = new User
         {
             Id = Guid.NewGuid(),
@@ -42,6 +53,7 @@ public class AuthController : ControllerBase
             PasswordHash = passwordHash,
             FirstName = dto.FirstName,
             LastName = dto.LastName,
+            Username = string.IsNullOrEmpty(displayName) ? ("user_" + Guid.NewGuid().ToString("N")[..8]) : displayName,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -76,7 +88,11 @@ public class AuthController : ControllerBase
             UserId = user.Id,
             Email = user.Email,
             FirstName = user.FirstName,
-            LastName = user.LastName
+            LastName = user.LastName,
+            Username = user.Username,
+            Avatar = user.Avatar,
+            HasChangedUsername = user.HasChangedUsername,
+            Role = user.Role
         };
 
         return Ok(response);
@@ -89,6 +105,52 @@ public class AuthController : ControllerBase
         return Ok("Çıkış başarılı. İstemci tarafında token silinmelidir.");
     }
 
+    /// <summary>
+    /// Tek seferlik admin kurulum endpoint'i. Veritabanında admin yoksa oluşturur.
+    /// Üretim ortamında bu endpoint kaldırılmalı veya devre dışı bırakılmalıdır.
+    /// </summary>
+    [HttpPost("setup-admin")]
+    public async Task<IActionResult> SetupAdmin()
+    {
+        const string adminEmail = "boss@tespitsozluk.com";
+
+        var adminExists = await _context.Users
+            .AnyAsync(u => u.Email.ToLower() == adminEmail);
+
+        if (adminExists)
+        {
+            return Conflict("Admin hesabı zaten mevcut.");
+        }
+
+        var adminPassword = _configuration["AdminSetupPassword"]
+            ?? throw new InvalidOperationException("AdminSetupPassword yapılandırması eksik.");
+
+        var passwordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword);
+
+        var admin = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = adminEmail,
+            PasswordHash = passwordHash,
+            FirstName = "Tespit",
+            LastName = "Sözlük",
+            Username = "Tespit Sözlük",
+            Avatar = "https://i.ibb.co/senin-logon.png",
+            Role = "Admin",
+            HasChangedUsername = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Users.Add(admin);
+        await _context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Admin hesabı başarıyla oluşturuldu.",
+            email = adminEmail
+        });
+    }
+
     private string GenerateJwtToken(User user)
     {
         var key = new SymmetricSecurityKey(
@@ -98,7 +160,8 @@ public class AuthController : ControllerBase
         var claims = new[]
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new Claim(ClaimTypes.Email, user.Email)
+            new Claim(ClaimTypes.Email, user.Email),
+            new Claim(ClaimTypes.Role, user.Role)
         };
 
         var token = new JwtSecurityToken(

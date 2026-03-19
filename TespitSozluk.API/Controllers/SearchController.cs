@@ -48,7 +48,8 @@ public class SearchController : ControllerBase
             .Select(u => new UserSearchResultDto
             {
                 Id = u.Id,
-                Name = (u.FirstName + " " + u.LastName).Trim()
+                Name = (u.FirstName + " " + u.LastName).Trim(),
+                Avatar = u.Avatar
             })
             .Take(10)
             .ToListAsync();

@@ -2,3 +2,11 @@
 
 # Hassas yapılandırma - şifreler ve bağlantı dizeleri
 TespitSozluk.API/appsettings.Development.json
+**/appsettings.Development.json
+
+# Next.js ortam değişkenleri
+tespitsozluk-web/.env
+tespitsozluk-web/.env.local
+tespitsozluk-web/.env.development
+tespitsozluk-web/.env.production
+tespitsozluk-web/.env.*.local
