@@ -36,6 +36,7 @@ builder.Services.AddAuthorization(options =>
 
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IRateLimitService, RateLimitService>();
+builder.Services.AddHttpClient<ITurnstileService, TurnstileService>();
 
 builder.Services.AddControllers()
     .AddJsonOptions(x => x.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles);

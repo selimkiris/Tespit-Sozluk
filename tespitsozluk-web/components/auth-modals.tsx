@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
+import { Turnstile } from "@marsidev/react-turnstile"
 
 export interface AuthResponse {
   token: string
@@ -35,17 +36,24 @@ export function LoginModal({ isOpen, onClose, onLogin, onSwitchToRegister }: Log
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [turnstileToken, setTurnstileToken] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
+
+    if (!turnstileToken) {
+      setError("Lütfen güvenlik doğrulamasını bekleyin.")
+      return
+    }
+
     setIsLoading(true)
 
     try {
       const res = await fetch(getApiUrl("api/Auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, turnstileToken }),
       })
 
       const data = await res.json().catch(() => ({}))
@@ -144,6 +152,13 @@ export function LoginModal({ isOpen, onClose, onLogin, onSwitchToRegister }: Log
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
+          <Turnstile
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+            onSuccess={(token) => setTurnstileToken(token)}
+            onExpire={() => setTurnstileToken("")}
+            onError={() => setTurnstileToken("")}
+          />
+
           <Button
             type="submit"
             disabled={isLoading}
@@ -189,6 +204,7 @@ export function RegisterModal({
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [turnstileToken, setTurnstileToken] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -204,6 +220,11 @@ export function RegisterModal({
       return
     }
 
+    if (!turnstileToken) {
+      setError("Lütfen güvenlik doğrulamasını bekleyin.")
+      return
+    }
+
     setIsLoading(true)
 
     try {
@@ -215,6 +236,7 @@ export function RegisterModal({
           password,
           firstName: nickname,
           lastName: "",
+          turnstileToken,
         }),
       })
 
@@ -345,6 +367,13 @@ export function RegisterModal({
           </div>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
+
+          <Turnstile
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+            onSuccess={(token) => setTurnstileToken(token)}
+            onExpire={() => setTurnstileToken("")}
+            onError={() => setTurnstileToken("")}
+          />
 
           <Button
             type="submit"

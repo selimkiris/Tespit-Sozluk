@@ -19,17 +19,23 @@ public class AuthController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly ITurnstileService _turnstileService;
 
-    public AuthController(AppDbContext context, IConfiguration configuration)
+    public AuthController(AppDbContext context, IConfiguration configuration, ITurnstileService turnstileService)
     {
         _context = context;
         _configuration = configuration;
+        _turnstileService = turnstileService;
     }
 
     [RateLimit(RateLimitAction.Register)]
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterDto dto)
     {
+        var isTurnstileValid = await _turnstileService.VerifyAsync(dto.TurnstileToken);
+        if (!isTurnstileValid)
+            return BadRequest(new { message = "Bot doğrulaması başarısız oldu." });
+
         var emailExists = await _context.Users.AnyAsync(u => u.Email.ToLower() == dto.Email.ToLower());
         if (emailExists)
         {
@@ -66,6 +72,10 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
+        var isTurnstileValid = await _turnstileService.VerifyAsync(dto.TurnstileToken);
+        if (!isTurnstileValid)
+            return BadRequest(new { message = "Bot doğrulaması başarısız oldu." });
+
         var user = await _context.Users
             .FirstOrDefaultAsync(u => u.Email.ToLower() == dto.Email.ToLower());
 
@@ -112,7 +122,8 @@ public class AuthController : ControllerBase
     [HttpPost("setup-admin")]
     public async Task<IActionResult> SetupAdmin()
     {
-        const string adminEmail = "boss@tespitsozluk.com";
+        var adminEmail = _configuration["AdminSetupEmail"]
+            ?? throw new InvalidOperationException("AdminSetupEmail yapılandırması eksik.");
 
         var adminExists = await _context.Users
             .AnyAsync(u => u.Email.ToLower() == adminEmail);
