@@ -10,3 +10,9 @@ tespitsozluk-web/.env.local
 tespitsozluk-web/.env.development
 tespitsozluk-web/.env.production
 tespitsozluk-web/.env.*.local
+
+# C# Derleme Klasörleri (Çok Kritik!)
+TespitSozluk.API/bin/
+TespitSozluk.API/obj/
+**/bin/
+**/obj/
