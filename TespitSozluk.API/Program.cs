@@ -58,7 +58,7 @@ builder.Services.AddSwaggerGen();
 var allowedOrigins = builder.Configuration
     .GetSection("AllowedOrigins")
     .Get<string[]>()
-    ?? ["http://localhost:3000", "https://www.tespitsozluk.com"];
+    ?? ["http://localhost:3000", "https://www.tespitsozluk.com", "https://tespitsozluk-web.vercel.app"];
 
 builder.Services.AddCors(options =>
 {
