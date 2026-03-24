@@ -72,10 +72,6 @@ public class RateLimitService : IRateLimitService
 
     private static List<RateLimitRule> GetRules(RateLimitAction action) => action switch
     {
-        RateLimitAction.Register => [
-            new(TimeSpan.FromHours(1),  5),
-            new(TimeSpan.FromDays(1),  10)
-        ],
         RateLimitAction.CreateEntry => [
             new(TimeSpan.FromMinutes(1),   3),
             new(TimeSpan.FromHours(1),    60),

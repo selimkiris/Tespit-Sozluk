@@ -98,6 +98,8 @@ namespace TespitSozluk.API.Migrations
 
                     b.HasIndex("AuthorId");
 
+                    b.HasIndex("CreatedAt");
+
                     b.HasIndex("TopicId");
 
                     b.ToTable("Entries");
@@ -137,6 +139,9 @@ namespace TespitSozluk.API.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("EntryId")
+                        .HasColumnType("uuid");
+
                     b.Property<bool>("IsRead")
                         .HasColumnType("boolean");
 
@@ -155,6 +160,8 @@ namespace TespitSozluk.API.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EntryId");
 
                     b.HasIndex("SenderId");
 
@@ -214,14 +221,19 @@ namespace TespitSozluk.API.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("IsAnonymous")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Title")
                         .IsRequired()
-                        .HasMaxLength(54)
-                        .HasColumnType("character varying(54)");
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("AuthorId");
+
+                    b.HasIndex("CreatedAt");
 
                     b.ToTable("Topics");
                 });
@@ -261,6 +273,12 @@ namespace TespitSozluk.API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("PasswordResetToken")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("PasswordResetTokenExpires")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasColumnType("text");
@@ -270,6 +288,8 @@ namespace TespitSozluk.API.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Username");
 
                     b.ToTable("Users");
                 });
@@ -386,6 +406,11 @@ namespace TespitSozluk.API.Migrations
 
             modelBuilder.Entity("TespitSozluk.API.Entities.Notification", b =>
                 {
+                    b.HasOne("TespitSozluk.API.Entities.Entry", "Entry")
+                        .WithMany()
+                        .HasForeignKey("EntryId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("TespitSozluk.API.Entities.User", "Sender")
                         .WithMany()
                         .HasForeignKey("SenderId")
@@ -397,6 +422,8 @@ namespace TespitSozluk.API.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Entry");
 
                     b.Navigation("Sender");
 

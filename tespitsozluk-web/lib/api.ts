@@ -32,3 +32,31 @@ export function getAuthHeaders(): Record<string, string> {
   if (token) headers["Authorization"] = `Bearer ${token}`
   return headers
 }
+
+/** GET api/Entries/{id}/likes — yalnızca entry sahibi (yetkili oturum). */
+export type EntryUpvoterUser = {
+  id: string
+  name: string
+  username?: string | null
+  avatar?: string | null
+}
+
+export async function fetchEntryUpvoters(entryId: string): Promise<EntryUpvoterUser[]> {
+  const res = await fetch(getApiUrl(`api/Entries/${entryId}/likes`), {
+    headers: getAuthHeaders(),
+  })
+  if (!res.ok) {
+    throw new Error(`entry_likes_${res.status}`)
+  }
+  const data: unknown = await res.json().catch(() => [])
+  if (!Array.isArray(data)) return []
+  return data.map((raw) => {
+    const u = raw as Record<string, unknown>
+    return {
+      id: String(u.id ?? ""),
+      name: typeof u.name === "string" ? u.name : "",
+      username: typeof u.username === "string" || u.username === null ? (u.username as string | null) : null,
+      avatar: typeof u.avatar === "string" || u.avatar === null ? (u.avatar as string | null) : null,
+    }
+  })
+}

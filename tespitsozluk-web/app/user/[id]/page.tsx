@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Lock, FileText, Pencil, Trash2, Send, Plus, User, UserPlus, UserMinus, CalendarDays, Heart, Bookmark, Save, PencilLine, ShieldX, CheckCircle2, Clock, AlertTriangle, RotateCcw, Flag, Trash, BadgeCheck, Mail, ShieldAlert, MessageCircle } from "lucide-react"
+import { ArrowLeft, Lock, FileText, Pencil, Trash2, Send, Plus, User, UserPlus, UserMinus, CalendarDays, Heart, Save, PencilLine, ShieldX, CheckCircle2, Clock, AlertTriangle, RotateCcw, Flag, Trash, BadgeCheck, Mail, ShieldAlert, MessageCircle, FileEdit } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
 import { Navbar } from "@/components/navbar"
@@ -38,11 +38,15 @@ import { CreateDraftModal } from "@/components/create-draft-modal"
 import { AvatarDialog } from "@/components/avatar-dialog"
 import { EditDraftModal } from "@/components/edit-draft-modal"
 import { FollowListModal } from "@/components/follow-list-modal"
-import { PoopIcon } from "@/components/icons/poop-icon"
+import { AyakIcon } from "@/components/icons/AyakIcon"
+import { CiviIcon } from "@/components/icons/CiviIcon"
 import { getApiUrl, getAuthHeaders } from "@/lib/api"
+import { ENTRY_BODY_RENDERER_CLASSNAME } from "@/lib/entry-body-renderer-classes"
 import { getAuth, clearAuth, updateAuthUser, type AuthData } from "@/lib/auth"
+import { cn } from "@/lib/utils"
 import { DangerConfirmModal } from "@/components/admin/danger-confirm-modal"
 import { HtmlRenderer } from "@/components/html-renderer"
+import { ExpandableHtmlContent } from "@/components/expandable-html-content"
 import { Input } from "@/components/ui/input"
 import {
   Dialog,
@@ -186,12 +190,13 @@ export default function UserProfilePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [entriesLoading, setEntriesLoading] = useState(true)
   const [draftsLoading, setDraftsLoading] = useState(false)
+  const [draftsPage, setDraftsPage] = useState(1)
+  const [draftsTotalPages, setDraftsTotalPages] = useState(1)
   const [auth, setAuth] = useState<AuthData | null>(null)
   const [createDraftOpen, setCreateDraftOpen] = useState(false)
   const [editDraftOpen, setEditDraftOpen] = useState(false)
   const [editingDraft, setEditingDraft] = useState<ApiDraft | null>(null)
   const [includeAnonymous, setIncludeAnonymous] = useState(false)
-  const [includeAnonymousDrafts, setIncludeAnonymousDrafts] = useState(false)
   const [deleteDraftId, setDeleteDraftId] = useState<string | null>(null)
   const [publishDraftId, setPublishDraftId] = useState<string | null>(null)
   const [savedEntries, setSavedEntries] = useState<ReturnType<typeof mapEntry>[]>([])
@@ -300,16 +305,28 @@ export default function UserProfilePage() {
   const fetchDrafts = useCallback(async () => {
     setDraftsLoading(true)
     try {
-      const res = await fetch(getApiUrl("api/Drafts"), { headers: getAuthHeaders() })
+      const res = await fetch(getApiUrl(`api/Drafts?page=${draftsPage}`), {
+        headers: getAuthHeaders(),
+      })
       if (!res.ok) throw new Error("Taslaklar yüklenemedi")
       const data = await res.json()
-      setDrafts(Array.isArray(data) ? data : [])
+      const pageSize = typeof data.pageSize === "number" ? data.pageSize : 25
+      const totalCount = typeof data.totalCount === "number" ? data.totalCount : 0
+      const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+      if (draftsPage > totalPages && totalCount > 0) {
+        setDraftsPage(totalPages)
+        return
+      }
+      const rawItems = Array.isArray(data.items) ? data.items : []
+      setDrafts(rawItems as ApiDraft[])
+      setDraftsTotalPages(totalPages)
     } catch {
       setDrafts([])
+      setDraftsTotalPages(1)
     } finally {
       setDraftsLoading(false)
     }
-  }, [])
+  }, [draftsPage])
 
   const fetchLikedEntries = useCallback(async (userId: string, p: number) => {
     setLikedLoading(true)
@@ -318,7 +335,7 @@ export default function UserProfilePage() {
         getApiUrl(`api/Users/${userId}/liked-entries?page=${p}&pageSize=20`),
         { headers: getAuthHeaders() }
       )
-      if (!res.ok) throw new Error("Beğenilenler yüklenemedi")
+      if (!res.ok) throw new Error("Kalplenenler yüklenemedi")
       const data = await res.json()
       const items = (data.items ?? []).map(mapEntry)
       setLikedEntries(items)
@@ -339,7 +356,7 @@ export default function UserProfilePage() {
         getApiUrl(`api/Users/${userId}/saved-entries?page=${p}&pageSize=20`),
         { headers: getAuthHeaders() }
       )
-      if (!res.ok) throw new Error("Kaydedilenler yüklenemedi")
+      if (!res.ok) throw new Error("Çivilenenler yüklenemedi")
       const data = await res.json()
       const items = (data.items ?? []).map(mapEntry)
       setSavedEntries(items)
@@ -745,7 +762,7 @@ export default function UserProfilePage() {
       <main className="pt-14">
         {/* Header / Cover */}
         <div className="border-b border-border bg-card">
-          <div className="max-w-2xl mx-auto px-4 py-8 md:py-12">
+          <div className="w-full max-w-2xl mx-auto px-4 py-8 md:py-12 lg:max-w-[786px] lg:px-6">
             <Link href="/">
               <Button variant="ghost" size="sm" className="mb-4 -ml-2 text-muted-foreground hover:text-foreground">
                 <ArrowLeft className="h-4 w-4 mr-1" />
@@ -761,7 +778,12 @@ export default function UserProfilePage() {
                 >
                   {user.avatar ? (
                     user.avatar.startsWith("http") ? (
-                      <img src={user.avatar} alt="" className="h-16 w-16 object-cover" />
+                      <img
+                        src={user.avatar}
+                        alt=""
+                        referrerPolicy="no-referrer"
+                        className="h-16 w-16 object-cover"
+                      />
                     ) : (
                       <span className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary/80 text-4xl w-full">
                         {user.avatar}
@@ -779,7 +801,12 @@ export default function UserProfilePage() {
               ) : (
                 user.avatar ? (
                   user.avatar.startsWith("http") ? (
-                    <img src={user.avatar} alt="" className="h-16 w-16 rounded-full object-cover border-2 border-border shadow-sm" />
+                    <img
+                      src={user.avatar}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      className="h-16 w-16 rounded-full object-cover border-2 border-border shadow-sm"
+                    />
                   ) : (
                     <span className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary/80 text-4xl border-2 border-border shadow-sm">
                       {user.avatar}
@@ -812,28 +839,28 @@ export default function UserProfilePage() {
               <div className="flex items-center gap-2.5 rounded-lg border border-border bg-muted/30 px-4 py-3">
                 <Heart className="h-5 w-5 text-rose-500 shrink-0" />
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Toplam Kalp</p>
+                  <p className="text-sm font-medium text-muted-foreground tracking-tight">Toplam Kalp</p>
                   <p className="text-lg font-semibold text-foreground">{user.totalUpvotesReceived ?? 0}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2.5 rounded-lg border border-border bg-muted/30 px-4 py-3">
-                <PoopIcon className="h-5 w-5 text-amber-600 shrink-0" />
+                <AyakIcon className="h-5 w-5 text-amber-600 shrink-0" />
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Toplam Kaka</p>
+                  <p className="text-sm font-medium text-muted-foreground tracking-tight">Toplam Ayak</p>
                   <p className="text-lg font-semibold text-foreground">{user.totalDownvotesReceived ?? 0}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2.5 rounded-lg border border-border bg-muted/30 px-4 py-3">
-                <Bookmark className="h-5 w-5 text-primary shrink-0" />
+                <CiviIcon className="h-5 w-5 text-purple-500 shrink-0" />
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Toplam Kaydedilme</p>
+                  <p className="text-sm font-medium text-muted-foreground tracking-tight">Toplam Çivileme</p>
                   <p className="text-lg font-semibold text-foreground">{user.totalSavesReceived ?? 0}</p>
                 </div>
               </div>
             </div>
             {((user.bio && user.bio.trim()) || isOwnProfile) && (
               <div className="mt-4 space-y-2">
-                <h3 className="text-sm font-medium text-muted-foreground">Hakkımda</h3>
+                <h3 className="text-sm font-medium text-muted-foreground">Yazıt</h3>
                 {bioEditing ? (
                   <div className="space-y-2">
                     <textarea
@@ -977,34 +1004,79 @@ export default function UserProfilePage() {
           </div>
         </div>
 
-        {/* Tabs: Yazılan Entryler / Beğenilenler / Kaydedilenler / Taslaklar */}
-        <div className="max-w-2xl mx-auto px-4 py-6">
+        {/* Tabs: Yazılan Entryler / Kalplenenler / Çivilenenler / Taslaklar */}
+        <div className="w-full max-w-2xl mx-auto px-4 py-6 lg:max-w-[786px] lg:px-6">
           <Tabs defaultValue="entries" className="w-full">
-            <TabsList className="mb-6 flex flex-wrap gap-1">
-              <TabsTrigger value="entries">
-                Yazılan Entryler ({user.writtenEntriesCount ?? 0})
+            <TabsList
+              className="w-full flex overflow-x-auto bg-transparent p-0 h-auto rounded-none border-b-2 border-border mb-8 gap-0 [&::-webkit-scrollbar]:hidden"
+              style={{ scrollbarWidth: "none" }}
+            >
+              {/* ─── Yazılan Entryler ─── */}
+              <TabsTrigger
+                value="entries"
+                className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent shrink-0 text-muted-foreground font-semibold text-sm hover:text-foreground hover:bg-muted/25 data-[state=active]:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
+              >
+                <PencilLine className="h-[18px] w-[18px] shrink-0 transition-all duration-200 group-data-[state=active]:scale-110" />
+                <span className="tracking-tight">Yazılan Entryler</span>
+                <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold bg-muted/70 text-muted-foreground group-data-[state=active]:bg-foreground group-data-[state=active]:text-background transition-all duration-200">
+                  {user.writtenEntriesCount ?? 0}
+                </span>
               </TabsTrigger>
-              <TabsTrigger value="liked">
-                Beğenilenler ({user.likedEntriesCount ?? 0})
+
+              {/* ─── Kalplenenler ─── */}
+              <TabsTrigger
+                value="liked"
+                className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent shrink-0 text-muted-foreground font-semibold text-sm hover:text-rose-500 hover:bg-rose-500/5 data-[state=active]:text-rose-500 data-[state=active]:border-rose-500 data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
+              >
+                <Heart className="h-[18px] w-[18px] shrink-0 transition-all duration-200 group-data-[state=active]:fill-rose-500/20 group-data-[state=active]:scale-110" />
+                <span className="tracking-tight">Kalplenenler</span>
+                <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold bg-muted/70 text-muted-foreground group-data-[state=active]:bg-rose-500 group-data-[state=active]:text-white transition-all duration-200">
+                  {user.likedEntriesCount ?? 0}
+                </span>
               </TabsTrigger>
+
               {isOwnProfile && (
                 <>
-                  <TabsTrigger value="saved">
-                    Kaydedilenler ({user.savedEntriesCount ?? 0})
+                  {/* ─── Çivilenenler ─── */}
+                  <TabsTrigger
+                    value="saved"
+                    className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent shrink-0 text-muted-foreground font-semibold text-sm hover:text-purple-400 hover:bg-purple-500/5 data-[state=active]:text-purple-500 data-[state=active]:border-purple-500 data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
+                  >
+                    <CiviIcon className="h-[18px] w-[18px] shrink-0 text-inherit transition-all duration-200 group-data-[state=active]:scale-110" />
+                    <span className="tracking-tight">Çivilenenler</span>
+                    <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold bg-muted/70 text-muted-foreground group-data-[state=active]:bg-purple-500 group-data-[state=active]:text-white transition-all duration-200">
+                      {user.savedEntriesCount ?? 0}
+                    </span>
                   </TabsTrigger>
-                  <TabsTrigger value="drafts">
-                    Taslaklar ({user.draftsCount ?? 0})
+
+                  {/* ─── Taslaklar ─── */}
+                  <TabsTrigger
+                    value="drafts"
+                    className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent shrink-0 text-muted-foreground font-semibold text-sm hover:text-amber-500 hover:bg-amber-500/5 data-[state=active]:text-amber-500 data-[state=active]:border-amber-500 data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
+                  >
+                    <FileEdit className="h-[18px] w-[18px] shrink-0 transition-all duration-200 group-data-[state=active]:scale-110" />
+                    <span className="tracking-tight">Taslaklar</span>
+                    <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold bg-muted/70 text-muted-foreground group-data-[state=active]:bg-amber-500 group-data-[state=active]:text-white transition-all duration-200">
+                      {user.draftsCount ?? 0}
+                    </span>
                   </TabsTrigger>
+
+                  {/* ─── Şikayetler (Admin) ─── */}
                   {isAdmin && (
                     <TabsTrigger
                       value="reports"
                       onClick={() => { if (!reportsLoaded) fetchReports() }}
-                      className="relative text-destructive data-[state=active]:text-destructive data-[state=active]:border-destructive"
+                      className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent shrink-0 text-muted-foreground font-semibold text-sm hover:text-destructive hover:bg-destructive/5 data-[state=active]:text-destructive data-[state=active]:border-destructive data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
                     >
-                      🛡 Şikayetler
-                      {unresolvedReportsCount > 0 && (
-                        <span className="ml-1.5 inline-flex items-center justify-center h-4 min-w-4 rounded-full bg-red-600 text-[10px] font-bold text-white px-1">
+                      <Flag className="h-[18px] w-[18px] shrink-0 transition-all duration-200 group-data-[state=active]:scale-110" />
+                      <span className="tracking-tight">Şikayetler</span>
+                      {unresolvedReportsCount > 0 ? (
+                        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold bg-red-600 text-white animate-pulse">
                           {unresolvedReportsCount > 99 ? "99+" : unresolvedReportsCount}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold bg-muted/70 text-muted-foreground group-data-[state=active]:bg-destructive group-data-[state=active]:text-white transition-all duration-200">
+                          0
                         </span>
                       )}
                     </TabsTrigger>
@@ -1014,6 +1086,11 @@ export default function UserProfilePage() {
             </TabsList>
 
             <TabsContent value="entries">
+              <div className="mb-4">
+                <h2 className="text-base md:text-lg font-extrabold text-foreground uppercase tracking-tight">
+                  {isOwnProfile ? "ENTRYLERİNİZ" : "ENTRYLER"}
+                </h2>
+              </div>
               <div className="mb-4 flex flex-wrap items-center gap-3">
                 <Select value={entriesSortBy} onValueChange={(v) => { setEntriesSortBy(v); setPage(1) }}>
                   <SelectTrigger className="w-[180px]">
@@ -1022,9 +1099,9 @@ export default function UserProfilePage() {
                   <SelectContent>
                     <SelectItem value="newest">En yeni</SelectItem>
                     <SelectItem value="oldest">En eski</SelectItem>
-                    <SelectItem value="most_liked">En çok beğenilen</SelectItem>
-                    <SelectItem value="most_disliked">En çok kaka alan</SelectItem>
-                    <SelectItem value="most_saved">En çok kaydedilen</SelectItem>
+                    <SelectItem value="most_liked">En çok kalp alan</SelectItem>
+                    <SelectItem value="most_disliked">En çok ayak alan</SelectItem>
+                    <SelectItem value="most_saved">En çok çivilenen</SelectItem>
                   </SelectContent>
                 </Select>
                 {isOwnProfile && (
@@ -1077,7 +1154,10 @@ export default function UserProfilePage() {
                       isLoggedIn={isLoggedIn}
                       onLoginClick={() => router.push("/?login=1")}
                       currentUser={auth?.user ? { id: auth.user.id } : null}
-                      onEntryChange={refreshDraftsAndEntries}
+                      onEntryChange={() => {
+                        setEntries((prev) => prev.filter((e) => e.id !== entry.id))
+                        if (id) fetchUser(id).then((u) => u && setUser(u))
+                      }}
                     />
                   ))}
                 </div>
@@ -1110,11 +1190,21 @@ export default function UserProfilePage() {
             </TabsContent>
 
             <TabsContent value="liked">
+              <div className="mb-4">
+                <h2 className="text-base md:text-lg font-extrabold text-foreground uppercase tracking-tight">
+                  {isOwnProfile ? "KALPLENENLERİNİZ" : "KALPLENENLER"}
+                </h2>
+                {isOwnProfile && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Kalplenenlerinizi herkes görebilir.
+                  </p>
+                )}
+              </div>
               {likedLoading ? (
                 <div className="py-12 text-center text-muted-foreground">Yükleniyor...</div>
               ) : likedEntries.length === 0 ? (
                 <div className="py-12 text-center text-muted-foreground">
-                  Henüz beğenilen entry yok.
+                  Henüz kalplenen entry yok.
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1127,8 +1217,7 @@ export default function UserProfilePage() {
                       isLoggedIn={isLoggedIn}
                       onLoginClick={() => router.push("/?login=1")}
                       currentUser={auth?.user ? { id: auth.user.id } : null}
-                      onEntryChange={refreshDraftsAndEntries}
-                      onVoteSuccess={refreshDraftsAndEntries}
+                      onEntryChange={() => setLikedEntries((prev) => prev.filter((e) => e.id !== entry.id))}
                     />
                   ))}
                 </div>
@@ -1160,11 +1249,19 @@ export default function UserProfilePage() {
 
             {isOwnProfile && (
               <TabsContent value="saved">
+                <div className="mb-4">
+                  <h2 className="text-base md:text-lg font-extrabold text-foreground uppercase tracking-tight">
+                    ÇİVİLENENLERİNİZ
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Çivilenenlerinizi diğer kullanıcılar göremez.
+                  </p>
+                </div>
                 {savedLoading ? (
                   <div className="py-12 text-center text-muted-foreground">Yükleniyor...</div>
                 ) : savedEntries.length === 0 ? (
                   <div className="py-12 text-center text-muted-foreground">
-                    Henüz kaydedilmiş entry yok.
+                    Henüz çivilenmiş entry yok.
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -1177,8 +1274,7 @@ export default function UserProfilePage() {
                         isLoggedIn={isLoggedIn}
                         onLoginClick={() => router.push("/?login=1")}
                         currentUser={auth?.user ? { id: auth.user.id } : null}
-                        onEntryChange={refreshDraftsAndEntries}
-                        onVoteSuccess={refreshDraftsAndEntries}
+                        onEntryChange={() => setSavedEntries((prev) => prev.filter((e) => e.id !== entry.id))}
                       />
                     ))}
                   </div>
@@ -1211,113 +1307,115 @@ export default function UserProfilePage() {
 
             {isOwnProfile && (
               <TabsContent value="drafts">
-                <div className="flex flex-col gap-4 mb-4">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-                      Taslaklarınız
+                <div className="flex flex-col gap-3 mb-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-base md:text-lg font-extrabold text-foreground uppercase tracking-tight">
+                      TASLAKLARINIZ
                     </h2>
                     <Button
                       size="sm"
                       onClick={() => setCreateDraftOpen(true)}
-                      className="gap-1.5"
+                      className="gap-1.5 shrink-0"
                     >
                       <Plus className="h-4 w-4" />
                       Yeni Taslak Oluştur
                     </Button>
                   </div>
-                  <div className="space-y-2">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center gap-2">
-                            <Switch
-                              id="include-anonymous-drafts"
-                              checked={includeAnonymousDrafts}
-                              onCheckedChange={setIncludeAnonymousDrafts}
-                              className="data-[state=checked]:bg-foreground"
-                            />
-                            <Label
-                              htmlFor="include-anonymous-drafts"
-                              className="text-sm font-medium cursor-pointer"
-                            >
-                              Senin Anonim
-                            </Label>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                          Anonim taslakları göster
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    {includeAnonymousDrafts && (
-                      <p className="text-xs text-muted-foreground">
-                        Anonim entryleri diğer kullanıcılar göremez.
-                      </p>
-                    )}
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Taslaklarınızı diğer kullanıcılar göremez.
+                  </p>
                 </div>
 
                 {draftsLoading ? (
                   <div className="py-12 text-center text-muted-foreground">Yükleniyor...</div>
-                ) : (() => {
-                  const filteredDrafts = includeAnonymousDrafts
-                    ? drafts
-                    : drafts.filter((d) => !d.isAnonymous)
-                  return filteredDrafts.length === 0 ? (
+                ) : drafts.length === 0 ? (
                     <div className="py-12 text-center text-muted-foreground">
-                      {drafts.length === 0
-                        ? "Henüz taslak yok. Yeni taslak oluşturmak için butona tıklayın."
-                        : "Anonim taslaklarınızı görmek için Senin Anonim'i açın."}
+                      Henüz taslak yok. Yeni taslak oluşturmak için butona tıklayın.
                     </div>
                   ) : (
-                  <div className="space-y-4">
-                    {filteredDrafts.map((draft) => (
-                      <div
-                        key={draft.id}
-                        className="bg-card border border-border rounded-lg p-4"
-                      >
-                        <p className="text-sm font-medium text-muted-foreground mb-2">
-                          {draft.topicTitle ?? draft.newTopicTitle ?? "Başlıksız"}
-                        </p>
-                        <p className="text-foreground whitespace-pre-wrap break-words line-clamp-3">
-                          {draft.content}
-                        </p>
-                        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/50">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-1"
-                            onClick={() => {
-                              setEditingDraft(draft)
-                              setEditDraftOpen(true)
-                            }}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                            Düzenle
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="gap-1 bg-foreground text-background hover:bg-foreground/90"
-                            onClick={() => setPublishDraftId(draft.id)}
-                          >
-                            <Send className="h-3.5 w-3.5" />
-                            Yayınla
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-1 text-destructive hover:text-destructive"
-                            onClick={() => setDeleteDraftId(draft.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            Sil
-                          </Button>
-                        </div>
+                  <>
+                    <div className="space-y-4 min-w-0 w-full max-w-full">
+                      {drafts.map((draft) => (
+                        <article
+                          key={draft.id}
+                          className={cn(
+                            "group relative bg-card border border-border border-l-2 border-l-[#2c64f6] rounded-lg p-5 min-w-0 w-full max-w-full transition-all duration-200 hover:bg-[#2a2b2e]"
+                          )}
+                          style={{ backgroundColor: "#252728" }}
+                        >
+                          <span className="absolute top-2 right-2 z-10 rounded bg-blue-500 px-2 py-1 text-xs text-white">
+                            Taslak
+                          </span>
+                          <div className="mb-4 min-w-0 w-full max-w-full pr-20">
+                            <span className="block w-full min-w-0 max-w-full whitespace-pre-wrap break-words text-left text-xl font-bold leading-[1.35] tracking-[-0.01em] text-slate-200 dark:text-slate-300">
+                              {draft.topicTitle ?? draft.newTopicTitle ?? "Başlıksız"}
+                            </span>
+                          </div>
+                          <div className="entry-content mb-4 min-w-0 w-full max-w-full">
+                            <ExpandableHtmlContent
+                              html={draft.content || ""}
+                              rendererClassName={ENTRY_BODY_RENDERER_CLASSNAME}
+                            />
+                          </div>
+                          <div className="flex min-w-0 w-full flex-wrap items-center gap-2 border-t border-border/50 pt-3">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-1"
+                              onClick={() => {
+                                setEditingDraft(draft)
+                                setEditDraftOpen(true)
+                              }}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              Düzenle
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="gap-1 bg-foreground text-background hover:bg-foreground/90"
+                              onClick={() => setPublishDraftId(draft.id)}
+                            >
+                              <Send className="h-3.5 w-3.5" />
+                              Yayınla
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-1 text-destructive hover:text-destructive"
+                              onClick={() => setDeleteDraftId(draft.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Sil
+                            </Button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                    {(draftsPage > 1 || draftsPage < draftsTotalPages) && (
+                      <div className="flex items-center justify-center gap-3 mt-8 pb-8">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={draftsPage <= 1}
+                          onClick={() => setDraftsPage((p) => Math.max(1, p - 1))}
+                        >
+                          Önceki Sayfa
+                        </Button>
+                        <span className="text-sm text-muted-foreground">
+                          Sayfa {draftsPage} / {draftsTotalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={draftsPage >= draftsTotalPages}
+                          onClick={() => setDraftsPage((p) => p + 1)}
+                        >
+                          Sonraki Sayfa
+                        </Button>
                       </div>
-                    ))}
-                  </div>
-                  )
-                })()}
+                    )}
+                  </>
+                )}
               </TabsContent>
             )}
             {isOwnProfile && isAdmin && (
@@ -1411,23 +1509,31 @@ export default function UserProfilePage() {
                               {/* Başlık (büyük/kalın) */}
                               <button
                                 onClick={() => router.push(`/?topic=${report.reportedEntry!.topicId}`)}
-                                className="text-sm font-bold text-foreground hover:underline underline-offset-2 text-left mb-2 block"
+                                className="text-[#dde1e8] text-[17px] font-bold leading-[1.35] tracking-[-0.01em] hover:underline underline-offset-2 text-left mb-2 block"
                               >
                                 {report.reportedEntry.topicTitle}
                               </button>
                               {/* Entry içeriği */}
-                              <div className="text-sm text-foreground leading-relaxed line-clamp-5 [&_*]:max-w-full mb-3">
-                                <HtmlRenderer html={report.reportedEntry.content} />
+                              <div className="entry-content entry-text line-clamp-5 [&_*]:max-w-full mb-3">
+                                <HtmlRenderer
+                                  html={report.reportedEntry.content}
+                                  className="max-w-none [&_p]:!text-[15px] [&_p]:!leading-[1.85] [&_p]:!tracking-[0.013em] [&_p]:!font-normal [&_p]:!text-[#c2c6cf] [&_li]:!text-[15px] [&_li]:!leading-[1.85] [&_li]:!tracking-[0.013em] [&_li]:!font-normal [&_li]:!text-[#c2c6cf] [&_blockquote]:!text-[15px] [&_blockquote]:!leading-[1.85] [&_blockquote]:!tracking-[0.013em] [&_blockquote]:!font-normal [&_blockquote]:!text-[#c2c6cf]"
+                                />
                               </div>
-                              {/* Footer: yazar + tarih (sol), beğeniler (sağ) */}
+                              {/* Footer: yazar + tarih (sol), kalp/ayak/çivi (sağ) */}
                               <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40">
-                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-1.5 text-[13px] text-[#7c8190]">
                                   {report.reportedEntry.isAnonymous ? (
                                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted border border-border/60">
                                       <User className="h-3 w-3 text-muted-foreground" />
                                     </span>
                                   ) : report.reportedEntry.authorAvatar?.startsWith("http") ? (
-                                    <img src={report.reportedEntry.authorAvatar} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover border border-border/60" />
+                                    <img
+                                      src={report.reportedEntry.authorAvatar}
+                                      alt=""
+                                      referrerPolicy="no-referrer"
+                                      className="h-5 w-5 shrink-0 rounded-full object-cover border border-border/60"
+                                    />
                                   ) : (
                                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted border border-border/60 text-[10px] font-medium">
                                       {report.reportedEntry.isAnonymous ? "?" : report.reportedEntry.authorName?.[0]?.toUpperCase() ?? "?"}
@@ -1438,7 +1544,7 @@ export default function UserProfilePage() {
                                   ) : (
                                     <button
                                       onClick={() => router.push(`/user/${report.reportedEntry!.authorId}`)}
-                                      className="font-medium text-foreground hover:underline flex items-center gap-0.5"
+                                      className="text-[#7c8190] hover:text-[#c2c6cf] hover:underline flex items-center gap-0.5"
                                     >
                                       {report.reportedEntry.authorName}
                                       {report.reportedEntry.authorRole === "Admin" && (
@@ -1446,10 +1552,10 @@ export default function UserProfilePage() {
                                       )}
                                     </button>
                                   )}
-                                  <span className="text-muted-foreground/50">·</span>
+                                  <span className="text-[#7c8190]/45">·</span>
                                   <span>{new Date(report.reportedEntry.createdAt).toLocaleDateString("tr-TR")}</span>
                                 </div>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-2 text-[13px] text-[#7c8190]">
                                   <span className="flex items-center gap-1">
                                     <Heart className="h-3 w-3 text-rose-400" />
                                     {report.reportedEntry.upvotes ?? 0}
@@ -1505,7 +1611,12 @@ export default function UserProfilePage() {
                               {report.reportedTopic.authorId && (
                                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
                                   {report.reportedTopic.authorAvatar?.startsWith("http") ? (
-                                    <img src={report.reportedTopic.authorAvatar} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover border border-border/60" />
+                                    <img
+                                      src={report.reportedTopic.authorAvatar}
+                                      alt=""
+                                      referrerPolicy="no-referrer"
+                                      className="h-5 w-5 shrink-0 rounded-full object-cover border border-border/60"
+                                    />
                                   ) : (
                                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted border border-border/60 text-[10px] font-medium">
                                       {report.reportedTopic.authorName?.[0]?.toUpperCase() ?? "?"}
@@ -1597,12 +1708,12 @@ export default function UserProfilePage() {
                     <div className="space-y-2">
                       <Input
                         value={renameTopicNewTitle}
-                        onChange={(e) => setRenameTopicNewTitle(e.target.value.slice(0, 54))}
+                        onChange={(e) => setRenameTopicNewTitle(e.target.value.slice(0, 60))}
                         placeholder="Yeni başlık adı..."
-                        maxLength={54}
+                        maxLength={60}
                         autoFocus
                       />
-                      <span className="text-xs text-muted-foreground">{renameTopicNewTitle.length}/54</span>
+                      <span className="text-xs text-muted-foreground">{renameTopicNewTitle.length}/60</span>
                       {renameTopicError && <p className="text-sm text-destructive">{renameTopicError}</p>}
                     </div>
                     <DialogFooter>
@@ -1826,10 +1937,9 @@ export default function UserProfilePage() {
           open={avatarDialogOpen}
           onOpenChange={setAvatarDialogOpen}
           currentAvatar={user.avatar}
-          currentUserRole={auth?.user?.role}
           onAvatarUpdate={(avatar) => {
-            setUser((prev) => (prev ? { ...prev, avatar } : null))
-            const updated = updateAuthUser({ avatar })
+            setUser((prev) => (prev ? { ...prev, avatar: avatar ?? null } : null))
+            const updated = updateAuthUser({ avatar: avatar ?? null })
             if (updated) setAuth(getAuth())
           }}
         />

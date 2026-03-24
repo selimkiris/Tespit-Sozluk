@@ -1,18 +1,21 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, Bell, BellOff, Search, Flag, ShieldAlert, FolderOutput } from "lucide-react"
+import { ArrowLeft, MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, Bell, BellOff, Search, Flag, ShieldAlert, FolderOutput, User } from "lucide-react"
 import { ShareMenu } from "@/components/share-menu"
 import { getSiteUrl } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { EntryCard } from "@/components/entry-card"
 import { EntryForm } from "@/components/entry-form"
 import { getApiUrl, getAuthHeaders } from "@/lib/api"
+import { TOPIC_ENTRIES_PAGE_SIZE } from "@/lib/topic-entries"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -23,6 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,9 +44,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ReportDialog } from "@/components/report-dialog"
+import { cn } from "@/lib/utils"
+import { clampTopicTitleRaw, normalizeTopicTitleForApi } from "@/lib/topic-title-input"
+import { FEED_COLUMN_MAX_WIDTH_CLASS } from "@/lib/feed-layout"
+import { TOPIC_TITLE_MAX_LENGTH } from "@/lib/topic.schema"
 import { DangerConfirmModal } from "@/components/admin/danger-confirm-modal"
-import { DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 
 interface Entry {
   id: string
@@ -64,6 +72,12 @@ interface Topic {
   title: string
   entryCount: number
   authorId?: string
+  authorName?: string
+  authorUsername?: string
+  authorAvatar?: string | null
+  createdAt?: string
+  isAnonymous?: boolean
+  isTopicOwner?: boolean
   isFollowedByCurrentUser?: boolean
 }
 
@@ -72,11 +86,13 @@ interface TopicDetailProps {
   isLoggedIn: boolean
   currentUser?: { id: string; role?: string } | null
   onBack: () => void
-  onSubmitEntry: (content: string, isAnonymous: boolean) => void
+  onSubmitEntry: (content: string, isAnonymous: boolean, onApiSuccess: () => void) => void | Promise<void>
   onLoginClick: () => void
-  onVoteSuccess?: () => void
   onTopicChange?: () => void
   refreshTrigger?: number
+  /** `?page=` ile eşleşen sayfa (başlık entry listesi). */
+  entriesPageFromUrl: number
+  onEntriesPageUrlChange: (page: number) => void
 }
 
 function mapApiEntry(e: { id: string; topicId: string; topicTitle: string; content: string; authorId: string; authorName: string; authorAvatar?: string | null; authorRole?: string; createdAt: string; updatedAt?: string | null; upvotes: number; downvotes: number; userVoteType?: number; validBkzs?: Record<string, string> | null; isAnonymous?: boolean; canManage?: boolean; saveCount?: number; isSavedByCurrentUser?: boolean }) {
@@ -108,12 +124,13 @@ export function TopicDetail({
   onBack,
   onSubmitEntry,
   onLoginClick,
-  onVoteSuccess,
   onTopicChange,
   refreshTrigger = 0,
+  entriesPageFromUrl,
+  onEntriesPageUrlChange,
 }: TopicDetailProps) {
   const [entries, setEntries] = useState<Entry[]>([])
-  const [page, setPage] = useState(1)
+  const [page, setPage] = useState(entriesPageFromUrl)
   const [totalPages, setTotalPages] = useState(1)
   const [entriesLoading, setEntriesLoading] = useState(true)
   const [search, setSearch] = useState("")
@@ -128,6 +145,7 @@ export function TopicDetail({
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isFollowed, setIsFollowed] = useState(topic.isFollowedByCurrentUser ?? false)
   const [isFollowLoading, setIsFollowLoading] = useState(false)
+  const [topicDetail, setTopicDetail] = useState<Partial<Topic>>({})
   const [isReportOpen, setIsReportOpen] = useState(false)
   // Admin state
   const [isAdminDeleteOpen, setIsAdminDeleteOpen] = useState(false)
@@ -147,32 +165,48 @@ export function TopicDetail({
   const isAdmin = currentUser?.role === "Admin"
 
   const entriesContainerRef = useRef<HTMLDivElement>(null)
+  const titleLinkPointerStartRef = useRef<{ x: number; y: number } | null>(null)
   const router = useRouter()
+
+  const onEntriesPageUrlChangeRef = useRef(onEntriesPageUrlChange)
+  onEntriesPageUrlChangeRef.current = onEntriesPageUrlChange
+
+  /** Bekleyen sayfa navigasyonu: router.replace tamamlanmadan URL'deki eski `page` ile setPage çakışmasını önler. */
+  const pendingPageFromNavigationRef = useRef<number | null>(null)
 
   useEffect(() => {
     setIsFollowed(topic.isFollowedByCurrentUser ?? false)
+    setTopicDetail({})
   }, [topic.id, topic.isFollowedByCurrentUser])
 
-  const fetchTopicFollowStatus = useCallback(async () => {
-    if (!isLoggedIn) return
+  const fetchTopicFromApi = useCallback(async () => {
     try {
       const res = await fetch(getApiUrl(`api/Topics/${topic.id}`), { headers: getAuthHeaders() })
-      if (res.ok) {
-        const data = await res.json()
-        setIsFollowed(data?.isFollowedByCurrentUser ?? false)
+      if (!res.ok) return
+      const d = await res.json()
+      setTopicDetail({
+        title: d.title,
+        entryCount: typeof d.entryCount === "number" ? d.entryCount : undefined,
+        authorId: d.authorId != null && d.authorId !== "" ? String(d.authorId) : undefined,
+        authorName: d.authorName,
+        authorUsername: d.authorUsername,
+        authorAvatar: d.authorAvatar ?? null,
+        createdAt: d.createdAt,
+        isAnonymous: d.isAnonymous === true,
+        isTopicOwner: d.isTopicOwner === true,
+        isFollowedByCurrentUser: d.isFollowedByCurrentUser,
+      })
+      if (typeof d.isFollowedByCurrentUser === "boolean") {
+        setIsFollowed(d.isFollowedByCurrentUser)
       }
     } catch {
       // ignore
     }
-  }, [topic.id, isLoggedIn])
+  }, [topic.id, refreshTrigger])
 
   useEffect(() => {
-    if (topic.isFollowedByCurrentUser !== undefined) {
-      setIsFollowed(topic.isFollowedByCurrentUser)
-    } else if (isLoggedIn) {
-      fetchTopicFollowStatus()
-    }
-  }, [topic.id, topic.isFollowedByCurrentUser, isLoggedIn, fetchTopicFollowStatus])
+    void fetchTopicFromApi()
+  }, [topic.id, refreshTrigger, fetchTopicFromApi])
 
   const handleToggleFollow = useCallback(async () => {
     if (!isLoggedIn || isFollowLoading) return
@@ -198,7 +232,7 @@ export function TopicDetail({
     try {
       const params = new URLSearchParams()
       params.set("page", String(pageNum))
-      params.set("pageSize", "10")
+      params.set("pageSize", String(TOPIC_ENTRIES_PAGE_SIZE))
       params.set("sortBy", sortBy)
       if (search.trim()) params.set("search", search.trim())
       const res = await fetch(getApiUrl(`api/Topics/${topic.id}/entries?${params.toString()}`), {
@@ -218,10 +252,35 @@ export function TopicDetail({
   }, [topic.id, search, sortBy])
 
   const searchSortJustChanged = useRef(false)
+  const firstTopicFilterEffect = useRef(true)
+
   useEffect(() => {
+    firstTopicFilterEffect.current = true
+    pendingPageFromNavigationRef.current = null
+  }, [topic.id])
+
+  useEffect(() => {
+    if (firstTopicFilterEffect.current) {
+      firstTopicFilterEffect.current = false
+      return
+    }
+    pendingPageFromNavigationRef.current = 1
     setPage(1)
     searchSortJustChanged.current = true
+    onEntriesPageUrlChangeRef.current(1)
   }, [topic.id, search, sortBy])
+
+  useEffect(() => {
+    const pending = pendingPageFromNavigationRef.current
+    if (pending !== null) {
+      if (entriesPageFromUrl === pending) {
+        pendingPageFromNavigationRef.current = null
+        setPage(entriesPageFromUrl)
+      }
+      return
+    }
+    setPage(entriesPageFromUrl)
+  }, [topic.id, entriesPageFromUrl])
 
   useEffect(() => {
     const pageToFetch = searchSortJustChanged.current ? 1 : page
@@ -235,30 +294,87 @@ export function TopicDetail({
     return () => clearTimeout(t)
   }, [searchInput])
 
+  useEffect(() => {
+    if (entries && entries.length > 0 && typeof window !== "undefined") {
+      if (sessionStorage.getItem("scrollToNewEntry") === "true") {
+        // Flag'i hemen sil; 300ms içinde entries tekrar güncellenirse ikinci scroll tetiklenmez
+        sessionStorage.removeItem("scrollToNewEntry")
+        const t = window.setTimeout(() => {
+          document.getElementById("bottom-of-entries")?.scrollIntoView({ behavior: "smooth" })
+        }, 300)
+        return () => window.clearTimeout(t)
+      }
+    }
+  }, [entries])
+
+  /** Bildirim / paylaşım derin linki: `/?topic=...#entry-{id}` — yüklendikten sonra ilgili entry'ye kaydır. */
+  useEffect(() => {
+    if (typeof window === "undefined" || entriesLoading) return
+    const hash = window.location.hash
+    if (!hash.startsWith("#entry-")) return
+    const id = hash.slice(1)
+    const el = document.getElementById(id)
+    if (!el) return
+    const t = window.setTimeout(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "center" })
+    }, 100)
+    return () => window.clearTimeout(t)
+  }, [entries, entriesLoading, topic.id])
+
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") setSearch(searchInput.trim())
   }
 
   const handlePageChange = (newPage: number) => {
-    if (newPage < 1 || newPage > totalPages) return
+    if (newPage < 1 || newPage > totalPages || newPage === page) return
+    pendingPageFromNavigationRef.current = newPage
     setPage(newPage)
-    entriesContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    onEntriesPageUrlChange(newPage)
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        document.getElementById("topic-top-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })
+      }, 0)
+    }
   }
+
+  const mergedTopic: Topic = {
+    ...topic,
+    ...topicDetail,
+    title: topicDetail.title ?? topic.title,
+    entryCount: topicDetail.entryCount ?? topic.entryCount,
+  }
+
+  const topicOpenedLabel = (() => {
+    const raw = mergedTopic.createdAt
+    if (!raw) return null
+    try {
+      return new Date(raw).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })
+    } catch {
+      return null
+    }
+  })()
+
+  const topicAuthorDisplay =
+    (mergedTopic.authorUsername || mergedTopic.authorName || "").trim() || "Yazar"
 
   const canManage =
     !!currentUser &&
-    topic.authorId &&
-    currentUser.id === topic.authorId &&
+    (mergedTopic.isTopicOwner === true ||
+      (!!mergedTopic.authorId && currentUser.id === mergedTopic.authorId)) &&
     entries.every((e) => e.author.id === currentUser.id)
 
   useEffect(() => {
-    setEditTitle(topic.title)
-  }, [topic.id, topic.title])
+    setEditTitle(mergedTopic.title)
+  }, [topic.id, mergedTopic.title])
 
   const handleEditTopic = async () => {
-    const trimmed = editTitle.trim()
+    const trimmed = normalizeTopicTitleForApi(editTitle)
     if (!trimmed) {
       setEditError("Başlık boş olamaz.")
+      return
+    }
+    if (trimmed.length > TOPIC_TITLE_MAX_LENGTH) {
+      setEditError(`Başlık en fazla ${TOPIC_TITLE_MAX_LENGTH} karakter olabilir.`)
       return
     }
     setIsEditSaving(true)
@@ -337,7 +453,7 @@ export function TopicDetail({
   const handleAdminRenameTopic = async () => {
     const trimmed = adminRenameTitle.trim()
     if (!trimmed) { setAdminRenameError("Başlık boş olamaz."); return }
-    if (trimmed.length > 54) { setAdminRenameError("Başlık 54 karakteri geçemez."); return }
+    if (trimmed.length > 60) { setAdminRenameError("Başlık en fazla 60 karakter olabilir."); return }
     setIsAdminRenameSaving(true)
     setAdminRenameError(null)
     try {
@@ -401,56 +517,136 @@ export function TopicDetail({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-w-0 w-full max-w-full">
+      <div id="topic-top-anchor" aria-hidden="true" />
       {/* Header */}
-      <div className="flex items-center gap-3 pb-4 border-b border-border mb-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onBack}
-          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+      <div className="pb-5 border-b border-border mb-6">
+        {/* Geri butonu */}
+        <div className="flex items-center mb-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onBack}
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Başlık – 1. sayfaya Link; metin seçiliyken tıklamada navigasyon yok */}
+        <Link
+          href={`/?topic=${topic.id}&page=1`}
+          scroll={false}
+          className="select-text block w-full min-w-0 max-w-full text-center my-4 px-2 text-inherit no-underline hover:no-underline"
+          onPointerDown={(e) => {
+            titleLinkPointerStartRef.current = { x: e.clientX, y: e.clientY }
+          }}
+          onClick={(e) => {
+            if (typeof window === "undefined") return
+            const start = titleLinkPointerStartRef.current
+            titleLinkPointerStartRef.current = null
+            if (start) {
+              const dx = Math.abs(e.clientX - start.x)
+              const dy = Math.abs(e.clientY - start.y)
+              if (dx > 5 || dy > 5) {
+                e.preventDefault()
+                return
+              }
+            }
+            const sel = window.getSelection()?.toString() ?? ""
+            if (sel.trim().length > 0) e.preventDefault()
+          }}
         >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start gap-2 min-w-0 flex-1">
-            <button
-              type="button"
-              onClick={() => {
-                router.push(`/?topic=${topic.id}&page=1`)
-                setPage(1)
-                entriesContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-              }}
-              className="text-xl font-semibold text-foreground break-all hyphens-auto whitespace-pre-wrap min-w-0 hover:underline underline-offset-2 text-left"
-            >
-              {topic.title}
-            </button>
-            {canManage && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => { setIsEditOpen(true); setEditError(null) }}>
-                    <Pencil className="h-4 w-4" />
-                    Düzenle
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => { setIsDeleteOpen(true); setDeleteError(null) }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Sil
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+          <h1 className="select-text w-full min-w-0 max-w-full text-center text-3xl md:text-4xl font-bold tracking-tight text-slate-200 dark:text-slate-300 break-words hyphens-auto whitespace-pre-wrap leading-tight">
+            {mergedTopic.title}
+          </h1>
+        </Link>
+
+        {/* Aksiyon çubuğu: Sol ↔ Sağ */}
+        <div className="flex justify-between items-center w-full mt-3 gap-2">
+          {/* Sol: Entry sayısı + Takip Et */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+              {mergedTopic.entryCount} entry
+            </span>
+            {isLoggedIn && (
+              <Button
+                size="sm"
+                onClick={handleToggleFollow}
+                disabled={isFollowLoading}
+                className="h-7 px-2.5 text-xs gap-1.5 bg-[#2c64f6] hover:bg-[#2c64f6]/90 text-white border-0"
+              >
+                {isFollowed ? (
+                  <>
+                    <BellOff className="h-3.5 w-3.5" />
+                    Takipten Çık
+                  </>
+                ) : (
+                  <>
+                    <Bell className="h-3.5 w-3.5" />
+                    Takip Et
+                  </>
+                )}
+              </Button>
             )}
+          </div>
+
+          {/* Sağ: soldan sağa — Nick+Avatar | Tarih | Paylaş | (Admin) | Üç nokta (en sağ) */}
+          <div className="flex flex-wrap items-center justify-end gap-x-1.5 gap-y-1 min-w-0">
+            {(mergedTopic.authorId || mergedTopic.isAnonymous) && (
+              <span className="flex items-center gap-1.5 min-w-0 max-w-[320px]">
+                <span className="shrink-0">
+                  {mergedTopic.isAnonymous ? (
+                    <Avatar className="h-5 w-5">
+                      <AvatarFallback className="bg-muted text-muted-foreground text-[10px]">
+                        <User className="h-3 w-3" />
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : mergedTopic.authorAvatar?.startsWith("http") ? (
+                    <img
+                      src={mergedTopic.authorAvatar}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      className="h-5 w-5 rounded-full object-cover border border-border/60"
+                    />
+                  ) : mergedTopic.authorAvatar ? (
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary/80 text-sm border border-border/60 leading-none">
+                      {mergedTopic.authorAvatar}
+                    </span>
+                  ) : (
+                    <Avatar className="h-5 w-5">
+                      <AvatarFallback className="bg-muted text-muted-foreground text-[10px]">
+                        {(topicAuthorDisplay.charAt(0) || "?").toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                </span>
+                {mergedTopic.isAnonymous ? (
+                  <span className="font-bold text-foreground max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap inline-block">Anonim</span>
+                ) : mergedTopic.authorId ? (
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/user/${mergedTopic.authorId}`)}
+                    className="font-bold text-foreground hover:underline underline-offset-2 max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap inline-block min-w-0 text-left"
+                  >
+                    {topicAuthorDisplay}
+                  </button>
+                ) : null}
+              </span>
+            )}
+
+            {topicOpenedLabel && (
+              <span className="text-muted-foreground text-sm whitespace-nowrap shrink-0">
+                {topicOpenedLabel}
+              </span>
+            )}
+
+            <ShareMenu
+              url={`${getSiteUrl()}/?topic=${topic.id}`}
+              title={`${mergedTopic.title} | Tespit Sözlük`}
+            />
+
+            {/* Admin menüsü — üç noktanın solunda */}
             {isAdmin && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -469,7 +665,7 @@ export function TopicDetail({
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onClick={() => { setAdminRenameTitle(topic.title); setAdminRenameError(null); setIsAdminRenameOpen(true) }}
+                    onClick={() => { setAdminRenameTitle(mergedTopic.title); setAdminRenameError(null); setIsAdminRenameOpen(true) }}
                   >
                     <Pencil className="h-4 w-4" />
                     İsmi Değiştir
@@ -478,7 +674,7 @@ export function TopicDetail({
                     onClick={() => { setAdminMoveTargetId(""); setAdminMoveError(null); setIsAdminMoveOpen(true) }}
                   >
                     <FolderOutput className="h-4 w-4" />
-                    Entry'leri Taşı
+                    Entry&apos;leri Taşı
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -491,43 +687,48 @@ export function TopicDetail({
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-          </div>
-          <div className="flex items-center gap-3 mt-1">
-            <p className="text-sm text-muted-foreground">{topic.entryCount} entry</p>
-            <ShareMenu
-              url={`${getSiteUrl()}/?topic=${topic.id}`}
-              title={`${topic.title} | Tespit Sözlük`}
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsReportOpen(true)}
-              className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-              aria-label="Şikayet et"
-            >
-              <Flag className="h-4 w-4" />
-            </Button>
-            {isLoggedIn && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleToggleFollow}
-                disabled={isFollowLoading}
-                className="h-7 px-2.5 text-xs gap-1.5"
-              >
-                {isFollowed ? (
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                  aria-label="Başlık seçenekleri"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={() => setIsReportOpen(true)}
+                >
+                  <Flag className="h-4 w-4" />
+                  Şikayet Et
+                </DropdownMenuItem>
+                {canManage && (
                   <>
-                    <BellOff className="h-3.5 w-3.5" />
-                    Takipten Çık
-                  </>
-                ) : (
-                  <>
-                    <Bell className="h-3.5 w-3.5" />
-                    Takip Et
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="cursor-pointer"
+                      onClick={() => { setIsEditOpen(true); setEditError(null) }}
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Düzenle
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      variant="destructive"
+                      className="cursor-pointer"
+                      onClick={() => { setIsDeleteOpen(true); setDeleteError(null) }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Sil
+                    </DropdownMenuItem>
                   </>
                 )}
-              </Button>
-            )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
@@ -545,8 +746,8 @@ export function TopicDetail({
         onClose={() => setIsAdminDeleteOpen(false)}
         onConfirm={handleAdminDeleteTopic}
         title="Başlığı Kalıcı Sil"
-        warningText={`"${topic.title}" başlığı ve altındaki TÜM entry'ler veritabanından kalıcı olarak silinecek.`}
-        expectedText={topic.title}
+        warningText={`"${mergedTopic.title}" başlığı ve altındaki TÜM entry'ler veritabanından kalıcı olarak silinecek.`}
+        expectedText={mergedTopic.title}
         confirmLabel="Başlığı ve Entry'leri Sil"
         isLoading={isAdminDeleting}
       />
@@ -563,12 +764,12 @@ export function TopicDetail({
           <div className="space-y-2">
             <Input
               value={adminRenameTitle}
-              onChange={(e) => setAdminRenameTitle(e.target.value.slice(0, 54))}
+              onChange={(e) => setAdminRenameTitle(e.target.value.slice(0, 60))}
               placeholder="Yeni başlık adı..."
-              maxLength={54}
+              maxLength={60}
               autoFocus
             />
-            <span className="text-xs text-muted-foreground">{adminRenameTitle.length}/54</span>
+            <span className="text-xs text-muted-foreground">{adminRenameTitle.length}/60</span>
             {adminRenameError && <p className="text-sm text-destructive">{adminRenameError}</p>}
           </div>
           <DialogFooter>
@@ -600,7 +801,7 @@ export function TopicDetail({
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              <strong>&quot;{topic.title}&quot;</strong> başlığındaki tüm entry&apos;ler seçilen başlığa taşınacak, bu başlık silinecek.
+              <strong>&quot;{mergedTopic.title}&quot;</strong> başlığındaki tüm entry&apos;ler seçilen başlığa taşınacak, bu başlık silinecek.
             </p>
             <div className="space-y-1.5 relative">
               <label className="text-sm font-medium">Hedef Başlık Adı</label>
@@ -664,18 +865,26 @@ export function TopicDetail({
 
       {/* Edit Topic Dialog */}
       <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) setEditError(null) }}>
-        <DialogContent>
+        <DialogContent
+          className={cn(
+            "w-full max-w-[calc(100%-2rem)] min-w-0 overflow-x-hidden p-5 gap-4",
+            FEED_COLUMN_MAX_WIDTH_CLASS
+          )}
+        >
           <DialogHeader>
             <DialogTitle>Başlığı Düzenle</DialogTitle>
           </DialogHeader>
-          <div className="space-y-2">
-            <Input
+          <div className="min-w-0 max-w-full space-y-2 overflow-x-hidden">
+            <Textarea
               value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value.slice(0, 54))}
+              onChange={(e) => setEditTitle(clampTopicTitleRaw(e.target.value))}
               placeholder="Başlık adı..."
-              maxLength={54}
+              rows={2}
+              className="w-full min-w-0 max-w-[30ch] overflow-x-hidden whitespace-pre-wrap break-words hyphens-auto resize-none min-h-10 py-2 text-base md:text-base field-sizing-content"
             />
-            <span className="text-xs text-muted-foreground">{editTitle.length}/54</span>
+            <span className="text-xs text-muted-foreground">
+              {normalizeTopicTitleForApi(editTitle).length}/{TOPIC_TITLE_MAX_LENGTH}
+            </span>
             {editError && <p className="text-sm text-destructive">{editError}</p>}
           </div>
           <DialogFooter>
@@ -730,9 +939,9 @@ export function TopicDetail({
           <SelectContent>
             <SelectItem value="oldest">İlk Girilen</SelectItem>
             <SelectItem value="newest">Son Girilen</SelectItem>
-            <SelectItem value="most_liked">En Çok Beğenilen</SelectItem>
-            <SelectItem value="most_disliked">En Çok Beğenilmeyen</SelectItem>
-            <SelectItem value="most_saved">En Çok Kaydedilen</SelectItem>
+            <SelectItem value="most_liked">En çok kalp alan</SelectItem>
+            <SelectItem value="most_disliked">En çok ayak alan</SelectItem>
+            <SelectItem value="most_saved">En çok çivilenen</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -751,7 +960,6 @@ export function TopicDetail({
                 searchTerm={search.trim() || undefined}
                 isLoggedIn={isLoggedIn}
                 onLoginClick={onLoginClick}
-                onVoteSuccess={onVoteSuccess}
                 currentUser={currentUser ? { id: currentUser.id, role: currentUser.role } : null}
                 onEntryChange={onTopicChange}
               />
@@ -762,6 +970,8 @@ export function TopicDetail({
             </div>
           )}
         </div>
+        {/* Scroll hedefi: yeni entry gönderiminden sonra buraya scrollIntoView yapılır */}
+        <div id="bottom-of-entries" />
 
         {/* Classic Pagination */}
         {!entriesLoading && totalPages > 1 && (

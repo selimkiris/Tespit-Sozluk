@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TespitSozluk.API.Data;
 using TespitSozluk.API.Entities;
+using TespitSozluk.API.Services;
 
 namespace TespitSozluk.API.Controllers;
 
@@ -14,10 +15,12 @@ namespace TespitSozluk.API.Controllers;
 public class AdminController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly IEntryDeletionService _entryDeletionService;
 
-    public AdminController(AppDbContext context)
+    public AdminController(AppDbContext context, IEntryDeletionService entryDeletionService)
     {
         _context = context;
+        _entryDeletionService = entryDeletionService;
     }
 
     // ─────────────────────────────────────────────
@@ -31,8 +34,7 @@ public class AdminController : ControllerBase
         var entry = await _context.Entries.FindAsync(entryId);
         if (entry is null) return NotFound("Entry bulunamadı.");
 
-        _context.Entries.Remove(entry);
-        await _context.SaveChangesAsync();
+        await _entryDeletionService.DeleteEntryAndPruneEmptyTopicAsync(entry);
         return Ok("Entry kalıcı olarak silindi.");
     }
 
@@ -62,8 +64,8 @@ public class AdminController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.NewTitle))
             return BadRequest("Yeni başlık adı boş olamaz.");
 
-        if (request.NewTitle.Length > 54)
-            return BadRequest("Başlık 54 karakteri geçemez.");
+        if (request.NewTitle.Length > 60)
+            return BadRequest("Başlık en fazla 60 karakter olabilir.");
 
         var topic = await _context.Topics.FindAsync(topicId);
         if (topic is null) return NotFound("Başlık bulunamadı.");
@@ -108,10 +110,12 @@ public class AdminController : ControllerBase
 
         // Kaynak başlık silinmeden önce etkilenen yazarlara bildirim gönder
         var adminId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var encodedSourceTitle = WebUtility.HtmlEncode(sourceTopic.Title);
+        var encodedTargetTitle = WebUtility.HtmlEncode(targetTopic.Title);
         var systemAlertHtml = $"""
             <div class="system-alert text-sm text-gray-700">
               <p><strong>Sistem Bilgilendirmesi:</strong></p>
-              <p>Entry girdiğiniz <strong>"{sourceTopic.Title}"</strong> başlığı, <a href="/?topic={targetTopicId}" class="text-blue-500 underline font-medium">"{targetTopic.Title}"</a> başlığı ile birleştirilmiş ve eski başlık silinmiştir. Entry'leriniz yeni başlığa başarıyla taşındı.</p>
+              <p>Entry girdiğiniz <strong>"{encodedSourceTitle}"</strong> başlığı, <a href="/?topic={targetTopicId}" class="text-blue-500 underline font-medium">"{encodedTargetTitle}"</a> başlığı ile birleştirilmiş ve eski başlık silinmiştir. Entry'leriniz yeni başlığa başarıyla taşındı.</p>
             </div>
             """;
 

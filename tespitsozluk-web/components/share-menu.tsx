@@ -17,6 +17,8 @@ interface ShareMenuProps {
   className?: string
   variant?: "default" | "ghost"
   size?: "default" | "sm" | "icon"
+  /** Tarayıcı yerleşik tooltip için title attribute */
+  tooltipTitle?: string
 }
 
 export function ShareMenu({
@@ -25,6 +27,7 @@ export function ShareMenu({
   className,
   variant = "ghost",
   size = "icon",
+  tooltipTitle,
 }: ShareMenuProps) {
   const [copied, setCopied] = useState(false)
   const canNativeShare = typeof navigator !== "undefined" && !!navigator.share
@@ -77,6 +80,7 @@ export function ShareMenu({
           size={size}
           className={`text-muted-foreground hover:text-foreground ${className ?? ""}`}
           aria-label="Paylaş"
+          title={tooltipTitle}
         >
           <Share2 className="h-4 w-4" />
         </Button>

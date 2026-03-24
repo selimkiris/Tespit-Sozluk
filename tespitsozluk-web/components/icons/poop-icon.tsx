@@ -3,27 +3,44 @@ interface PoopIconProps {
   className?: string
 }
 
+/**
+ * Çıplak Ayak ikonu — plantar (alt) görünümünden çizilmiş.
+ * Bir ayak tabanı + 5 ayrı parmak noktası içerir.
+ * "Basma / ezme" hissiyatını net verir.
+ */
 export function PoopIcon({ filled = false, className }: PoopIconProps) {
+  const f = filled ? "currentColor" : "none"
+
   return (
     <svg
       width="16"
       height="16"
       viewBox="0 0 24 24"
-      fill={filled ? "currentColor" : "none"}
+      fill="none"
       stroke="currentColor"
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
+      aria-hidden="true"
     >
-      {/* Main poop swirl body */}
-      <path d="M12 3c-1.5 0-2.5 1-2.5 2.5 0 .5.1 1 .3 1.4C8.3 7.3 7 8.8 7 10.5c0 .6.1 1.1.3 1.6C5.8 12.6 5 14 5 15.5 5 18 7 20 10 20.5c.6.1 1.3.2 2 .2s1.4-.1 2-.2c3-.5 5-2.5 5-5 0-1.5-.8-2.9-2.3-3.4.2-.5.3-1 .3-1.6 0-1.7-1.3-3.2-2.8-3.6.2-.4.3-.9.3-1.4C14.5 4 13.5 3 12 3z" />
-      {/* Left eye */}
-      <circle cx="9.5" cy="14" r="1" fill="currentColor" />
-      {/* Right eye */}
-      <circle cx="14.5" cy="14" r="1" fill="currentColor" />
-      {/* Cute smile */}
-      <path d="M10 17c.5.5 1.2.8 2 .8s1.5-.3 2-.8" fill="none" />
+      {/* Ayak tabanı — topuk altta, parmak bölgesi üstte */}
+      <path
+        d="M12 21.5 C9 21.5 7 19.5 7 16.5 C7 13.5 8 11.5 10 10 L14 10 C16 11.5 17 13.5 17 16.5 C17 19.5 15 21.5 12 21.5 Z"
+        fill={f}
+        strokeLinejoin="round"
+      />
+
+      {/* Büyük parmak (en solda, en iri) */}
+      <circle cx="8.2" cy="8.2" r="1.8" fill={f} />
+      {/* İşaret parmağı */}
+      <circle cx="11" cy="6.8" r="1.5" fill={f} />
+      {/* Orta parmak */}
+      <circle cx="13.7" cy="6.8" r="1.4" fill={f} />
+      {/* Yüzük parmağı */}
+      <circle cx="16" cy="7.8" r="1.2" fill={f} />
+      {/* Serçe parmak (en sağda, en küçük) */}
+      <circle cx="17.6" cy="9.5" r="1" fill={f} />
     </svg>
   )
 }

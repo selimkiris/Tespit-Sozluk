@@ -1,10 +1,17 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
-import { Search, Moon, Sun, Menu, X, Hash, User, Bell, Settings, ShieldAlert } from "lucide-react"
+import { useState, useEffect, useRef, useCallback, type MouseEvent as ReactMouseEvent } from "react"
+import Link from "next/link"
+import { Search, Menu, X, Hash, User, Bell, Settings, ShieldAlert, Info } from "lucide-react"
 import DOMPurify from "isomorphic-dompurify"
 import { getApiUrl, getAuthHeaders } from "@/lib/api"
-import { useTheme } from "next-themes"
+import {
+  mapNotificationFromApi,
+  isHtmlNotificationType,
+  NotificationType,
+  formatNotificationTime,
+  type NotificationItem,
+} from "@/lib/notification-types"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -20,6 +27,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { SettingsDialog } from "@/components/settings-dialog"
+import { toast } from "sonner"
+
+const NAVBAR_LIST_FETCH_ERROR =
+  "Tüh! Verileri yolda düşürdük galiba... Sayfayı yenileyip tekrar dener misin?"
 
 type SearchTopic = { id: string; title: string }
 type SearchUser = { id: string; name: string }
@@ -44,6 +55,25 @@ interface NavbarProps {
   onTopicSelect?: (topicId: string) => void
   onUserSelect?: (userId: string, userName?: string) => void
   onUserUpdate?: (updates: { avatar?: string; name?: string; nickname?: string }) => void
+  accentColor?: string
+}
+
+const ACCENT_RGB: Record<string, string> = {
+  "#f28f35": "242,143,53",
+  "#55d197": "85,209,151",
+  "#2c64f6": "44,100,246",
+}
+
+const NAVBAR_BORDER_ALPHA: Record<string, number> = {
+  "#f28f35": 0.15,
+  "#55d197": 0.15,
+  "#2c64f6": 0.3,
+}
+
+const NAVBAR_SHADOW_ALPHA: Record<string, number> = {
+  "#f28f35": 0.02,
+  "#55d197": 0.02,
+  "#2c64f6": 0.05,
 }
 
 export function Navbar({
@@ -60,8 +90,11 @@ export function Navbar({
   onTopicSelect,
   onUserSelect,
   onUserUpdate,
+  accentColor = "#2c64f6",
 }: NavbarProps) {
-  const { theme, setTheme } = useTheme()
+  const accentRgb = ACCENT_RGB[accentColor] ?? "44,100,246"
+  const navbarBorderAlpha = NAVBAR_BORDER_ALPHA[accentColor] ?? 0.3
+  const navbarShadowAlpha = NAVBAR_SHADOW_ALPHA[accentColor] ?? 0.05
   const [showSettingsDialog, setShowSettingsDialog] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedQuery, setDebouncedQuery] = useState("")
@@ -70,7 +103,7 @@ export function Navbar({
   const [isSearchLoading, setIsSearchLoading] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [adminUnreadReports, setAdminUnreadReports] = useState(0)
-  const [notifications, setNotifications] = useState<{ id: string; senderName: string; type: string; message: string; isRead: boolean; createdAt: string }[]>([])
+  const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   const [notificationsLoading, setNotificationsLoading] = useState(false)
   const desktopSearchRef = useRef<HTMLDivElement>(null)
@@ -89,12 +122,18 @@ export function Navbar({
     setIsSearchLoading(true)
     try {
       const res = await fetch(getApiUrl(`api/Search?q=${encodeURIComponent(q)}`))
+      if (!res.ok) {
+        toast.error(NAVBAR_LIST_FETCH_ERROR)
+        setSearchResults({ topics: [], users: [] })
+        return
+      }
       const data = await res.json().catch(() => ({}))
       setSearchResults({
         topics: (data.topics ?? []).map((t: { id: string; title: string }) => ({ id: String(t.id), title: t.title ?? "" })),
         users: (data.users ?? []).map((u: { id: string; name: string }) => ({ id: String(u.id), name: u.name ?? "" })),
       })
     } catch {
+      toast.error(NAVBAR_LIST_FETCH_ERROR)
       setSearchResults({ topics: [], users: [] })
     } finally {
       setIsSearchLoading(false)
@@ -167,18 +206,21 @@ export function Navbar({
     setNotificationsLoading(true)
     try {
       const res = await fetch(getApiUrl("api/Notifications"), { headers: getAuthHeaders() })
-      if (res.ok) {
-        const data = await res.json()
-        setNotifications(Array.isArray(data) ? data.map((n: { id: string; senderName: string; type: string; message: string; isRead: boolean; createdAt: string }) => ({
-          id: String(n.id),
-          senderName: n.senderName ?? "",
-          type: n.type ?? "",
-          message: n.message ?? "",
-          isRead: n.isRead ?? false,
-          createdAt: n.createdAt ?? "",
-        })) : [])
+      if (!res.ok) {
+        toast.error(NAVBAR_LIST_FETCH_ERROR)
+        setNotifications([])
+        return
       }
+      const data = await res.json()
+      setNotifications(
+        Array.isArray(data)
+          ? (data as unknown[])
+              .map(mapNotificationFromApi)
+              .filter((x): x is NotificationItem => x != null)
+          : []
+      )
     } catch {
+      toast.error(NAVBAR_LIST_FETCH_ERROR)
       setNotifications([])
     } finally {
       setNotificationsLoading(false)
@@ -195,12 +237,27 @@ export function Navbar({
     else setAdminUnreadReports(0)
   }, [isLoggedIn, user?.role, fetchAdminUnreadReports])
 
-  useEffect(() => {
-    if (isNotificationsOpen && isLoggedIn) {
-      fetchNotifications()
-      fetchUnreadCount()
+  const markAllNotificationsReadAndRefresh = useCallback(async () => {
+    if (!isLoggedIn) return
+    try {
+      const res = await fetch(getApiUrl("api/Notifications/mark-all-read"), {
+        method: "PUT",
+        headers: getAuthHeaders(),
+      })
+      if (res.ok) setUnreadCount(0)
+    } catch {
+      // ignore
     }
-  }, [isNotificationsOpen, isLoggedIn, fetchNotifications, fetchUnreadCount])
+    await fetchNotifications()
+  }, [isLoggedIn, fetchNotifications])
+
+  const handleNotificationsOpenChange = useCallback(
+    (open: boolean) => {
+      setIsNotificationsOpen(open)
+      if (open && isLoggedIn) void markAllNotificationsReadAndRefresh()
+    },
+    [isLoggedIn, markAllNotificationsReadAndRefresh]
+  )
 
   const handleMarkAsRead = useCallback(async (id: string) => {
     try {
@@ -217,6 +274,10 @@ export function Navbar({
     }
   }, [])
 
+  const closeNotificationsMenu = useCallback(() => {
+    setIsNotificationsOpen(false)
+  }, [])
+
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -226,10 +287,19 @@ export function Navbar({
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header
+      className="fixed top-0 left-0 right-0 z-50 flex flex-col border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+      style={{
+        backgroundColor: "#252728",
+        borderBottomColor: `rgba(${accentRgb},${navbarBorderAlpha})`,
+        boxShadow: `0 4px 15px -5px rgba(${accentRgb},${navbarShadowAlpha})`,
+        transition: "border-bottom-color 0.4s ease, box-shadow 0.4s ease",
+      }}
+    >
+      {/* Ana toolbar: h-14 = 3.5rem (56px) */}
       <div className="flex h-14 items-center justify-between px-4 lg:px-6">
         {/* Left: Logo + Mobile Menu */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 self-stretch">
           <button
             onClick={onMenuClick}
             className="lg:hidden p-1.5 -ml-1.5 text-muted-foreground hover:text-foreground transition-colors"
@@ -239,17 +309,21 @@ export function Navbar({
           </button>
           <button
             onClick={onHomeClick}
-            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            className="flex h-full items-center hover:opacity-80 transition-opacity ml-9 lg:ml-10"
           >
-            <span className="text-lg font-semibold tracking-tight text-foreground">
-              Tespit Sözlük
+            <span className="inline-flex h-full max-h-full items-center dark:invert">
+              <img
+                src="/marka.svg"
+                alt="Tespit Sözlük"
+                className="h-11 w-auto"
+              />
             </span>
           </button>
         </div>
 
         {/* Center: Search + All Topics */}
         <div className="hidden md:flex flex-1 max-w-xl mx-4 lg:mx-8 items-center gap-3">
-          <div ref={desktopSearchRef} className="relative flex-1">
+          <div ref={desktopSearchRef} className="relative flex-1 rounded-lg border border-transparent focus-within:border-[#2c64f6] focus-within:ring-1 focus-within:ring-[#2c64f6] transition-all duration-200">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
@@ -257,7 +331,7 @@ export function Navbar({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => debouncedQuery.length >= 2 && setIsSearchOpen(true)}
-              className="w-full h-9 pl-9 pr-4 bg-secondary/50 border-0 rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 transition-all"
+              className="w-full h-9 pl-9 pr-4 bg-secondary/50 border-0 rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none transition-all"
             />
             {isSearchOpen && debouncedQuery.length >= 2 && (
               <div className="absolute top-full left-0 right-0 mt-1 py-2 bg-popover border border-border rounded-lg shadow-lg z-[100] max-h-80 overflow-y-auto">
@@ -292,7 +366,7 @@ export function Navbar({
                             className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm rounded-md hover:bg-accent transition-colors"
                           >
                             <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="truncate">{u.name || "İsimsiz"}</span>
+                            <span className="max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap inline-block">{u.name || "İsimsiz"}</span>
                           </button>
                         ))}
                       </div>
@@ -303,10 +377,10 @@ export function Navbar({
             )}
           </div>
           <Button
-            variant="ghost"
+            variant="secondary"
             size="sm"
             onClick={onAllTopicsClick}
-            className="whitespace-nowrap text-muted-foreground hover:text-foreground h-9 px-3 text-sm shrink-0"
+            className="whitespace-nowrap shrink-0 h-9 px-3 text-sm font-medium"
           >
             Tüm Başlıklar
           </Button>
@@ -314,24 +388,13 @@ export function Navbar({
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="h-9 w-9 text-muted-foreground hover:text-foreground"
-          >
-            <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-            <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-            <span className="sr-only">Tema değiştir</span>
-          </Button>
-
           {isLoggedIn && user?.role !== "Admin" && (
-            <Popover open={isNotificationsOpen} onOpenChange={setIsNotificationsOpen}>
+            <Popover open={isNotificationsOpen} onOpenChange={handleNotificationsOpenChange}>
               <PopoverTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="relative h-9 w-9 text-muted-foreground hover:text-foreground"
+                  className="relative h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-[#3a3b3c] rounded-full transition-colors duration-200"
                 >
                   <Bell className="h-4 w-4" />
                   {unreadCount > 0 && adminUnreadReports === 0 && (
@@ -358,7 +421,12 @@ export function Navbar({
                     <div className="px-4 py-6 text-center text-sm text-muted-foreground">Bildirim yok</div>
                   ) : (
                     notifications.map((n) => {
-                      const isHtmlType = n.type === "OfficialWarning" || n.type === "AdminMessage" || n.type === "SystemAlert"
+                      const isHtmlType = isHtmlNotificationType(n.type)
+                      const timeLabel = formatNotificationTime(n.createdAt)
+                      const timeRow =
+                        timeLabel !== "" ? (
+                          <p className="text-xs text-muted-foreground/60 italic mt-1 tabular-nums">{timeLabel}</p>
+                        ) : null
 
                       if (isHtmlType) {
                         const badgeConfig = {
@@ -371,10 +439,10 @@ export function Navbar({
                             label: "RESMİ UYARI",
                           },
                           AdminMessage: {
-                            bg: "bg-blue-500/15 border-blue-500/25",
-                            text: "text-blue-600 dark:text-blue-400",
-                            dot: "bg-blue-500",
-                            unreadBg: "bg-blue-500/5",
+                            bg: "bg-[#323336] border border-[#3a3b3c]",
+                            text: "text-[#e4e6eb] font-semibold",
+                            dot: "bg-[#2c64f6]",
+                            unreadBg: "",
                             icon: <ShieldAlert className="h-2.5 w-2.5" />,
                             label: "YÖNETİM MESAJI",
                           },
@@ -388,21 +456,50 @@ export function Navbar({
                           },
                         } as const
                         const cfg = badgeConfig[n.type as keyof typeof badgeConfig]
+                        const isOfficialWarning = n.type === NotificationType.OfficialWarning
+                        const isAdminMessage = n.type === NotificationType.AdminMessage
+                        const htmlBodyClass =
+                          "text-xs leading-relaxed [&_strong]:font-semibold [&_p]:mb-1 [&_p:last-child]:mb-0 " +
+                          (isAdminMessage
+                            ? "text-[#b0b3b8] [&_*]:!text-[#b0b3b8] [&_p.font-bold]:!text-[#2c64f6] [&_p.font-bold]:!font-semibold [&_a]:!text-[#2c64f6] [&_a]:underline [&_a:hover]:!text-[#4d7ef7] [&_.admin-message]:!bg-transparent [&_.admin-message]:!border-0 [&_.admin-message]:!border-l-0 [&_.admin-message]:!p-0 [&_.admin-message]:!rounded-none"
+                            : "text-foreground [&_a]:text-blue-500 dark:[&_a]:text-blue-400 [&_a]:underline [&_a:hover]:text-blue-400 [&_strong]:text-foreground")
+
+                        const timeRowForHtml =
+                          isAdminMessage && timeLabel !== "" ? (
+                            <p className="text-xs text-[#8a8d91]/60 italic mt-1 tabular-nums">{timeLabel}</p>
+                          ) : (
+                            timeRow
+                          )
 
                         return (
                           <div
                             key={n.id}
-                            onClick={() => !n.isRead && handleMarkAsRead(n.id)}
-                            className={`w-full flex flex-col gap-1 px-3 py-3 cursor-pointer hover:bg-accent transition-colors border-b border-border last:border-b-0 ${!n.isRead ? cfg.unreadBg : ""}`}
+                            onClick={() => {
+                              closeNotificationsMenu()
+                              if (!n.isRead) void handleMarkAsRead(n.id)
+                            }}
+                            className={`w-full flex flex-col gap-1 px-3 py-3 cursor-pointer transition-colors border-b last:border-b-0 ${
+                              isAdminMessage
+                                ? `${!n.isRead ? "bg-[#313235]" : "bg-[#2a2b2e]"} border-[#3a3b3c] hover:bg-[#353639]`
+                                : `hover:bg-accent border-border ${!n.isRead ? cfg.unreadBg : ""}`
+                            } ${isOfficialWarning ? "relative" : ""}`}
                           >
-                            <div className="flex items-center gap-1.5">
-                              <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded ${cfg.bg} ${cfg.text} border font-semibold tracking-wide`}>
-                                {cfg.icon} {cfg.label}
-                              </span>
-                              {!n.isRead && <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot} shrink-0`} />}
-                            </div>
+                            {!isOfficialWarning && (
+                              <div className="flex items-center gap-1.5">
+                                <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded ${cfg.bg} ${cfg.text} border font-semibold tracking-wide`}>
+                                  {cfg.icon} {cfg.label}
+                                </span>
+                                {!n.isRead && <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot} shrink-0`} />}
+                              </div>
+                            )}
+                            {isOfficialWarning && !n.isRead && (
+                              <span
+                                className={`absolute top-3 right-3 h-1.5 w-1.5 rounded-full ${cfg.dot} shrink-0 z-10`}
+                                aria-hidden
+                              />
+                            )}
                             <div
-                              className="text-xs text-foreground leading-relaxed [&_a]:text-blue-500 [&_a]:underline [&_a:hover]:text-blue-400 [&_strong]:font-semibold [&_p]:mb-1 [&_p:last-child]:mb-0"
+                              className={htmlBodyClass}
                               dangerouslySetInnerHTML={{
                                 __html: DOMPurify.sanitize(n.message, {
                                   ALLOWED_TAGS: ["div", "p", "strong", "em", "a", "br", "span", "h4", "svg", "path"],
@@ -415,20 +512,218 @@ export function Navbar({
                                 }),
                               }}
                             />
+                            {timeRowForHtml}
+                          </div>
+                        )
+                      }
+
+                      const markReadOnLinkClick = (e: ReactMouseEvent<HTMLAnchorElement>) => {
+                        closeNotificationsMenu()
+                        e.stopPropagation()
+                        if (!n.isRead) void handleMarkAsRead(n.id)
+                      }
+
+                      const userLinkClass =
+                        "font-medium text-[#55d197] hover:underline underline-offset-2"
+                      const inlineEntryLinkClass = "text-foreground font-bold hover:underline"
+
+                      const senderLabel = n.senderName.trim() || "Bir kullanıcı"
+
+                      if (n.type === NotificationType.Follow) {
+                        return (
+                          <div
+                            key={n.id}
+                            role="presentation"
+                            onClick={() => {
+                              closeNotificationsMenu()
+                              if (!n.isRead) void handleMarkAsRead(n.id)
+                            }}
+                            className={`w-full flex flex-col gap-0.5 px-3 py-2.5 text-left cursor-pointer hover:bg-accent transition-colors border-b border-border last:border-b-0 ${!n.isRead ? "bg-accent/50" : ""}`}
+                          >
+                            <p className="text-sm text-foreground leading-snug">
+                              {n.senderId ? (
+                                <Link href={`/user/${n.senderId}`} className={userLinkClass} onClick={markReadOnLinkClick}>
+                                  {senderLabel}
+                                </Link>
+                              ) : (
+                                <span className="font-medium">{senderLabel}</span>
+                              )}{" "}
+                              <span className="text-muted-foreground">seni takip etmeye başladı. Artık hayran kitlen var 🎭</span>
+                            </p>
+                            {timeRow}
+                          </div>
+                        )
+                      }
+
+                      if (n.type === NotificationType.Like) {
+                        return (
+                          <div
+                            key={n.id}
+                            role="presentation"
+                            onClick={() => {
+                              closeNotificationsMenu()
+                              if (!n.isRead) void handleMarkAsRead(n.id)
+                            }}
+                            className={`w-full flex flex-col gap-1 px-3 py-2.5 text-left cursor-pointer hover:bg-accent transition-colors border-b border-border last:border-b-0 ${!n.isRead ? "bg-accent/50" : ""}`}
+                          >
+                            <p className="text-sm text-foreground leading-snug">
+                              {n.senderId ? (
+                                <Link href={`/user/${n.senderId}`} className={userLinkClass} onClick={markReadOnLinkClick}>
+                                  {senderLabel}
+                                </Link>
+                              ) : (
+                                <span className="font-medium">{senderLabel}</span>
+                              )}{" "}
+                              {n.entryId ? (
+                                <>
+                                  <Link
+                                    href={`/entry/${n.entryId}`}
+                                    className={inlineEntryLinkClass}
+                                    onClick={markReadOnLinkClick}
+                                  >
+                                    entrynize
+                                  </Link>{" "}
+                                  kalp bıraktı. Bu insanlar ne okuyacağını biliyor ❤️
+                                </>
+                              ) : (
+                                <span className="text-muted-foreground">{n.message}</span>
+                              )}
+                            </p>
+                            {timeRow}
+                          </div>
+                        )
+                      }
+
+                      if (n.type === NotificationType.Dislike) {
+                        return (
+                          <div
+                            key={n.id}
+                            role="presentation"
+                            onClick={() => {
+                              closeNotificationsMenu()
+                              if (!n.isRead) void handleMarkAsRead(n.id)
+                            }}
+                            className={`w-full flex flex-col gap-1 px-3 py-2.5 text-left cursor-pointer hover:bg-accent transition-colors border-b border-border last:border-b-0 ${!n.isRead ? "bg-accent/50" : ""}`}
+                          >
+                            <p className="text-sm text-foreground leading-snug">
+                              {n.entryId ? (
+                                <>
+                                  Birisi{" "}
+                                  <Link
+                                    href={`/entry/${n.entryId}`}
+                                    className={inlineEntryLinkClass}
+                                    onClick={markReadOnLinkClick}
+                                  >
+                                    entrynize
+                                  </Link>{" "}
+                                  ayak soktu (leş gibi), kim olduğu göremedim 🦶
+                                </>
+                              ) : (
+                                <span className="text-muted-foreground">{n.message}</span>
+                              )}
+                            </p>
+                            {timeRow}
+                          </div>
+                        )
+                      }
+
+                      if (n.type === NotificationType.Save) {
+                        return (
+                          <div
+                            key={n.id}
+                            role="presentation"
+                            onClick={() => {
+                              closeNotificationsMenu()
+                              if (!n.isRead) void handleMarkAsRead(n.id)
+                            }}
+                            className={`w-full flex flex-col gap-1 px-3 py-2.5 text-left cursor-pointer hover:bg-accent transition-colors border-b border-border last:border-b-0 ${!n.isRead ? "bg-accent/50" : ""}`}
+                          >
+                            <p className="text-sm text-foreground leading-snug">
+                              {n.entryId ? (
+                                <>
+                                  Bir{" "}
+                                  <Link
+                                    href={`/entry/${n.entryId}`}
+                                    className={inlineEntryLinkClass}
+                                    onClick={markReadOnLinkClick}
+                                  >
+                                    entryniz
+                                  </Link>{" "}
+                                  gizemli biri tarafından çivilendi. Bu gerçek bir şaheser 🏆
+                                </>
+                              ) : (
+                                <span className="text-muted-foreground">{n.message}</span>
+                              )}
+                            </p>
+                            {timeRow}
+                          </div>
+                        )
+                      }
+
+                      if (n.type === NotificationType.Mention) {
+                        const actorProfileId = (n.actorId || n.senderId).trim()
+                        const entryHref =
+                          n.topicId && n.entryId
+                            ? `/?topic=${n.topicId}#entry-${n.entryId}`
+                            : n.entryId
+                              ? `/entry/${n.entryId}`
+                              : undefined
+
+                        return (
+                          <div
+                            key={n.id}
+                            role="presentation"
+                            onClick={() => {
+                              closeNotificationsMenu()
+                              if (!n.isRead) void handleMarkAsRead(n.id)
+                            }}
+                            className={`w-full flex flex-col gap-0.5 px-3 py-2.5 text-left cursor-pointer hover:bg-accent transition-colors border-b border-border last:border-b-0 ${!n.isRead ? "bg-accent/50" : ""}`}
+                          >
+                            <p className="text-sm text-foreground leading-snug">
+                              {actorProfileId ? (
+                                <Link
+                                  href={`/user/${actorProfileId}`}
+                                  className={userLinkClass}
+                                  onClick={markReadOnLinkClick}
+                                >
+                                  {senderLabel}
+                                </Link>
+                              ) : (
+                                <span className="font-medium">{senderLabel}</span>
+                              )}{" "}
+                              sizi bir{" "}
+                              {entryHref ? (
+                                <Link
+                                  href={entryHref}
+                                  className={inlineEntryLinkClass}
+                                  onClick={markReadOnLinkClick}
+                                >
+                                  entrye
+                                </Link>
+                              ) : (
+                                <span>entrye</span>
+                              )}{" "}
+                              etiketledi, inş hayırlı bir şeydir 📌
+                            </p>
+                            {timeRow}
                           </div>
                         )
                       }
 
                       return (
-                        <button
+                        <div
                           key={n.id}
-                          type="button"
-                          onClick={() => !n.isRead && handleMarkAsRead(n.id)}
-                          className={`w-full flex flex-col gap-0.5 px-3 py-2.5 text-left hover:bg-accent transition-colors border-b border-border last:border-b-0 ${!n.isRead ? "bg-accent/50" : ""}`}
+                          role="presentation"
+                          onClick={() => {
+                            closeNotificationsMenu()
+                            if (!n.isRead) void handleMarkAsRead(n.id)
+                          }}
+                          className={`w-full flex flex-col gap-0.5 px-3 py-2.5 text-left cursor-pointer hover:bg-accent transition-colors border-b border-border last:border-b-0 ${!n.isRead ? "bg-accent/50" : ""}`}
                         >
-                          <p className="text-sm font-medium text-foreground truncate">{n.senderName}</p>
+                          <p className="text-sm font-medium text-foreground max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap">{n.senderName}</p>
                           <p className="text-xs text-muted-foreground line-clamp-2">{n.message}</p>
-                        </button>
+                          {timeRow}
+                        </div>
                       )
                     })
                   )}
@@ -442,7 +737,12 @@ export function Navbar({
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0">
                   {user.avatar?.startsWith("http") ? (
-                    <img src={user.avatar} alt={user.name} className="h-8 w-8 rounded-full object-cover border border-border" />
+                    <img
+                      src={user.avatar}
+                      alt={user.name}
+                      referrerPolicy="no-referrer"
+                      className="h-8 w-8 rounded-full object-cover border border-border"
+                    />
                   ) : user.avatar ? (
                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-2xl border border-border">
                       {user.avatar}
@@ -464,11 +764,18 @@ export function Navbar({
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={onProfileClick} className="cursor-pointer">
+                  <User className="mr-2 h-4 w-4" />
                   Profilim
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowSettingsDialog(true)} className="cursor-pointer">
                   <Settings className="h-4 w-4 mr-2" />
                   Ayarlar
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link href="/hakkimizda" className="flex items-center gap-2">
+                    <Info className="h-4 w-4" />
+                    Hakkımızda
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={onLogout} className="cursor-pointer text-destructive">
@@ -489,7 +796,7 @@ export function Navbar({
               <Button
                 size="sm"
                 onClick={onRegisterClick}
-                className="h-8 px-3 text-sm bg-foreground text-background hover:bg-foreground/90"
+                className="h-8 px-3 text-sm bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 Kayıt Ol
               </Button>
@@ -500,7 +807,7 @@ export function Navbar({
 
       {/* Mobile Search */}
       <div className="md:hidden px-4 pb-3">
-        <div ref={mobileSearchRef} className="relative w-full">
+        <div ref={mobileSearchRef} className="relative w-full rounded-lg border border-transparent focus-within:border-[#2c64f6] focus-within:ring-1 focus-within:ring-[#2c64f6] transition-all duration-200">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
           <input
             type="text"
@@ -508,7 +815,7 @@ export function Navbar({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => debouncedQuery.length >= 2 && setIsSearchOpen(true)}
-            className="w-full h-9 pl-9 pr-4 bg-secondary/50 border-0 rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 transition-all"
+            className="w-full h-9 pl-9 pr-4 bg-secondary/50 border-0 rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none transition-all"
           />
           {isSearchOpen && debouncedQuery.length >= 2 && (
             <div className="absolute top-full left-0 right-0 mt-1 py-2 bg-popover border border-border rounded-lg shadow-lg z-[100] max-h-80 overflow-y-auto">
@@ -543,7 +850,7 @@ export function Navbar({
                           className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm rounded-md hover:bg-accent transition-colors"
                         >
                           <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span className="truncate">{u.name || "İsimsiz"}</span>
+                          <span className="max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap inline-block">{u.name || "İsimsiz"}</span>
                         </button>
                       ))}
                     </div>

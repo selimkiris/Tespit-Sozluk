@@ -14,6 +14,12 @@ interface Topic {
   title: string
   entryCount: number
   authorId?: string
+  authorName?: string
+  authorUsername?: string
+  authorAvatar?: string | null
+  createdAt?: string
+  isAnonymous?: boolean
+  isTopicOwner?: boolean
   isFollowedByCurrentUser?: boolean
 }
 
@@ -22,18 +28,63 @@ interface TopicSidebarProps {
   selectedTopicId?: string
   onTopicSelect: (topicId: string) => void
   onCreateTopic: () => void
+  onAllTopicsClick?: () => void
   onTopicsLoaded?: (topics: Topic[]) => void
   isOpen: boolean
   onClose: () => void
   refreshTrigger?: number
+  accentColor?: string
 }
 
-function mapApiTopic(apiTopic: { id: string; title: string; entryCount?: number; authorId?: string; isFollowedByCurrentUser?: boolean }): Topic {
+const ACCENT_RGB: Record<string, string> = {
+  "#f28f35": "242,143,53",
+  "#55d197": "85,209,151",
+  "#2c64f6": "44,100,246",
+}
+
+// Butona özgü deep-matte tonlar — navbar ve sidebar çizgileri bu tablodan etkilenmez
+const BUTTON_COLOR: Record<string, string> = {
+  "#f28f35": "#753a0a",
+  "#55d197": "#155233",
+  "#2c64f6": "#1f408e",
+}
+
+const BUTTON_HOVER_COLOR: Record<string, string> = {
+  "#753a0a": "#8c460d",
+  "#155233": "#1a663f",
+  "#1f408e": "#254b9f",
+}
+
+const BUTTON_RGB: Record<string, string> = {
+  "#753a0a": "117,58,10",
+  "#155233": "21,82,51",
+  "#1f408e": "31,64,142",
+}
+
+function mapApiTopic(apiTopic: {
+  id: string
+  title: string
+  entryCount?: number
+  authorId?: string
+  authorName?: string
+  authorUsername?: string
+  authorAvatar?: string | null
+  createdAt?: string
+  isAnonymous?: boolean
+  isTopicOwner?: boolean
+  isFollowedByCurrentUser?: boolean
+}): Topic {
   return {
     id: apiTopic.id,
     title: apiTopic.title,
     entryCount: apiTopic.entryCount ?? 0,
     authorId: apiTopic.authorId,
+    authorName: apiTopic.authorName,
+    authorUsername: apiTopic.authorUsername,
+    authorAvatar: apiTopic.authorAvatar ?? null,
+    createdAt: apiTopic.createdAt,
+    isAnonymous: apiTopic.isAnonymous,
+    isTopicOwner: apiTopic.isTopicOwner,
     isFollowedByCurrentUser: apiTopic.isFollowedByCurrentUser,
   }
 }
@@ -43,11 +94,17 @@ export function TopicSidebar({
   selectedTopicId,
   onTopicSelect,
   onCreateTopic,
+  onAllTopicsClick,
   onTopicsLoaded,
   isOpen,
   onClose,
   refreshTrigger = 0,
+  accentColor = "#2c64f6",
 }: TopicSidebarProps) {
+  const accentRgb = ACCENT_RGB[accentColor] ?? "44,100,246"
+  const buttonColor = BUTTON_COLOR[accentColor] ?? "#1f408e"
+  const buttonHoverColor = BUTTON_HOVER_COLOR[buttonColor] ?? "#254b9f"
+  const buttonRgb = BUTTON_RGB[buttonColor] ?? "31,64,142"
   const [fetchedTopics, setFetchedTopics] = useState<Topic[]>([])
   const [page, setPage] = useState(1)
   const [hasNextPage, setHasNextPage] = useState(false)
@@ -74,12 +131,12 @@ export function TopicSidebar({
       setHasNextPage(data?.hasNextPage ?? false)
       setPage(pageNum)
 
-      let combined: Topic[]
+      let nextTopics: Topic[] = []
       setFetchedTopics((prev) => {
-        combined = append ? [...prev, ...mapped] : mapped
-        return combined
+        nextTopics = append ? [...prev, ...mapped] : mapped
+        return nextTopics
       })
-      onTopicsLoaded?.(Array.isArray(combined) ? combined : [])
+      onTopicsLoaded?.(nextTopics)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Başlıklar yüklenemedi"
       setError(message)
@@ -116,17 +173,44 @@ export function TopicSidebar({
 
       <aside
         className={cn(
-          "fixed left-0 top-14 z-40 h-[calc(100vh-3.5rem)] w-64 border-r border-border bg-sidebar transition-transform duration-300 lg:translate-x-0 overflow-hidden",
+          "fixed left-0 top-14 z-40 h-[calc(100vh-3.5rem)] w-64 lg:w-[280px] xl:w-[312px] border-r-2 bg-[#252728] transition-transform duration-300 lg:translate-x-0 overflow-hidden shadow-[2px_0_16px_rgba(0,0,0,0.28)]",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
+        style={{
+          backgroundColor: "#252728",
+          borderRightColor: `rgba(${accentRgb},0.15)`,
+          transition: "transform 0.3s ease, border-right-color 0.4s ease",
+        }}
       >
         <div className="flex flex-col h-full min-h-0">
           {/* Create Topic Button */}
-          <div className="p-4 border-b border-sidebar-border shrink-0">
+          <div
+            className="px-4 py-4 border-b shrink-0 flex flex-col items-start gap-2"
+            style={{
+              borderBottomColor: `rgba(${accentRgb},0.10)`,
+              transition: "border-bottom-color 0.4s ease",
+            }}
+          >
             <Button
               onClick={onCreateTopic}
-              className="w-full justify-start gap-2 bg-foreground text-background hover:bg-foreground/90"
+              className="w-fit justify-start gap-2 font-semibold rounded-xl border-0"
               size="sm"
+              style={{
+                backgroundColor: buttonColor,
+                color: "rgba(255,255,255,0.90)",
+                boxShadow: `0 2px 10px rgba(${buttonRgb},0.35)`,
+                transition: "background-color 0.4s ease, box-shadow 0.4s ease",
+              }}
+              onMouseEnter={(e) => {
+                const el = e.currentTarget
+                el.style.backgroundColor = buttonHoverColor
+                el.style.boxShadow = `0 3px 14px rgba(${buttonRgb},0.45)`
+              }}
+              onMouseLeave={(e) => {
+                const el = e.currentTarget
+                el.style.backgroundColor = buttonColor
+                el.style.boxShadow = `0 2px 10px rgba(${buttonRgb},0.35)`
+              }}
             >
               <Plus className="h-4 w-4" />
               <span>Yeni Başlık</span>
@@ -135,7 +219,7 @@ export function TopicSidebar({
 
           {/* Topics List */}
           <ScrollArea className="flex-1 min-h-0">
-            <div className="p-2">
+            <div className="p-3">
               <div className="px-2 py-1.5 mb-2">
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Başlıklar
@@ -167,29 +251,40 @@ export function TopicSidebar({
               ) : (
                 <>
                   <nav className="space-y-0.5">
-                    {topics.map((topic) => (
-                      <Link
-                        key={topic.id}
-                        href={`/?topic=${topic.id}`}
-                        onClick={() => {
-                          onTopicSelect(topic.id)
-                          onClose()
-                        }}
-                        className={cn(
-                          "flex items-start w-full h-auto py-2 px-3 my-1 rounded-md transition-colors text-left group",
-                          selectedTopicId === topic.id
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-                        )}
-                      >
-                        <span className="flex-1 min-w-0 break-all hyphens-auto whitespace-pre-wrap text-sm leading-snug pr-2">
-                          {topic.title}
-                        </span>
-                        <span className="shrink-0 whitespace-nowrap inline-flex items-center justify-center bg-secondary text-secondary-foreground text-xs font-medium px-2 py-0.5 rounded-full mt-0.5 ml-1">
-                          {topic.entryCount}
-                        </span>
-                      </Link>
-                    ))}
+                    {topics.map((topic) => {
+                      const isSelected = selectedTopicId === topic.id
+                      return (
+                        <Link
+                          key={topic.id}
+                          href={`/?topic=${topic.id}`}
+                          onClick={() => {
+                            onTopicSelect(topic.id)
+                            onClose()
+                          }}
+                          className={cn(
+                            "flex items-start w-full h-auto py-2 px-3 my-0.5 rounded-xl transition-all duration-200 text-left group border-l-[3px]",
+                            isSelected
+                              ? "text-foreground"
+                              : "text-sidebar-foreground hover:bg-[#2c64f6]/6 hover:text-sidebar-accent-foreground border-transparent hover:border-[#2c64f6]/35"
+                          )}
+                          style={isSelected ? {
+                            backgroundColor: `rgba(${accentRgb},0.12)`,
+                            borderLeftColor: accentColor,
+                            boxShadow: `inset 0 0 0 1px rgba(${accentRgb},0.12)`,
+                            transition: "background-color 0.4s ease, border-left-color 0.4s ease, box-shadow 0.4s ease",
+                          } : {
+                            transition: "background-color 0.4s ease, border-left-color 0.4s ease",
+                          }}
+                        >
+                          <span className="flex-1 min-w-0 whitespace-normal break-words max-w-[30ch] hyphens-auto text-sm leading-snug pr-2">
+                            {topic.title}
+                          </span>
+                          <span className="shrink-0 whitespace-nowrap inline-flex items-center justify-center text-xs px-2 py-0.5 rounded-full mt-0.5 ml-1 text-muted-foreground bg-[#3A3B3C] transition-colors duration-200">
+                            {topic.entryCount}
+                          </span>
+                        </Link>
+                      )
+                    })}
                   </nav>
                   {hasNextPage && (
                     <Button

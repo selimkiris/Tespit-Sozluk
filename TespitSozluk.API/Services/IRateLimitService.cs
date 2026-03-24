@@ -2,7 +2,6 @@ namespace TespitSozluk.API.Services;
 
 public enum RateLimitAction
 {
-    Register,
     CreateEntry,
     CreateTopic
 }

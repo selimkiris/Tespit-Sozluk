@@ -29,6 +29,11 @@ public class NotificationsController : ControllerBase
             return Unauthorized();
         }
 
+        var cutoffUtc = DateTime.UtcNow.AddMonths(-1);
+        await _context.Notifications
+            .Where(n => n.UserId == userId && n.CreatedAt < cutoffUtc)
+            .ExecuteDeleteAsync();
+
         var notifications = await _context.Notifications
             .Include(n => n.Sender)
             .Where(n => n.UserId == userId)
@@ -36,7 +41,10 @@ public class NotificationsController : ControllerBase
             .Select(n => new NotificationResponseDto
             {
                 Id = n.Id,
+                EntryId = n.EntryId,
+                TopicId = n.Entry != null ? n.Entry.TopicId : null,
                 SenderId = n.SenderId,
+                ActorId = n.SenderId,
                 SenderName = n.Sender.FirstName + " " + n.Sender.LastName,
                 Type = n.Type,
                 Message = n.Message,
@@ -61,6 +69,22 @@ public class NotificationsController : ControllerBase
             .CountAsync(n => n.UserId == userId && !n.IsRead);
 
         return count;
+    }
+
+    [HttpPut("mark-all-read")]
+    public async Task<IActionResult> MarkAllAsRead()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        await _context.Notifications
+            .Where(n => n.UserId == userId && !n.IsRead)
+            .ExecuteUpdateAsync(s => s.SetProperty(n => n.IsRead, true));
+
+        return NoContent();
     }
 
     [HttpPut("{id:guid}/read")]

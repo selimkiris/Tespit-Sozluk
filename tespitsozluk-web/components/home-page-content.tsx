@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { Clock, Compass, Users } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { Navbar } from "@/components/navbar"
 import { TopicSidebar } from "@/components/topic-sidebar"
 import { EntryCard } from "@/components/entry-card"
@@ -11,6 +13,8 @@ import { CreateTopicModal } from "@/components/create-topic-modal"
 import { AllTopicsView } from "@/components/all-topics-view"
 import { saveAuth, getAuth, clearAuth, updateAuthUser } from "@/lib/auth"
 import { getApiUrl, getAuthHeaders } from "@/lib/api"
+import { TOPIC_ENTRIES_PAGE_SIZE } from "@/lib/topic-entries"
+import { FEED_COLUMN_MAX_WIDTH_CLASS } from "@/lib/feed-layout"
 import { toast } from "sonner"
 
 type ApiEntry = {
@@ -56,6 +60,20 @@ function mapApiEntry(e: ApiEntry) {
   }
 }
 
+type SidebarTopicPayload = {
+  id: string
+  title?: string
+  entryCount?: number
+  authorId?: string
+  authorName?: string
+  authorUsername?: string
+  authorAvatar?: string | null
+  createdAt?: string
+  isAnonymous?: boolean
+  isTopicOwner?: boolean
+  isFollowedByCurrentUser?: boolean
+}
+
 type User = {
   id: string
   nickname: string
@@ -98,24 +116,39 @@ export function HomePageContent() {
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   // Data state (topics API'den TopicSidebar ile yüklenecek)
-  const [topics, setTopics] = useState<{ id: string; title: string; entryCount: number; authorId?: string; isFollowedByCurrentUser?: boolean }[]>([])
+  const [topics, setTopics] = useState<{
+    id: string
+    title: string
+    entryCount: number
+    authorId?: string
+    authorName?: string
+    authorUsername?: string
+    authorAvatar?: string | null
+    createdAt?: string
+    isAnonymous?: boolean
+    isTopicOwner?: boolean
+    isFollowedByCurrentUser?: boolean
+  }[]>([])
   const [entries, setEntries] = useState<ReturnType<typeof mapApiEntry>[]>([])
   const [entriesLoading, setEntriesLoading] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
-  const handleTopicsLoaded = useCallback((payload: { id: string; title: string; entryCount: number; authorId?: string; isFollowedByCurrentUser?: boolean }[] | { items?: { id: string; title: string; entryCount?: number; authorId?: string; isFollowedByCurrentUser?: boolean }[] }) => {
-    const list = Array.isArray(payload)
-      ? payload
-      : Array.isArray(payload?.items)
-        ? payload.items.map((t) => ({
-            id: String(t.id),
-            title: t.title ?? "",
-            entryCount: t.entryCount ?? 0,
-            authorId: t.authorId,
-            isFollowedByCurrentUser: t.isFollowedByCurrentUser,
-          }))
-        : []
-    setTopics(list)
+  const handleTopicsLoaded = useCallback((payload: SidebarTopicPayload[] | { items?: SidebarTopicPayload[] }) => {
+    const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.items) ? payload.items : [])
+    const mapped = list.map((t) => ({
+      id: String(t.id),
+      title: String(t.title ?? ""),
+      entryCount: typeof t.entryCount === "number" ? t.entryCount : 0,
+      authorId: t.authorId != null && t.authorId !== "" ? String(t.authorId) : undefined,
+      authorName: typeof t.authorName === "string" ? t.authorName : undefined,
+      authorUsername: typeof t.authorUsername === "string" ? t.authorUsername : undefined,
+      authorAvatar: t.authorAvatar != null ? String(t.authorAvatar) : undefined,
+      createdAt: typeof t.createdAt === "string" ? t.createdAt : undefined,
+      isAnonymous: t.isAnonymous === true,
+      isTopicOwner: t.isTopicOwner === true,
+      isFollowedByCurrentUser: t.isFollowedByCurrentUser === true,
+    }))
+    setTopics(mapped)
   }, [])
 
   const [feedPage, setFeedPage] = useState(1)
@@ -175,6 +208,7 @@ export function HomePageContent() {
   }, [])
 
   const topicFromUrl = searchParams.get("topic")
+  const topicEntriesPageFromUrl = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
   const loginFromUrl = searchParams.get("login")
   const registerFromUrl = searchParams.get("register")
   const topicsFromUrl = searchParams.get("topics")
@@ -206,7 +240,19 @@ export function HomePageContent() {
   // Get selected topic (güvenli erişim - topics asla undefined olmasın)
   const topicsList = topics ?? []
   const selectedTopicFromList = topicsList.find((t) => t.id === selectedTopicId)
-  const [fetchedTopicForUrl, setFetchedTopicForUrl] = useState<{ id: string; title: string; entryCount: number; authorId?: string; isFollowedByCurrentUser?: boolean } | null>(null)
+  const [fetchedTopicForUrl, setFetchedTopicForUrl] = useState<{
+    id: string
+    title: string
+    entryCount: number
+    authorId?: string
+    authorName?: string
+    authorUsername?: string
+    authorAvatar?: string | null
+    createdAt?: string
+    isAnonymous?: boolean
+    isTopicOwner?: boolean
+    isFollowedByCurrentUser?: boolean
+  } | null>(null)
 
   // URL'den gelen topic listede yoksa (örn. sayfa 2'deki başlık) entries API'den minimal topic türet
   useEffect(() => {
@@ -230,6 +276,13 @@ export function HomePageContent() {
           title: first?.topicTitle ?? topicData?.title ?? "Başlık",
           entryCount: data?.totalCount ?? topicData?.entryCount ?? 0,
           isFollowedByCurrentUser: topicData?.isFollowedByCurrentUser,
+          authorId: topicData?.authorId != null && topicData?.authorId !== "" ? String(topicData.authorId) : undefined,
+          authorName: topicData?.authorName,
+          authorUsername: topicData?.authorUsername,
+          authorAvatar: topicData?.authorAvatar ?? null,
+          createdAt: topicData?.createdAt,
+          isAnonymous: topicData?.isAnonymous === true,
+          isTopicOwner: topicData?.isTopicOwner === true,
         })
       } catch {
         if (!cancelled) setFetchedTopicForUrl(null)
@@ -270,6 +323,19 @@ export function HomePageContent() {
     router.replace(`/?topic=${topicId}`, { scroll: false })
   }, [router])
 
+  const handleTopicEntriesPageUrlChange = useCallback(
+    (page: number) => {
+      if (!selectedTopicId) return
+      const p = Math.max(1, page)
+      const urlTopic = searchParams.get("topic")
+      const pageRaw = searchParams.get("page")
+      const currentPage = Math.max(1, parseInt(pageRaw ?? "1", 10) || 1)
+      if (urlTopic === selectedTopicId && currentPage === p) return
+      router.replace(`/?topic=${selectedTopicId}&page=${p}`, { scroll: false })
+    },
+    [router, selectedTopicId, searchParams]
+  )
+
   const handleCreateTopic = useCallback(
     async (title: string, firstEntry: string, isAnonymous: boolean = false): Promise<string | null> => {
       if (!currentUser) return null
@@ -280,7 +346,11 @@ export function HomePageContent() {
         const createTopicRes = await fetch(getApiUrl("api/Topics"), {
           method: "POST",
           headers: getAuthHeaders(),
-          body: JSON.stringify({ title: title.trim() }),
+          body: JSON.stringify({
+            title: title.trim(),
+            isAnonymous,
+            firstEntryContent: firstEntry.trim(),
+          }),
         })
         const topicData = await createTopicRes.json().catch(() => ({}))
         if (createTopicRes.status === 429) {
@@ -299,25 +369,9 @@ export function HomePageContent() {
           id: topicId,
           title: topicData.title ?? title.trim(),
           entryCount: 1,
-          authorId: currentUser.id,
-        }
-
-        const createEntryRes = await fetch(getApiUrl("api/Entries"), {
-          method: "POST",
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ topicId, content: firstEntry.trim(), isAnonymous }),
-        })
-        const entryData = await createEntryRes.json().catch(() => ({}))
-        if (createEntryRes.status === 429) {
-          const seconds = Math.ceil(entryData.retryAfterSeconds ?? 60)
-          toast.warning(`Çok hızlı gidiyorsun! Yeni bir işlem yapmak için ${seconds} saniye beklemen gerekiyor ⏳`, {
-            duration: 7000,
-            style: { background: "#78350f", color: "#fef3c7", border: "1px solid #d97706" },
-          })
-          throw new Error("")
-        }
-        if (!createEntryRes.ok) {
-          throw new Error(typeof entryData === "string" ? entryData : (entryData.title ?? entryData.message ?? "İlk entry eklenemedi"))
+          authorId: isAnonymous ? undefined : currentUser.id,
+          isAnonymous: Boolean(topicData.isAnonymous ?? isAnonymous),
+          isTopicOwner: topicData.isTopicOwner !== false,
         }
 
         setTopics((prev) => [newTopic, ...(Array.isArray(prev) ? prev : [])])
@@ -333,8 +387,22 @@ export function HomePageContent() {
 
   // Entry handlers
   const handleSubmitEntry = useCallback(
-    async (content: string, isAnonymous: boolean = false): Promise<void> => {
-      if (!currentUser || !selectedTopicId) return
+    async (content: string, isAnonymous: boolean = false, onApiSuccess?: () => void): Promise<void> => {
+      if (!currentUser || !selectedTopicId || !selectedTopic) {
+        onApiSuccess?.()
+        return
+      }
+
+      const fallbackEntryCount = (): number => {
+        const ec: unknown = selectedTopic.entryCount
+        if (typeof ec === "number" && !isNaN(ec) && isFinite(ec)) return ec + 1
+        if (typeof ec === "string" && ec.trim() !== "") {
+          const n = Number(ec)
+          if (!isNaN(n) && isFinite(n)) return n + 1
+        }
+        const n = Number(ec)
+        return (!isNaN(n) && isFinite(n) ? n : 0) + 1
+      }
 
       try {
         const res = await fetch(getApiUrl("api/Entries"), {
@@ -354,12 +422,62 @@ export function HomePageContent() {
         if (!res.ok) {
           throw new Error(typeof data === "string" ? data : (data.title ?? data.message ?? "Entry eklenemedi"))
         }
-        setRefreshTrigger((t) => t + 1)
+
+        let newCount = fallbackEntryCount()
+        try {
+          const topicRes = await fetch(getApiUrl(`api/Topics/${selectedTopicId}`), { headers: getAuthHeaders() })
+          if (topicRes.ok) {
+            const freshTopic = await topicRes.json().catch(() => null)
+            if (freshTopic && typeof freshTopic === "object") {
+              const ft = freshTopic as Record<string, unknown> & { data?: { entryCount?: unknown } }
+              const fetchedCount = ft.entryCount ?? ft.EntryCount ?? ft.data?.entryCount
+              if (typeof fetchedCount === "number" && !isNaN(fetchedCount) && isFinite(fetchedCount)) {
+                newCount = fetchedCount
+              } else if (typeof fetchedCount === "string" && fetchedCount.trim() !== "") {
+                const parsed = Number(fetchedCount)
+                if (!isNaN(parsed) && isFinite(parsed)) {
+                  newCount = parsed
+                }
+              }
+            }
+          }
+        } catch {
+          // API çöktüyse fallback count kullan — ?page=NaN asla oluşmaz
+        }
+
+        // Kesinlikle geçerli bir sayı olduğundan emin ol
+        const safeCount =
+          typeof newCount === "number" && !isNaN(newCount) && isFinite(newCount) && newCount > 0
+            ? newCount
+            : fallbackEntryCount()
+        const exactLastPage = Math.max(1, Math.ceil(safeCount / TOPIC_ENTRIES_PAGE_SIZE) || 1)
+        const currentPageFromUrl = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
+
+        setTopics((prev) =>
+          (Array.isArray(prev) ? prev : []).map((t) =>
+            t.id === selectedTopicId ? { ...t, entryCount: safeCount } : t
+          )
+        )
+        setFetchedTopicForUrl((prev) =>
+          prev && prev.id === selectedTopicId ? { ...prev, entryCount: safeCount } : prev
+        )
+
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("scrollToNewEntry", "true")
+        }
+        await router.push(`/?topic=${selectedTopicId}&page=${exactLastPage}`, { scroll: false })
+        // Aynı sayfada kalındığında (son sayfa / tek sayfa) router.push URL'i değiştirmez; liste yenilenmez.
+        // Hedef sayfa mevcut URL sayfasıyla aynıysa TopicDetail'deki fetchEntries'i refreshTrigger ile zorunlu tetikle.
+        if (currentPageFromUrl === exactLastPage) {
+          setRefreshTrigger((t) => t + 1)
+        }
+
+        onApiSuccess?.()
       } catch (err) {
         throw err
       }
     },
-    [currentUser, selectedTopicId]
+    [currentUser, selectedTopicId, selectedTopic, router, searchParams]
   )
 
   // Home handler
@@ -368,8 +486,17 @@ export function HomePageContent() {
     router.replace("/", { scroll: false })
   }, [router])
 
+  // Bukalemun renk hesabı: hangi sekme/sayfa aktifse ona göre tema rengi
+  const accentColor = selectedTopicId
+    ? "#2c64f6"
+    : feedMode === "discover"
+      ? "#f28f35"
+      : feedMode === "following"
+        ? "#55d197"
+        : "#2c64f6"
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" suppressHydrationWarning>
       {/* Navbar */}
       <Navbar
         isLoggedIn={isLoggedIn}
@@ -391,6 +518,7 @@ export function HomePageContent() {
           const updated = updateAuthUser(updates)
           if (updated) setCurrentUser(updated)
         }}
+        accentColor={accentColor}
       />
 
       {/* Sidebar */}
@@ -399,15 +527,22 @@ export function HomePageContent() {
         selectedTopicId={selectedTopicId ?? undefined}
         onTopicSelect={handleTopicSelect}
         onCreateTopic={() => setShowCreateTopicModal(true)}
+        onAllTopicsClick={() => setShowAllTopicsModal(true)}
         onTopicsLoaded={handleTopicsLoaded}
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
         refreshTrigger={refreshTrigger}
+        accentColor={accentColor}
       />
 
-      {/* Main Content */}
-      <main className="lg:pl-64 pt-14 md:pt-14">
-        <div className="max-w-2xl mx-auto px-4 py-6 lg:py-8">
+      {/* Main Content — lg+: sola yaslı; pl = sidebar + gap-8 */}
+      <main className="w-full min-w-0 pt-14 md:pt-14 lg:flex lg:justify-start lg:pl-[312px] xl:pl-[344px]">
+        <div
+          className={cn(
+            "w-full min-w-0 mx-auto px-4 py-4 lg:mx-0 lg:px-6 lg:py-6",
+            FEED_COLUMN_MAX_WIDTH_CLASS
+          )}
+        >
           {selectedTopic ? (
             <TopicDetail
               topic={selectedTopic}
@@ -416,78 +551,136 @@ export function HomePageContent() {
               onBack={() => setSelectedTopicId(null)}
               onSubmitEntry={handleSubmitEntry}
               onLoginClick={() => setShowLoginModal(true)}
-              onVoteSuccess={() => setRefreshTrigger((t) => t + 1)}
               onTopicChange={() => setRefreshTrigger((t) => t + 1)}
               refreshTrigger={refreshTrigger}
+              entriesPageFromUrl={topicEntriesPageFromUrl}
+              onEntriesPageUrlChange={handleTopicEntriesPageUrlChange}
             />
           ) : (
             <>
-              <div className="mb-6">
-                <nav className="flex gap-6 border-b border-border pb-2" role="tablist">
-                  <button
-                    type="button"
-                    role="tab"
-                    onClick={() => handleFeedModeChange("recent")}
-                    className={`text-sm font-medium transition-colors pb-1 -mb-0.5 border-b-2 ${
-                      feedMode === "recent"
-                        ? "border-foreground text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Son Girilen Entryler
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    onClick={() => handleFeedModeChange("discover")}
-                    className={`text-sm font-medium transition-colors pb-1 -mb-0.5 border-b-2 ${
-                      feedMode === "discover"
-                        ? "border-foreground text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Keşfet
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    onClick={() => handleFeedModeChange("following")}
-                    className={`text-sm font-medium transition-colors pb-1 -mb-0.5 border-b-2 ${
-                      feedMode === "following"
-                        ? "border-foreground text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Takip Ettiklerim
-                  </button>
+              <div className="mb-5">
+                <nav
+                  className="flex border-b border-[#3a3b3c]"
+                  role="tablist"
+                  aria-label="Feed seçimi"
+                >
+                  {(
+                    [
+                      {
+                        mode: "recent",
+                        label: "Son Entryler",
+                        Icon: Clock,
+                        activeIcon: "text-[#2c64f6]",
+                        activeLabel: "text-[#2c64f6]",
+                        activeBorder: "border-[#2c64f6]",
+                        hoverIcon: "group-hover:text-[#2c64f6]/70",
+                        hoverBg: "group-hover:bg-[#2c64f6]/10",
+                      },
+                      {
+                        mode: "discover",
+                        label: "Keşfet",
+                        Icon: Compass,
+                        activeIcon: "text-orange-400",
+                        activeLabel: "text-orange-400",
+                        activeBorder: "border-orange-400",
+                        hoverIcon: "group-hover:text-orange-300",
+                        hoverBg: "group-hover:bg-orange-500/10",
+                      },
+                      {
+                        mode: "following",
+                        label: "Takip Ettiklerim",
+                        Icon: Users,
+                        activeIcon: "text-emerald-400",
+                        activeLabel: "text-emerald-400",
+                        activeBorder: "border-emerald-400",
+                        hoverIcon: "group-hover:text-emerald-300",
+                        hoverBg: "group-hover:bg-emerald-500/10",
+                      },
+                    ] as const
+                  ).map(({ mode, label, Icon, activeIcon, activeLabel, activeBorder, hoverIcon, hoverBg }) => {
+                    const isActive = feedMode === mode
+                    const isRecentActive = mode === "recent" && isActive
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        role="tab"
+                        aria-selected={isActive}
+                        onClick={() => handleFeedModeChange(mode)}
+                        className={cn(
+                          "group flex flex-1 flex-col items-center justify-center gap-1 px-3 py-2 transition-all duration-200 focus-visible:outline-none -mb-[1px] border-b-[3px]",
+                          isActive ? activeBorder : "border-transparent",
+                          isRecentActive && "brightness-125 saturate-150"
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "flex items-center justify-center w-11 h-11 rounded-full transition-all duration-200",
+                            isActive ? "" : hoverBg
+                          )}
+                        >
+                          <Icon
+                            className={cn(
+                              "h-6 w-6 shrink-0 transition-colors duration-200",
+                              isRecentActive
+                                ? "text-[#2c64f6]"
+                                : isActive
+                                  ? activeIcon
+                                  : cn("text-[#6b7280]", hoverIcon)
+                            )}
+                          />
+                        </div>
+                        <span
+                          className={cn(
+                            "text-xs font-semibold tracking-wide transition-colors duration-200 truncate",
+                            isRecentActive
+                              ? "text-[#2c64f6]"
+                              : isActive
+                                ? activeLabel
+                                : cn("text-[#6b7280]", hoverIcon)
+                          )}
+                        >
+                          {label}
+                        </span>
+                      </button>
+                    )
+                  })}
                 </nav>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-4 min-w-0 w-full max-w-full">
                 {entriesLoading && feedEntries.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">Yükleniyor...</div>
+                  <div className="text-center py-12 text-muted-foreground">
+                    <span>Yükleniyor...</span>
+                  </div>
                 ) : (
                 <>
-                {feedEntries.map((entry) => (
-                  <EntryCard
-                    key={entry.id}
-                    entry={entry}
-                    showTopicTitle={true}
-                    onTopicClick={handleTopicSelect}
-                    isLoggedIn={isLoggedIn}
-                    onLoginClick={() => setShowLoginModal(true)}
-                    onVoteSuccess={() => setRefreshTrigger((t) => t + 1)}
-                    currentUser={currentUser}
-                    onEntryChange={() => setRefreshTrigger((t) => t + 1)}
-                  />
-                ))}
-                {feedHasNextPage && (
+                {feedMode === "following" && feedEntries.length === 0 ? (
+                  <p className="text-center text-muted-foreground text-sm py-10">
+                    Henüz takip ettiğiniz yazar veya başlık yok.
+                  </p>
+                ) : (
+                  feedEntries.map((entry) => (
+                    <EntryCard
+                      key={entry.id}
+                      entry={entry}
+                      showTopicTitle={true}
+                      activeTab={feedMode}
+                      onTopicClick={handleTopicSelect}
+                      isLoggedIn={isLoggedIn}
+                      onLoginClick={() => setShowLoginModal(true)}
+                      currentUser={currentUser}
+                      onEntryChange={() => setRefreshTrigger((t) => t + 1)}
+                    />
+                  ))
+                )}
+                {feedHasNextPage && feedEntries.length > 0 && (
                   <div className="pt-4 flex justify-center">
                     <button
                       onClick={handleFeedLoadMore}
                       disabled={feedLoadingMore}
                       className="px-6 py-3 rounded-lg border border-border bg-card hover:bg-secondary/50 text-sm font-medium text-foreground transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      {feedLoadingMore ? "Yükleniyor..." : "Daha Fazla Göster"}
+                      <span>{feedLoadingMore ? "Yükleniyor..." : "Daha Fazla Göster"}</span>
                     </button>
                   </div>
                 )}

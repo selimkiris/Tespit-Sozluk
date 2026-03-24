@@ -77,7 +77,7 @@ export function EntryDetail({
             onTopicClick(entry.topicId)
           }
         }}
-        className="block text-lg font-semibold text-foreground hover:underline underline-offset-2 pb-2"
+        className="block text-slate-200 dark:text-slate-300 text-xl font-bold leading-[1.35] tracking-[-0.01em] break-words whitespace-pre-wrap hover:underline underline-offset-2 pb-2"
       >
         {entry.topicTitle}
       </Link>

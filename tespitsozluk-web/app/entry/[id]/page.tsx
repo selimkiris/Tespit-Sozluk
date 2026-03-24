@@ -61,5 +61,5 @@ export default async function EntryPage({ params }: Props) {
     notFound()
   }
 
-  return <EntryPageContent entry={entry} />
+  return <EntryPageContent key={id} entry={entry} />
 }

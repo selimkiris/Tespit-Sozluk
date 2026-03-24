@@ -10,6 +10,10 @@ public class Notification
     public bool IsRead { get; set; }
     public DateTime CreatedAt { get; set; }
 
+    /// <summary>Like / Dislike / Save gibi entry-odaklı bildirimlerde yönlendirme için.</summary>
+    public Guid? EntryId { get; set; }
+    public Entry? Entry { get; set; }
+
     public User User { get; set; } = null!;
     public User Sender { get; set; } = null!;
 }

@@ -2,5 +2,5 @@ namespace TespitSozluk.API.DTOs;
 
 public class ChangeAvatarRequest
 {
-    public string? Avatar { get; set; }
+    public string? AvatarUrl { get; set; }
 }

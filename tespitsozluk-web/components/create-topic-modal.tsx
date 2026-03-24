@@ -1,14 +1,25 @@
 "use client"
 
 import { useState } from "react"
+import { cn } from "@/lib/utils"
 import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { RichTextEditor } from "@/components/rich-text-editor"
+import { TOPIC_TITLE_MAX_LENGTH, topicTitleSchema } from "@/lib/topic.schema"
+import { clampTopicTitleRaw, normalizeTopicTitleForApi } from "@/lib/topic-title-input"
+import { FEED_COLUMN_MAX_WIDTH_CLASS } from "@/lib/feed-layout"
 
-const TITLE_MAX_LENGTH = 54
+function trimHtmlContent(html: string): string {
+  if (!html) return ''
+  let result = html
+    .replace(/^(<p>\s*<\/p>|<p><br\s*\/?><\/p>|<br\s*\/?>|\s)+/gi, '')
+  result = result
+    .replace(/(<p>\s*<\/p>|<p><br\s*\/?><\/p>|<br\s*\/?>|\s)+$/gi, '')
+  return result.trim()
+}
 
 interface CreateTopicModalProps {
   isOpen: boolean
@@ -30,17 +41,33 @@ export function CreateTopicModal({
   const [isAnonymous, setIsAnonymous] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+  const [charCount, setCharCount] = useState(0)
+
+  const hasContent = !!firstEntry.replace(/<[^>]*>/g, "").trim()
+  const isOverLimit = charCount >= 100_000
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim() || !firstEntry.trim() || title.length > TITLE_MAX_LENGTH) return
+    if (!hasContent || isOverLimit) return
+    const titleParsed = topicTitleSchema.safeParse(normalizeTopicTitleForApi(title))
+    if (!titleParsed.success) {
+      setError(titleParsed.error.issues[0]?.message ?? "Geçersiz başlık")
+      return
+    }
+
+    const finalContent = trimHtmlContent(
+      (firstEntry ?? '').replace(/^[\s\n\r\u00a0\u200b]+/, '').replace(/[\s\n\r\u00a0\u200b]+$/, '')
+    )
+
+    if (!finalContent) return
 
     setIsLoading(true)
     setError("")
     try {
-      await onCreate(title, firstEntry, isAnonymous)
+      await onCreate(titleParsed.data, finalContent, isAnonymous)
       setTitle("")
       setFirstEntry("")
+      setCharCount(0)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Bir hata oluştu")
@@ -52,108 +79,129 @@ export function CreateTopicModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-50 w-full max-w-lg bg-card border border-border rounded-xl shadow-lg p-6 mx-4">
+      <div
+        className={cn(
+          "relative z-50 flex w-full min-h-[50vh] max-h-[min(92vh,900px)] min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-lg",
+          FEED_COLUMN_MAX_WIDTH_CLASS
+        )}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
           <h2 className="text-xl font-semibold text-foreground">Yeni Başlık</h2>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1 text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary"
+            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {!isLoggedIn ? (
-          <div className="text-center py-6">
-            <p className="text-muted-foreground mb-4">
-              Yeni başlık oluşturmak için giriş yapmalısınız.
-            </p>
-            <Button
-              onClick={() => {
-                onClose()
-                onLoginClick()
-              }}
-              className="bg-foreground text-background hover:bg-foreground/90"
-            >
-              Giriş Yap
-            </Button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="topic-title" className="text-sm text-foreground">
-                Başlık
-              </Label>
-              <Input
-                id="topic-title"
-                type="text"
-                placeholder="başlık adı"
-                value={title}
-                onChange={(e) => setTitle(e.target.value.slice(0, TITLE_MAX_LENGTH))}
-                required
-                maxLength={TITLE_MAX_LENGTH}
-                className="h-10 bg-secondary/50 border-border focus:border-ring"
-              />
-              <div className="flex items-center justify-between">
-                <span className={`text-xs ${title.length > TITLE_MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                  {title.length > TITLE_MAX_LENGTH ? "Başlık en fazla 54 karakter olabilir." : `${title.length}/${TITLE_MAX_LENGTH}`}
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="first-entry" className="text-sm text-foreground">
-                İlk Entry
-              </Label>
-              <Textarea
-                id="first-entry"
-                placeholder="düşüncelerinizi yazın..."
-                value={firstEntry}
-                onChange={(e) => setFirstEntry(e.target.value)}
-                required
-                className="min-h-[120px] bg-secondary/50 border-border focus:border-ring resize-none"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <RadioGroup
-                value={isAnonymous ? "anonymous" : "account"}
-                onValueChange={(v) => setIsAnonymous(v === "anonymous")}
-                className="flex gap-4"
+        <div className="min-h-0 flex-1 min-w-0 max-w-full overflow-x-hidden overflow-y-auto box-border px-6 py-5">
+          {!isLoggedIn ? (
+            <div className="py-6 text-center">
+              <p className="mb-4 text-muted-foreground">
+                Yeni başlık oluşturmak için giriş yapmalısınız.
+              </p>
+              <Button
+                onClick={() => {
+                  onClose()
+                  onLoginClick()
+                }}
+                className="bg-foreground text-background hover:bg-foreground/90"
               >
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="account" id="create-topic-account" />
-                  <Label htmlFor="create-topic-account" className="text-sm font-normal cursor-pointer">
-                    Kendi hesabınla paylaş
-                  </Label>
+                Giriş Yap
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="flex min-h-0 min-w-0 max-w-full flex-col gap-4 overflow-x-hidden">
+              <div className="space-y-2">
+                <Label htmlFor="topic-title" className="text-sm text-foreground">
+                  Başlık
+                </Label>
+                <Textarea
+                  id="topic-title"
+                  placeholder="başlık adı"
+                  value={title}
+                  onChange={(e) => setTitle(clampTopicTitleRaw(e.target.value))}
+                  required
+                  rows={2}
+                  className="w-full min-w-0 max-w-[30ch] overflow-x-hidden whitespace-pre-wrap break-words hyphens-auto resize-none min-h-10 border-border bg-secondary/50 py-2 text-base md:text-base focus:border-ring field-sizing-content"
+                />
+                <div className="flex items-center justify-between">
+                  <span
+                    className={`text-xs ${normalizeTopicTitleForApi(title).length > TOPIC_TITLE_MAX_LENGTH ? "font-medium text-destructive" : "text-muted-foreground"}`}
+                  >
+                    {normalizeTopicTitleForApi(title).length > TOPIC_TITLE_MAX_LENGTH
+                      ? "Başlık en fazla 60 karakter olabilir."
+                      : `${normalizeTopicTitleForApi(title).length}/${TOPIC_TITLE_MAX_LENGTH}`}
+                  </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="anonymous" id="create-topic-anonymous" />
-                  <Label htmlFor="create-topic-anonymous" className="text-sm font-normal cursor-pointer">
-                    Tam anonim paylaş
-                  </Label>
+              </div>
+
+              <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col space-y-2 overflow-x-hidden">
+                <Label className="text-sm text-foreground">İlk Entry</Label>
+                <div className="min-h-0 min-w-0 max-w-full flex-1 overflow-x-hidden [&_div.tiptap]:!min-h-[min(38vh,320px)]">
+                  <RichTextEditor
+                    value={firstEntry}
+                    onChange={setFirstEntry}
+                    placeholder="düşüncelerinizi yazın..."
+                    onCharCountChange={setCharCount}
+                  />
                 </div>
-              </RadioGroup>
-              {isAnonymous && (
-                <p className="text-xs text-muted-foreground">
-                  Tam Anonim modda paylaşılan entrylerde Kullanıcı adı görünmez, profile erişilemez. Kullanıcı adı kısmında sadece Anonim yazar ve profil fotoğrafı gösterilmez. Sadece tarih bilgisi yer alır.
+              </div>
+
+              <div className="space-y-1">
+                <RadioGroup
+                  value={isAnonymous ? "anonymous" : "account"}
+                  onValueChange={(v) => setIsAnonymous(v === "anonymous")}
+                  className="flex flex-wrap gap-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="account" id="create-topic-account" />
+                    <Label htmlFor="create-topic-account" className="cursor-pointer text-sm font-normal">
+                      Kendi hesabınla paylaş
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value="anonymous" id="create-topic-anonymous" />
+                    <Label htmlFor="create-topic-anonymous" className="cursor-pointer text-sm font-normal">
+                      Tam anonim paylaş
+                    </Label>
+                  </div>
+                </RadioGroup>
+                {isAnonymous && (
+                  <p className="text-xs text-muted-foreground">
+                    Tam Anonim modda paylaşılan entrylerde Kullanıcı adı görünmez, profile erişilemez. Kullanıcı adı
+                    kısmında sadece Anonim yazar ve profil fotoğrafı gösterilmez. Sadece tarih bilgisi yer alır.
+                  </p>
+                )}
+              </div>
+
+              {isOverLimit && (
+                <p className="text-sm font-medium text-red-500">
+                  Entry maksimum 100.000 karakter olabilir. Lütfen içeriği kısaltın.
                 </p>
               )}
-            </div>
-
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button
-              type="submit"
-              disabled={!title.trim() || !firstEntry.trim() || title.length > TITLE_MAX_LENGTH || isLoading}
-              className="w-full h-10 bg-foreground text-background hover:bg-foreground/90"
-            >
-              {isLoading ? "Oluşturuluyor..." : "Başlık Oluştur"}
-            </Button>
-          </form>
-        )}
+              {!isOverLimit && error && <p className="text-sm text-destructive">{error}</p>}
+              <Button
+                type="submit"
+                disabled={
+                  !normalizeTopicTitleForApi(title) ||
+                  !hasContent ||
+                  normalizeTopicTitleForApi(title).length > TOPIC_TITLE_MAX_LENGTH ||
+                  isLoading ||
+                  isOverLimit
+                }
+                className="h-10 w-full shrink-0 bg-foreground text-background hover:bg-foreground/90"
+              >
+                {isLoading ? "Oluşturuluyor..." : "Başlık Oluştur"}
+              </Button>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   )

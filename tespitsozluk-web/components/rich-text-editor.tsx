@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useEditor, EditorContent } from "@tiptap/react"
+import type { Editor } from "@tiptap/core"
 import StarterKit from "@tiptap/starter-kit"
 import Link from "@tiptap/extension-link"
 import Placeholder from "@tiptap/extension-placeholder"
@@ -14,9 +15,16 @@ import {
   Youtube as YoutubeIcon,
   Smile,
   EyeOff,
-  MessageSquareWarning,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import {
+  ENTRY_BODY_RENDERER_CLASSNAME,
+  ENTRY_BODY_OUTER_WRAPPER_CLASS,
+  ENTRY_BODY_INNER_SCROLL_CLASS,
+  ENTRY_BODY_ENTRY_TEXT_CLASS,
+  ENTRY_BODY_TIPTAP_ROOT_CLASS,
+} from "@/lib/entry-body-renderer-classes"
+import { getApiUrl, getAuthHeaders } from "@/lib/api"
 import { SpoilerMark } from "@/components/tiptap-extensions/spoiler-mark"
 import { Button } from "@/components/ui/button"
 import {
@@ -33,19 +41,42 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { toast } from "sonner"
 import data from "@emoji-mart/data"
 import Picker from "@emoji-mart/react"
 
 const CHAR_LIMIT = 100_000
 const CHAR_WARN_THRESHOLD = 95_000
 const CHAR_DANGER_THRESHOLD = 99_000
+const MENTION_DEBOUNCE_MS = 500
+
+type MentionSearchItem = {
+  id: string
+  username: string
+  avatar?: string | null
+}
+
+type MentionUiState = {
+  rangeFrom: number
+  query: string
+  rect: { top: number; left: number }
+  results: MentionSearchItem[]
+  selectedIndex: number
+  loading: boolean
+}
 
 interface RichTextEditorProps {
   value: string
   onChange: (val: string) => void
   placeholder?: string
   onCharCountChange?: (count: number) => void
+  /** Editör içeriği için min yükseklik (ör. taslak modallarında daha geniş alan) */
+  contentMinHeightClass?: string
+  /**
+   * Sadece gövde sütununda dikey kaydırma (toolbar sabit). Scrollbar genişliği yayınlanan metin sütunundan çalınmasın diye scrollbar-gutter kullanılır.
+   */
+  bodyScrollMaxHeightClass?: string
+  /** Gövde metin alanına ek yatay iç boşluk (yayınlanan entry satır genişliğiyle hizalamak için). */
+  innerContentPaddingClassName?: string
 }
 
 function ensureHtml(value: string): string {
@@ -54,19 +85,46 @@ function ensureHtml(value: string): string {
   return `<p>${value.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`
 }
 
-export function RichTextEditor({ value, onChange, placeholder, onCharCountChange }: RichTextEditorProps) {
+export function RichTextEditor({
+  value,
+  onChange,
+  placeholder,
+  onCharCountChange,
+  contentMinHeightClass = "min-h-[80px]",
+  bodyScrollMaxHeightClass,
+  innerContentPaddingClassName,
+}: RichTextEditorProps) {
   const [emojiOpen, setEmojiOpen] = useState(false)
   const [linkModalOpen, setLinkModalOpen] = useState(false)
   const [mediaModal, setMediaModal] = useState<{ type: "image" | "video" } | null>(null)
   const [linkData, setLinkData] = useState({ text: "", url: "" })
   const [charCount, setCharCount] = useState(0)
   const charCountRef = useRef(0)
+  const [mention, setMention] = useState<MentionUiState | null>(null)
+  const mentionRef = useRef<MentionUiState | null>(null)
+  const editorRef = useRef<Editor | null>(null)
+  /** Escape ile kapatıldı; imleç hareket edene kadar aynı konumda popover açılmasın */
+  const mentionEscapeSuppressAtRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    mentionRef.current = mention
+  }, [mention])
 
   const updateCharCount = useCallback((count: number) => {
     charCountRef.current = count
     setCharCount(count)
     onCharCountChange?.(count)
   }, [onCharCountChange])
+
+  const insertMention = useCallback((username: string) => {
+    const ed = editorRef.current
+    const m = mentionRef.current
+    if (!ed || !m) return
+    const pos = ed.state.selection.from
+    mentionEscapeSuppressAtRef.current = null
+    ed.chain().focus().deleteRange({ from: m.rangeFrom, to: pos }).insertContent(`@${username} `).run()
+    setMention(null)
+  }, [])
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -93,10 +151,53 @@ export function RichTextEditor({ value, onChange, placeholder, onCharCountChange
     content: ensureHtml(value),
     editorProps: {
       attributes: {
-        class:
-          "prose prose-sm sm:prose-base dark:prose-invert focus:outline-none max-w-none min-h-[80px] px-1 py-2 text-foreground",
+        class: cn(
+          "focus:outline-none max-w-none min-w-0 w-full max-w-full break-words whitespace-pre-wrap overflow-x-hidden",
+          ENTRY_BODY_TIPTAP_ROOT_CLASS,
+          "[&_p]:!my-0",
+          "prose-a:text-emerald-500 prose-a:font-medium prose-a:no-underline hover:prose-a:underline",
+          ENTRY_BODY_RENDERER_CLASSNAME,
+          contentMinHeightClass
+        ),
       },
       handleKeyDown: (_view, event) => {
+        const m = mentionRef.current
+        if (m && m.results.length > 0) {
+          if (event.key === "ArrowDown") {
+            event.preventDefault()
+            setMention((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    selectedIndex: Math.min(prev.results.length - 1, prev.selectedIndex + 1),
+                  }
+                : null
+            )
+            return true
+          }
+          if (event.key === "ArrowUp") {
+            event.preventDefault()
+            setMention((prev) =>
+              prev ? { ...prev, selectedIndex: Math.max(0, prev.selectedIndex - 1) } : null
+            )
+            return true
+          }
+          if (event.key === "Enter" && !event.shiftKey) {
+            const pick = m.results[m.selectedIndex]
+            if (pick) {
+              event.preventDefault()
+              insertMention(pick.username)
+              return true
+            }
+          }
+        }
+        if (m && event.key === "Escape") {
+          event.preventDefault()
+          const ed = editorRef.current
+          if (ed) mentionEscapeSuppressAtRef.current = ed.state.selection.from
+          setMention(null)
+          return true
+        }
         // Karakter ekleme tuşlarını 10.000 limitinde engelle
         const isCharKey = event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey
         if (isCharKey && charCountRef.current >= CHAR_LIMIT) return true
@@ -111,6 +212,97 @@ export function RichTextEditor({ value, onChange, placeholder, onCharCountChange
       onChange(editor.getHTML())
     },
   })
+
+  useEffect(() => {
+    if (!editor) return
+    editorRef.current = editor
+    return () => {
+      editorRef.current = null
+    }
+  }, [editor])
+
+  useEffect(() => {
+    if (!editor) return
+    const syncMention = () => {
+      const { from } = editor.state.selection
+      if (mentionEscapeSuppressAtRef.current !== null) {
+        if (from !== mentionEscapeSuppressAtRef.current) {
+          mentionEscapeSuppressAtRef.current = null
+        } else {
+          const textBefore = editor.state.doc.textBetween(0, from, "\n", "\n")
+          if (/@([^\s@]*)$/.test(textBefore)) {
+            setMention(null)
+            return
+          }
+          mentionEscapeSuppressAtRef.current = null
+        }
+      }
+      const textBefore = editor.state.doc.textBetween(0, from, "\n", "\n")
+      const match = textBefore.match(/@([^\s@]*)$/)
+      if (!match) {
+        setMention(null)
+        return
+      }
+      const query = match[1]
+      const rangeFrom = from - match[0].length
+      const coords = editor.view.coordsAtPos(from)
+      setMention((prev) => ({
+        rangeFrom,
+        query,
+        rect: { top: coords.bottom + 4, left: coords.left },
+        results: prev && prev.query === query ? prev.results : [],
+        selectedIndex: prev && prev.query === query ? prev.selectedIndex : 0,
+        loading: prev && prev.query === query ? prev.loading : false,
+      }))
+    }
+    editor.on("update", syncMention)
+    editor.on("selectionUpdate", syncMention)
+    syncMention()
+    return () => {
+      editor.off("update", syncMention)
+      editor.off("selectionUpdate", syncMention)
+    }
+  }, [editor])
+
+  useEffect(() => {
+    if (mention === null) return
+    const q = mention.query
+    const ac = new AbortController()
+    const t = window.setTimeout(async () => {
+      setMention((prev) => (prev && prev.query === q ? { ...prev, loading: true } : prev))
+      try {
+        const res = await fetch(getApiUrl(`api/Users/search?q=${encodeURIComponent(q)}`), {
+          headers: getAuthHeaders(),
+          signal: ac.signal,
+        })
+        if (!res.ok) throw new Error("mention_search")
+        const data: unknown = await res.json()
+        const raw = Array.isArray(data) ? data : []
+        const results: MentionSearchItem[] = raw
+          .map((row) => {
+            const r = row as Record<string, unknown>
+            return {
+              id: String(r.id ?? ""),
+              username: typeof r.username === "string" ? r.username : "",
+              avatar: typeof r.avatar === "string" || r.avatar === null ? (r.avatar as string | null) : null,
+            }
+          })
+          .filter((x) => x.id && x.username)
+        setMention((prev) => {
+          if (!prev || prev.query !== q) return prev
+          const sel = Math.min(prev.selectedIndex, Math.max(0, results.length - 1))
+          return { ...prev, results, loading: false, selectedIndex: sel }
+        })
+      } catch {
+        if (ac.signal.aborted) return
+        setMention((prev) => (prev && prev.query === q ? { ...prev, results: [], loading: false } : prev))
+      }
+    }, MENTION_DEBOUNCE_MS)
+    return () => {
+      window.clearTimeout(t)
+      ac.abort()
+    }
+  }, [mention?.query])
 
   useEffect(() => {
     if (!editor) return
@@ -154,18 +346,6 @@ export function RichTextEditor({ value, onChange, placeholder, onCharCountChange
     editor.chain().focus().toggleSpoiler().run()
   }, [editor])
 
-  const addEksiSpoiler = useCallback(() => {
-    if (!editor) return
-    const { from, to } = editor.state.selection
-    const rawText = editor.state.doc.textBetween(from, to, " ")
-    if (!rawText) {
-      toast.error("Lütfen spoiler içine alınacak metni seçin.")
-      return
-    }
-    const text = rawText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    editor.chain().focus().deleteSelection().insertContent(`<blockquote><p><strong class="text-red-500">--- spoiler ---</strong></p><p>${text}</p><p><strong class="text-red-500">--- spoiler ---</strong></p></blockquote><p></p>`).run()
-  }, [editor])
-
   const ToolbarButton = ({
     onClick,
     isActive,
@@ -198,7 +378,7 @@ export function RichTextEditor({ value, onChange, placeholder, onCharCountChange
   if (!editor) return null
 
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden">
+    <div className="rounded-lg border border-border bg-card overflow-hidden overflow-x-hidden box-border min-w-0 w-full max-w-full">
       <div className="flex flex-wrap items-center gap-0.5 border-b border-border bg-muted/30 px-1 py-1.5">
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}
@@ -244,7 +424,11 @@ export function RichTextEditor({ value, onChange, placeholder, onCharCountChange
               <Smile className="h-4 w-4" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0 border-0" align="start">
+          <PopoverContent
+            className="z-[100] w-auto p-0 border-0"
+            align="start"
+            onWheelCapture={(e) => e.stopPropagation()}
+          >
             <Picker
               data={data}
               onEmojiSelect={insertEmoji}
@@ -260,28 +444,87 @@ export function RichTextEditor({ value, onChange, placeholder, onCharCountChange
         >
           <EyeOff className="h-4 w-4" />
         </ToolbarButton>
-        <ToolbarButton
-          onClick={addEksiSpoiler}
-          title="Yazılı Spoiler"
-        >
-          <MessageSquareWarning className="h-4 w-4" />
-        </ToolbarButton>
       </div>
-      <div className="relative">
-        <EditorContent editor={editor} />
-        {/* Karakter Sayacı — 95.000+ karakterde belirgin hale gelir */}
+      <div className={cn(ENTRY_BODY_OUTER_WRAPPER_CLASS, "mb-0")}>
         <div
           className={cn(
-            "absolute bottom-2 right-3 text-xs font-mono tabular-nums select-none pointer-events-none transition-all duration-500",
-            charCount > CHAR_WARN_THRESHOLD ? "opacity-100" : "opacity-0",
-            charCount >= CHAR_LIMIT
-              ? "text-red-500 font-bold animate-pulse"
-              : charCount >= CHAR_DANGER_THRESHOLD
-              ? "text-red-400 font-semibold"
-              : "text-orange-500"
+            ENTRY_BODY_INNER_SCROLL_CLASS,
+            "relative whitespace-pre-wrap break-words box-border",
+            bodyScrollMaxHeightClass &&
+              "min-h-0 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]",
+            bodyScrollMaxHeightClass
           )}
         >
-          {charCount.toLocaleString("tr-TR")}/100.000 karakter
+          <div className={cn(ENTRY_BODY_ENTRY_TEXT_CLASS, innerContentPaddingClassName)}>
+            <EditorContent editor={editor} />
+            {mention && (
+              <div
+                role="listbox"
+                aria-label="Kullanıcı ara"
+                className="fixed z-[100] min-w-[220px] max-w-[min(100vw-1rem,280px)] rounded-md border border-border bg-popover text-popover-foreground shadow-md"
+                style={{ top: mention.rect.top, left: mention.rect.left }}
+              >
+                {mention.loading && (
+                  <p className="px-2 py-2 text-xs text-muted-foreground">Aranıyor…</p>
+                )}
+                {!mention.loading && mention.results.length === 0 && mention.query.length === 0 && (
+                  <p className="px-2 py-2 text-xs text-muted-foreground">Kullanıcı adı yazmaya devam edin</p>
+                )}
+                {!mention.loading && mention.results.length === 0 && mention.query.length > 0 && (
+                  <p className="px-2 py-2 text-xs text-muted-foreground">Sonuç yok</p>
+                )}
+                {mention.results.map((u, i) => (
+                  <button
+                    key={u.id}
+                    type="button"
+                    role="option"
+                    aria-selected={i === mention.selectedIndex}
+                    className={cn(
+                      "flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm outline-none",
+                      i === mention.selectedIndex ? "bg-muted" : "hover:bg-muted/80"
+                    )}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onMouseEnter={() =>
+                      setMention((prev) => (prev ? { ...prev, selectedIndex: i } : null))
+                    }
+                    onClick={() => insertMention(u.username)}
+                  >
+                    {u.avatar?.startsWith("http") ? (
+                      <img
+                        src={u.avatar}
+                        alt=""
+                        className="h-7 w-7 shrink-0 rounded-full object-cover border border-border/60"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : u.avatar ? (
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary/80 text-sm border border-border/60">
+                        {u.avatar}
+                      </span>
+                    ) : (
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs text-muted-foreground border border-border/60">
+                        {(u.username.charAt(0) || "?").toUpperCase()}
+                      </span>
+                    )}
+                    <span className="min-w-0 truncate font-medium">@{u.username}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {/* Karakter Sayacı — 95.000+ karakterde belirgin hale gelir */}
+            <div
+              className={cn(
+                "absolute bottom-2 right-3 text-xs font-mono tabular-nums select-none pointer-events-none transition-all duration-500",
+                charCount > CHAR_WARN_THRESHOLD ? "opacity-100" : "opacity-0",
+                charCount >= CHAR_LIMIT
+                  ? "text-red-500 font-bold animate-pulse"
+                  : charCount >= CHAR_DANGER_THRESHOLD
+                  ? "text-red-400 font-semibold"
+                  : "text-orange-500"
+              )}
+            >
+              {charCount.toLocaleString("tr-TR")}/100.000 karakter
+            </div>
+          </div>
         </div>
       </div>
 
@@ -332,40 +575,50 @@ export function RichTextEditor({ value, onChange, placeholder, onCharCountChange
           </DialogHeader>
           <div className="space-y-4 py-2">
             {mediaModal?.type === "image" ? (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  🖼️ Fotoğraf Yükleme Rehberi: Sunucu hızımızı korumak için doğrudan fotoğraf yüklemeyi kapattık. Lütfen fotoğrafınızı aşağıdaki adrese yükleyin ve aldığınız linki &quot;Link Ekle&quot; aracıyla entry&apos;nize ekleyin.
-                </p>
-                <Input
-                  readOnly
-                  value="https://imgbb.com/"
-                  className="font-mono bg-muted/50 cursor-text select-all"
-                />
-              </>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Sunucu hızımızı korumak için doğrudan fotoğraf yüklemeyi kapattık. Lütfen fotoğrafınızı{" "}
+                <a
+                  href="https://imgbb.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline"
+                >
+                  imgbb.com
+                </a>{" "}
+                adresine yükleyin (&quot;Gömme kodları&quot; seçeneğinden &quot;Görüntüleyici bağlantıları&quot; kısmını
+                seçiniz) daha sonra aldığınız linki &quot;Link Ekle&quot; aracıyla entry&apos;nize ekleyin.
+              </p>
             ) : (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  🎬 Video Yükleme Rehberi: Videonuzun boyutuna göre aşağıdaki servislerden birine yükleme yapıp, aldığınız linki &quot;Link Ekle&quot; aracıyla entry&apos;nize ekleyebilirsiniz.
+              <div className="text-sm text-muted-foreground leading-relaxed">
+                <p>
+                  Videonuzun boyutuna ve süresine göre aşağıdaki servislerden birine yükleme yapıp, aldığınız linki
+                  &quot;Link Ekle&quot; aracıyla entry&apos;nize ekleyebilirsiniz.
                 </p>
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">200 MB Altı Videolar İçin (Kalıcı):</Label>
-                    <Input
-                      readOnly
-                      value="https://catbox.moe/"
-                      className="font-mono bg-muted/50 cursor-text select-all"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">200 MB Üstü Videolar İçin (90 Gün Sonra Silinir):</Label>
-                    <Input
-                      readOnly
-                      value="https://streamable.com/"
-                      className="font-mono bg-muted/50 cursor-text select-all"
-                    />
-                  </div>
-                </div>
-              </>
+                <br />
+                <p>
+                  200 MB Altı Videolar İçin (Kalıcı yükleme) —{" "}
+                  <a
+                    href="https://catbox.moe"
+                    target="_blank"
+                    className="text-blue-500 hover:underline"
+                    rel="noopener noreferrer"
+                  >
+                    catbox.moe
+                  </a>
+                </p>
+                <br />
+                <p>
+                  MB Sınırı yok, 10 Dakika altındaki Videolar için (90 Gün Sonra Silinir) —{" "}
+                  <a
+                    href="https://streamable.com"
+                    target="_blank"
+                    className="text-blue-500 hover:underline"
+                    rel="noopener noreferrer"
+                  >
+                    streamable.com
+                  </a>
+                </p>
+              </div>
             )}
           </div>
           <DialogFooter>

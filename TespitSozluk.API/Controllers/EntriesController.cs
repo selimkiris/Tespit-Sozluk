@@ -1,12 +1,13 @@
 using System.Security.Claims;
-using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using TespitSozluk.API.Data;
 using TespitSozluk.API.DTOs;
 using TespitSozluk.API.Entities;
 using TespitSozluk.API.Filters;
+using TespitSozluk.API.Helpers;
 using TespitSozluk.API.Services;
 
 namespace TespitSozluk.API.Controllers;
@@ -19,10 +20,23 @@ public class EntriesController : ControllerBase
         Guid AuthorId, string AuthorName, string? AuthorAvatar, string AuthorRole, DateTime CreatedAt, DateTime? UpdatedAt, bool IsAnonymous);
 
     private readonly AppDbContext _context;
+    private readonly IEntryDeletionService _entryDeletionService;
+    private readonly IEntryInteractionNotificationService _entryInteractionNotifications;
+    private readonly IEntryLikesService _entryLikesService;
+    private readonly IEntryMentionService _entryMentionService;
 
-    public EntriesController(AppDbContext context)
+    public EntriesController(
+        AppDbContext context,
+        IEntryDeletionService entryDeletionService,
+        IEntryInteractionNotificationService entryInteractionNotifications,
+        IEntryLikesService entryLikesService,
+        IEntryMentionService entryMentionService)
     {
         _context = context;
+        _entryDeletionService = entryDeletionService;
+        _entryInteractionNotifications = entryInteractionNotifications;
+        _entryLikesService = entryLikesService;
+        _entryMentionService = entryMentionService;
     }
 
     [AllowAnonymous]
@@ -134,11 +148,24 @@ public class EntriesController : ControllerBase
             (saveCounts, userSavedIds) = await GetSaveDataAsync(entryIds, userId);
         }
 
+        var bkzBag = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var mentionBag = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var e in entries)
+        {
+            BkzTopicHelper.CollectBkzTermsToBag(e.Content, bkzBag);
+            MentionHelper.CollectMentionHandlesToBag(e.Content, mentionBag);
+        }
+
+        var mentionMaps = await MentionHelper.LoadMentionUserMapsAsync(_context, mentionBag, Array.Empty<Guid>());
+        var bkzMaps = await BkzTopicHelper.LoadBkzTopicMapsAsync(_context, bkzBag);
+
         var result = new List<EntryResponseDto>();
         foreach (var e in entries)
         {
-            var validBkzs = await BuildValidBkzsAsync(e.Content);
-            var dto = MapToPublicResponse(e.Id, e.Content, e.Upvotes, e.Downvotes, e.TopicId, e.TopicTitle,
+            var contentForBkz = MentionHelper.ApplyMentionsMarkdown(e.Content, mentionMaps);
+            var validBkzs = BkzTopicHelper.BuildValidBkzs(contentForBkz, bkzMaps);
+            var contentOut = BkzTopicHelper.ApplyBkzHtmlToContent(contentForBkz, bkzMaps);
+            var dto = MapToPublicResponse(e.Id, contentOut, e.Upvotes, e.Downvotes, e.TopicId, e.TopicTitle,
                 e.AuthorId, e.AuthorName, e.AuthorAvatar, e.AuthorRole, e.CreatedAt, e.UpdatedAt, e.IsAnonymous, userId, userVotes,
                 saveCounts.TryGetValue(e.Id, out var sc) ? sc : 0,
                 userSavedIds.Contains(e.Id));
@@ -194,9 +221,14 @@ public class EntriesController : ControllerBase
         var authorName = entry.IsAnonymous ? "Anonim" : (entry.Author!.FirstName + " " + entry.Author.LastName);
         var authorAvatar = entry.IsAnonymous ? null : entry.Author!.Avatar;
         var authorRole = entry.Author?.Role ?? "User";
-        var validBkzs = await BuildValidBkzsAsync(entry.Content);
+        var mentionBagSingle = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        MentionHelper.CollectMentionHandlesToBag(entry.Content, mentionBagSingle);
+        var mentionMapsSingle = await MentionHelper.LoadMentionUserMapsAsync(_context, mentionBagSingle, Array.Empty<Guid>());
+        var contentForBkzSingle = MentionHelper.ApplyMentionsMarkdown(entry.Content, mentionMapsSingle);
+        var (validBkzs, bkzMaps) = await BkzTopicHelper.BuildValidBkzsAndMapsAsync(_context, contentForBkzSingle);
+        var contentOut = BkzTopicHelper.ApplyBkzHtmlToContent(contentForBkzSingle, bkzMaps);
         var dto = MapToPublicResponse(
-            entry.Id, entry.Content, entry.Upvotes, entry.Downvotes,
+            entry.Id, contentOut, entry.Upvotes, entry.Downvotes,
             entry.TopicId, entry.Topic!.Title, entry.AuthorId, authorName, authorAvatar, authorRole,
             entry.CreatedAt, entry.UpdatedAt, entry.IsAnonymous,
             userId, userVotes,
@@ -205,6 +237,31 @@ public class EntriesController : ControllerBase
         dto.ValidBkzs = validBkzs;
 
         return dto;
+    }
+
+    /// <summary>Yalnızca entry sahibi: beğenen (upvote) kullanıcıların listesi. Kaydetme ve downvote dahil değildir.</summary>
+    [Authorize]
+    [HttpGet("{id:guid}/likes")]
+    public async Task<ActionResult<IReadOnlyList<UserSearchResultDto>>> GetEntryLikes(Guid id)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var requestorId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _entryLikesService.GetUpvotersForEntryAuthorAsync(id, requestorId);
+        if (!result.EntryExists)
+        {
+            return NotFound();
+        }
+
+        if (!result.RequestorIsAuthor)
+        {
+            return Forbid();
+        }
+
+        return Ok(result.Upvoters);
     }
 
     [AllowAnonymous]
@@ -263,11 +320,24 @@ public class EntriesController : ControllerBase
             (saveCounts, userSavedIds) = await GetSaveDataAsync(entryIds, userId);
         }
 
+        var bkzBag = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var mentionBag = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var e in entries)
+        {
+            BkzTopicHelper.CollectBkzTermsToBag(e.Content, bkzBag);
+            MentionHelper.CollectMentionHandlesToBag(e.Content, mentionBag);
+        }
+
+        var mentionMaps = await MentionHelper.LoadMentionUserMapsAsync(_context, mentionBag, Array.Empty<Guid>());
+        var bkzMaps = await BkzTopicHelper.LoadBkzTopicMapsAsync(_context, bkzBag);
+
         var result = new List<EntryResponseDto>();
         foreach (var e in entries)
         {
-            var validBkzs = await BuildValidBkzsAsync(e.Content);
-            var dto = MapToPublicResponse(e.Id, e.Content, e.Upvotes, e.Downvotes, e.TopicId, e.TopicTitle,
+            var contentForBkz = MentionHelper.ApplyMentionsMarkdown(e.Content, mentionMaps);
+            var validBkzs = BkzTopicHelper.BuildValidBkzs(contentForBkz, bkzMaps);
+            var contentOut = BkzTopicHelper.ApplyBkzHtmlToContent(contentForBkz, bkzMaps);
+            var dto = MapToPublicResponse(e.Id, contentOut, e.Upvotes, e.Downvotes, e.TopicId, e.TopicTitle,
                 e.AuthorId, e.AuthorName, e.AuthorAvatar, e.AuthorRole, e.CreatedAt, e.UpdatedAt, e.IsAnonymous, userId, userVotes,
                 saveCounts.TryGetValue(e.Id, out var sc) ? sc : 0,
                 userSavedIds.Contains(e.Id));
@@ -295,10 +365,27 @@ public class EntriesController : ControllerBase
             return NotFound("Başlık bulunamadı.");
         }
 
+        if (!string.IsNullOrEmpty(dto.Content))
+        {
+            dto.Content = System.Text.RegularExpressions.Regex.Replace(
+                dto.Content,
+                @"^(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+",
+                "",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            );
+            dto.Content = System.Text.RegularExpressions.Regex.Replace(
+                dto.Content,
+                @"(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+$",
+                "",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            );
+            dto.Content = dto.Content.Trim();
+        }
+
         var entry = new Entry
         {
             Id = Guid.NewGuid(),
-            Content = dto.Content.Trim(),
+            Content = string.Empty,
             TopicId = dto.TopicId,
             AuthorId = authorId,
             IsAnonymous = dto.IsAnonymous,
@@ -306,12 +393,23 @@ public class EntriesController : ControllerBase
         };
 
         _context.Entries.Add(entry);
+        entry.Content = await _entryMentionService.ApplyMentionsAndQueueNotificationsAsync(
+            dto.Content.Trim(),
+            entry.Id,
+            authorId);
+
         await _context.SaveChangesAsync();
 
         var author = await _context.Users.FindAsync(authorId);
         var topic = await _context.Topics.FindAsync(entry.TopicId);
         var response = MapToResponseDto(entry, author!, topic!, 0, true);
-        response.ValidBkzs = await BuildValidBkzsAsync(entry.Content);
+        var mentionBagCreate = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        MentionHelper.CollectMentionHandlesToBag(entry.Content, mentionBagCreate);
+        var mentionMapsCreate = await MentionHelper.LoadMentionUserMapsAsync(_context, mentionBagCreate, Array.Empty<Guid>());
+        var contentForBkzCreate = MentionHelper.ApplyMentionsMarkdown(entry.Content, mentionMapsCreate);
+        var (validBkzs, bkzMaps) = await BkzTopicHelper.BuildValidBkzsAndMapsAsync(_context, contentForBkzCreate);
+        response.ValidBkzs = validBkzs;
+        response.Content = BkzTopicHelper.ApplyBkzHtmlToContent(contentForBkzCreate, bkzMaps);
         response.SaveCount = 0;
         response.IsSavedByCurrentUser = false;
 
@@ -339,6 +437,23 @@ public class EntriesController : ControllerBase
             return StatusCode(403, "Bu içeriği düzenleme yetkiniz yok.");
         }
 
+        if (!string.IsNullOrEmpty(dto.Content))
+        {
+            dto.Content = System.Text.RegularExpressions.Regex.Replace(
+                dto.Content,
+                @"^(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+",
+                "",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            );
+            dto.Content = System.Text.RegularExpressions.Regex.Replace(
+                dto.Content,
+                @"(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+$",
+                "",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            );
+            dto.Content = dto.Content.Trim();
+        }
+
         entry.Content = dto.Content.Trim();
         entry.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
@@ -350,7 +465,13 @@ public class EntriesController : ControllerBase
             .FirstOrDefaultAsync(v => v.EntryId == id && v.UserId == authorId);
         if (vote != null) userVoteType = vote.IsUpvote ? 1 : -1;
         var response = MapToResponseDto(entry, author!, topic!, userVoteType, true);
-        response.ValidBkzs = await BuildValidBkzsAsync(entry.Content);
+        var mentionBagUpdate = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        MentionHelper.CollectMentionHandlesToBag(entry.Content, mentionBagUpdate);
+        var mentionMapsUpdate = await MentionHelper.LoadMentionUserMapsAsync(_context, mentionBagUpdate, Array.Empty<Guid>());
+        var contentForBkzUpdate = MentionHelper.ApplyMentionsMarkdown(entry.Content, mentionMapsUpdate);
+        var (validBkzs, bkzMaps) = await BkzTopicHelper.BuildValidBkzsAndMapsAsync(_context, contentForBkzUpdate);
+        response.ValidBkzs = validBkzs;
+        response.Content = BkzTopicHelper.ApplyBkzHtmlToContent(contentForBkzUpdate, bkzMaps);
         var (saveCounts, userSavedIds) = await GetSaveDataAsync(new List<Guid> { id }, authorId);
         response.SaveCount = saveCounts.TryGetValue(id, out var sc) ? sc : 0;
         response.IsSavedByCurrentUser = userSavedIds.Contains(id);
@@ -378,13 +499,13 @@ public class EntriesController : ControllerBase
             return StatusCode(403, "Bu içeriği silme yetkiniz yok.");
         }
 
-        _context.Entries.Remove(entry);
-        await _context.SaveChangesAsync();
+        await _entryDeletionService.DeleteEntryAndPruneEmptyTopicAsync(entry);
 
         return NoContent();
     }
 
     [Authorize]
+    [EnableRateLimiting("interaction")]
     [HttpPost("{id}/upvote")]
     public async Task<IActionResult> Upvote(Guid id)
     {
@@ -403,6 +524,7 @@ public class EntriesController : ControllerBase
         var existingVote = await _context.EntryVotes
             .FirstOrDefaultAsync(v => v.EntryId == id && v.UserId == userId);
 
+        var shouldNotifyLike = false;
         if (existingVote == null)
         {
             _context.EntryVotes.Add(new EntryVote
@@ -413,17 +535,33 @@ public class EntriesController : ControllerBase
                 IsUpvote = true
             });
             entry.Upvotes++;
+            shouldNotifyLike = true;
         }
         else if (existingVote.IsUpvote)
         {
             _context.EntryVotes.Remove(existingVote);
             entry.Upvotes--;
+            _entryInteractionNotifications.RemoveEntryInteractionNotification(
+                entry.AuthorId, userId, id, EntryInteractionNotificationTypes.Like);
         }
         else
         {
+            _entryInteractionNotifications.RemoveEntryInteractionNotification(
+                entry.AuthorId, userId, id, EntryInteractionNotificationTypes.Dislike);
             existingVote.IsUpvote = true;
             entry.Downvotes--;
             entry.Upvotes++;
+            shouldNotifyLike = true;
+        }
+
+        if (shouldNotifyLike)
+        {
+            _entryInteractionNotifications.TryNotifyEntryOwner(
+                id,
+                entry.AuthorId,
+                userId,
+                EntryInteractionNotificationTypes.Like,
+                "Girdinizi beğendi.");
         }
 
         await _context.SaveChangesAsync();
@@ -433,6 +571,7 @@ public class EntriesController : ControllerBase
     }
 
     [Authorize]
+    [EnableRateLimiting("interaction")]
     [HttpPost("{id}/downvote")]
     public async Task<IActionResult> Downvote(Guid id)
     {
@@ -451,6 +590,7 @@ public class EntriesController : ControllerBase
         var existingVote = await _context.EntryVotes
             .FirstOrDefaultAsync(v => v.EntryId == id && v.UserId == userId);
 
+        var shouldNotifyDislike = false;
         if (existingVote == null)
         {
             _context.EntryVotes.Add(new EntryVote
@@ -461,17 +601,33 @@ public class EntriesController : ControllerBase
                 IsUpvote = false
             });
             entry.Downvotes++;
+            shouldNotifyDislike = true;
         }
         else if (!existingVote.IsUpvote)
         {
             _context.EntryVotes.Remove(existingVote);
             entry.Downvotes--;
+            _entryInteractionNotifications.RemoveEntryInteractionNotification(
+                entry.AuthorId, userId, id, EntryInteractionNotificationTypes.Dislike);
         }
         else
         {
+            _entryInteractionNotifications.RemoveEntryInteractionNotification(
+                entry.AuthorId, userId, id, EntryInteractionNotificationTypes.Like);
             existingVote.IsUpvote = false;
             entry.Upvotes--;
             entry.Downvotes++;
+            shouldNotifyDislike = true;
+        }
+
+        if (shouldNotifyDislike)
+        {
+            _entryInteractionNotifications.TryNotifyEntryOwner(
+                id,
+                entry.AuthorId,
+                userId,
+                EntryInteractionNotificationTypes.Dislike,
+                "Girdinizi beğenmedi.");
         }
 
         await _context.SaveChangesAsync();
@@ -481,6 +637,7 @@ public class EntriesController : ControllerBase
     }
 
     [Authorize]
+    [EnableRateLimiting("interaction")]
     [HttpPost("{id}/save")]
     public async Task<IActionResult> ToggleSave(Guid id)
     {
@@ -502,6 +659,8 @@ public class EntriesController : ControllerBase
         if (existing != null)
         {
             _context.UserSavedEntries.Remove(existing);
+            _entryInteractionNotifications.RemoveEntryInteractionNotification(
+                entry.AuthorId, userId, id, EntryInteractionNotificationTypes.Save);
             await _context.SaveChangesAsync();
             var newCount = await _context.UserSavedEntries.CountAsync(s => s.EntryId == id);
             return Ok(new { saveCount = newCount, isSavedByCurrentUser = false });
@@ -514,6 +673,12 @@ public class EntriesController : ControllerBase
                 EntryId = id,
                 SavedAt = DateTime.UtcNow
             });
+            _entryInteractionNotifications.TryNotifyEntryOwner(
+                id,
+                entry.AuthorId,
+                userId,
+                EntryInteractionNotificationTypes.Save,
+                "Girdinizi kaydetti.");
             await _context.SaveChangesAsync();
             var newCount = await _context.UserSavedEntries.CountAsync(s => s.EntryId == id);
             return Ok(new { saveCount = newCount, isSavedByCurrentUser = true });
@@ -599,31 +764,4 @@ public class EntriesController : ControllerBase
         };
     }
 
-    private async Task<Dictionary<string, Guid>> BuildValidBkzsAsync(string content)
-    {
-        if (string.IsNullOrWhiteSpace(content)) return new Dictionary<string, Guid>();
-
-        var regex = new Regex(@"\(bkz:\s*([^)]+)\)", RegexOptions.IgnoreCase);
-        var matches = regex.Matches(content);
-        var terms = matches
-            .Select(m => m.Groups[1].Value.Trim())
-            .Where(s => !string.IsNullOrEmpty(s))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (terms.Count == 0) return new Dictionary<string, Guid>();
-
-        var lowerTerms = terms.Select(t => t.ToLower()).ToList();
-        var topics = await _context.Topics
-            .Where(t => lowerTerms.Contains(t.Title.ToLower()))
-            .Select(t => new { t.Title, t.Id })
-            .ToListAsync();
-
-        var dict = new Dictionary<string, Guid>();
-        foreach (var t in topics)
-        {
-            dict[t.Title] = t.Id;
-        }
-        return dict;
-    }
 }

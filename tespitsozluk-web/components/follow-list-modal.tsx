@@ -10,6 +10,10 @@ import {
 } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { getApiUrl, getAuthHeaders } from "@/lib/api"
+import { toast } from "sonner"
+
+const FOLLOW_LIST_FETCH_ERROR =
+  "Tüh! Verileri yolda düşürdük galiba... Sayfayı yenileyip tekrar dener misin?"
 
 type FollowUser = {
   id: string
@@ -43,8 +47,18 @@ export function FollowListModal({
         : `api/Users/${userId}/following`
     setLoading(true)
     fetch(getApiUrl(endpoint), { headers: getAuthHeaders() })
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data: FollowUser[]) => {
+      .then((res) => {
+        if (!res.ok) {
+          toast.error(FOLLOW_LIST_FETCH_ERROR)
+          return null
+        }
+        return res.json()
+      })
+      .then((data: FollowUser[] | null) => {
+        if (data === null) {
+          setUsers([])
+          return
+        }
         setUsers(
           Array.isArray(data)
             ? data.map((u) => ({
@@ -55,7 +69,10 @@ export function FollowListModal({
             : []
         )
       })
-      .catch(() => setUsers([]))
+      .catch(() => {
+        toast.error(FOLLOW_LIST_FETCH_ERROR)
+        setUsers([])
+      })
       .finally(() => setLoading(false))
   }, [open, userId, mode])
 
@@ -84,7 +101,12 @@ export function FollowListModal({
                     className="flex items-center gap-3 rounded-lg p-2 hover:bg-muted/60 transition-colors"
                   >
                     {u.avatar?.startsWith("http") ? (
-                      <img src={u.avatar} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover border border-border" />
+                      <img
+                        src={u.avatar}
+                        alt=""
+                        referrerPolicy="no-referrer"
+                        className="h-9 w-9 shrink-0 rounded-full object-cover border border-border"
+                      />
                     ) : u.avatar ? (
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary/80 text-xl border border-border">
                         {u.avatar}
@@ -96,7 +118,7 @@ export function FollowListModal({
                         </AvatarFallback>
                       </Avatar>
                     )}
-                    <span className="font-medium text-foreground truncate">
+                    <span className="font-medium text-foreground max-w-[200px] truncate">
                       {u.username}
                     </span>
                   </Link>

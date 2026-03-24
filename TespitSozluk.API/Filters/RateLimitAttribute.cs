@@ -7,7 +7,7 @@ namespace TespitSozluk.API.Filters;
 
 /// <summary>
 /// Belirtilen eylem için sliding-window timestamp tabanlı rate limiting uygular.
-/// Register eylemi IP bazlı, diğerleri JWT UserId bazlı çalışır.
+/// Kimliği doğrulanmış isteklerde UserId bazlı çalışır.
 /// Limit aşıldığında 429 Too Many Requests + retryAfterSeconds döner.
 /// </summary>
 [AttributeUsage(AttributeTargets.Method)]
@@ -27,25 +27,13 @@ public class RateLimitAttribute : ActionFilterAttribute
         var rateLimitService = context.HttpContext.RequestServices
             .GetRequiredService<IRateLimitService>();
 
-        string? key;
+        // UserId bazlı: kimliği doğrulanmamış istekler bu filtere takılmaz
+        var key = context.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-        if (Action == RateLimitAction.Register)
+        if (string.IsNullOrEmpty(key))
         {
-            // IP bazlı: X-Forwarded-For başlığını destekle (reverse proxy arkasında çalışırken)
-            key = context.HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
-                  ?? context.HttpContext.Connection.RemoteIpAddress?.ToString()
-                  ?? "unknown";
-        }
-        else
-        {
-            // UserId bazlı: kimliği doğrulanmamış istekler bu filtere takılmaz
-            key = context.HttpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-            if (string.IsNullOrEmpty(key))
-            {
-                await next();
-                return;
-            }
+            await next();
+            return;
         }
 
         var result = rateLimitService.CheckAndRecord(key, Action);

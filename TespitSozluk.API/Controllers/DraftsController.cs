@@ -13,6 +13,8 @@ namespace TespitSozluk.API.Controllers;
 [Route("api/[controller]")]
 public class DraftsController : ControllerBase
 {
+    private const int DraftsPageSize = 25;
+
     private readonly AppDbContext _context;
 
     public DraftsController(AppDbContext context)
@@ -21,7 +23,7 @@ public class DraftsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<DraftResponseDto>>> GetMyDrafts()
+    public async Task<ActionResult<DraftsPagedResponseDto>> GetMyDrafts([FromQuery] int page = 1)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var authorId))
@@ -29,10 +31,19 @@ public class DraftsController : ControllerBase
             return Unauthorized();
         }
 
-        var drafts = await _context.DraftEntries
-            .Include(d => d.Topic)
-            .Where(d => d.AuthorId == authorId)
+        if (page < 1)
+        {
+            page = 1;
+        }
+
+        var baseQuery = _context.DraftEntries.Where(d => d.AuthorId == authorId);
+
+        var totalCount = await baseQuery.CountAsync();
+
+        var drafts = await baseQuery
             .OrderByDescending(d => d.UpdatedAt)
+            .Skip((page - 1) * DraftsPageSize)
+            .Take(DraftsPageSize)
             .Select(d => new DraftResponseDto
             {
                 Id = d.Id,
@@ -47,7 +58,13 @@ public class DraftsController : ControllerBase
             })
             .ToListAsync();
 
-        return drafts;
+        return new DraftsPagedResponseDto
+        {
+            Items = drafts,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = DraftsPageSize
+        };
     }
 
     [HttpGet("{id:guid}")]
@@ -123,10 +140,27 @@ public class DraftsController : ControllerBase
             {
                 return BadRequest("Yeni başlık adı boş olamaz.");
             }
-            if (newTopicTitle.Length > 70)
+            if (newTopicTitle.Length > 60)
             {
-                return BadRequest("Başlık en fazla 70 karakter olabilir.");
+                return BadRequest("Başlık en fazla 60 karakter olabilir.");
             }
+        }
+
+        if (!string.IsNullOrEmpty(dto.Content))
+        {
+            dto.Content = System.Text.RegularExpressions.Regex.Replace(
+                dto.Content,
+                @"^(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+",
+                "",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            );
+            dto.Content = System.Text.RegularExpressions.Regex.Replace(
+                dto.Content,
+                @"(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+$",
+                "",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            );
+            dto.Content = dto.Content.Trim();
         }
 
         var draft = new DraftEntry
@@ -199,14 +233,31 @@ public class DraftsController : ControllerBase
         else if (!string.IsNullOrWhiteSpace(dto.NewTopicTitle))
         {
             newTopicTitle = dto.NewTopicTitle.Trim();
-            if (newTopicTitle.Length > 70)
+            if (newTopicTitle.Length > 60)
             {
-                return BadRequest("Başlık en fazla 70 karakter olabilir.");
+                return BadRequest("Başlık en fazla 60 karakter olabilir.");
             }
         }
         else
         {
             return BadRequest("Mevcut başlık seçin veya yeni başlık adı girin.");
+        }
+
+        if (!string.IsNullOrEmpty(dto.Content))
+        {
+            dto.Content = System.Text.RegularExpressions.Regex.Replace(
+                dto.Content,
+                @"^(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+",
+                "",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            );
+            dto.Content = System.Text.RegularExpressions.Regex.Replace(
+                dto.Content,
+                @"(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+$",
+                "",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            );
+            dto.Content = dto.Content.Trim();
         }
 
         draft.Content = dto.Content.Trim();
@@ -313,6 +364,23 @@ public class DraftsController : ControllerBase
         else
         {
             return BadRequest("Taslakta ne başlık ID'si ne de yeni başlık adı bulunuyor.");
+        }
+
+        if (!string.IsNullOrEmpty(draft.Content))
+        {
+            draft.Content = System.Text.RegularExpressions.Regex.Replace(
+                draft.Content,
+                @"^(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+",
+                "",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            );
+            draft.Content = System.Text.RegularExpressions.Regex.Replace(
+                draft.Content,
+                @"(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+$",
+                "",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+            );
+            draft.Content = draft.Content.Trim();
         }
 
         var entry = new Entry

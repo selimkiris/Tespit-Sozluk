@@ -1,15 +1,25 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { RichTextEditor } from "@/components/rich-text-editor"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { getApiUrl, getAuthHeaders } from "@/lib/api"
 
+function trimHtmlContent(html: string): string {
+  if (!html) return ''
+  let result = html
+    .replace(/^(<p>\s*<\/p>|<p><br\s*\/?><\/p>|<br\s*\/?>|\s)+/gi, '')
+  result = result
+    .replace(/(<p>\s*<\/p>|<p><br\s*\/?><\/p>|<br\s*\/?>|\s)+$/gi, '')
+  return result.trim()
+}
+
 interface EntryFormProps {
   topicId: string
-  onSubmit: (content: string, isAnonymous: boolean) => void | Promise<void>
+  /** `onApiSuccess` — 200 OK anında çağrılır; navigasyon/router beklemeden loading kapatmak için. */
+  onSubmit: (content: string, isAnonymous: boolean, onApiSuccess: () => void) => void | Promise<void>
   isLoggedIn: boolean
   onLoginClick: () => void
 }
@@ -22,21 +32,31 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
   const [error, setError] = useState("")
   const [draftMessage, setDraftMessage] = useState("")
   const [charCount, setCharCount] = useState(0)
+  const draftMessageClearRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (draftMessageClearRef.current) clearTimeout(draftMessageClearRef.current)
+    }
+  }, [])
 
   const hasContent = !!content.replace(/<[^>]*>/g, "").trim()
   const isOverLimit = charCount >= 100_000
 
   const handleSubmit = async () => {
-    if (!hasContent) return
+    const finalContent = trimHtmlContent(
+      (content ?? '').replace(/^[\s\n\r\u00a0\u200b]+/, '').replace(/[\s\n\r\u00a0\u200b]+$/, '')
+    )
+
+    if (!finalContent) return
 
     setIsSubmitting(true)
     setError("")
     try {
-      await onSubmit(content, isAnonymous)
+      await onSubmit(finalContent, isAnonymous, () => setIsSubmitting(false))
       setContent("")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Entry eklenemedi")
-    } finally {
       setIsSubmitting(false)
     }
   }
@@ -57,9 +77,14 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
     setDraftMessage("")
     setError("")
     try {
+      const cleanContent = content
+        .replace(/^\s+/, '')
+        .replace(/\s+$/, '')
+        .replace(/^\n+/, '')
+        .replace(/\n+$/, '')
       const body: { topicId: string; content: string; isAnonymous?: boolean } = {
         topicId,
-        content: content.trim(),
+        content: cleanContent.replace(/^[\s\n\r]+|[\s\n\r]+$/g, ''),
         isAnonymous,
       }
       // Mevcut başlık sayfasındayız - newTopicTitle kesinlikle gönderilmez
@@ -74,7 +99,11 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
         throw new Error(msg)
       }
       setDraftMessage("Taslak kaydedildi. Profilinizden Taslaklar sekmesinde görebilirsiniz.")
-      setTimeout(() => setDraftMessage(""), 4000)
+      if (draftMessageClearRef.current) clearTimeout(draftMessageClearRef.current)
+      draftMessageClearRef.current = setTimeout(() => {
+        setDraftMessage("")
+        draftMessageClearRef.current = null
+      }, 4000)
     } catch (err) {
       console.error(err)
       setError(err instanceof Error ? err.message : "Taslak kaydedilemedi")
@@ -100,12 +129,13 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
   }
 
   return (
-    <div className="bg-card border border-border rounded-lg p-4">
+    <div className="bg-card border border-border rounded-lg p-5 min-w-0 w-full max-w-full">
       <RichTextEditor
         value={content}
         onChange={setContent}
         placeholder="düşüncelerinizi yazın..."
         onCharCountChange={setCharCount}
+        contentMinHeightClass="min-h-[180px]"
       />
       <div className="mt-3 space-y-1">
         <RadioGroup

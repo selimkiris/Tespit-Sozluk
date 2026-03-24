@@ -23,13 +23,28 @@ function Avatar({
 
 function AvatarImage({
   className,
+  src,
+  onError,
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Image>) {
+  const handleError: React.ReactEventHandler<HTMLImageElement> = (event) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Avatar yüklenemedi:', src)
+    }
+    onError?.(event)
+  }
+
+  if (src == null || src === '') {
+    return null
+  }
+
   return (
     <AvatarPrimitive.Image
       data-slot="avatar-image"
       className={cn('aspect-square size-full', className)}
       {...props}
+      src={src}
+      onError={handleError}
     />
   )
 }

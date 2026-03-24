@@ -1,10 +1,13 @@
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using TespitSozluk.API.Data;
 using TespitSozluk.API.DTOs;
 using TespitSozluk.API.Entities;
+using TespitSozluk.API.Services;
 
 namespace TespitSozluk.API.Controllers;
 
@@ -12,11 +15,65 @@ namespace TespitSozluk.API.Controllers;
 [Route("api/[controller]")]
 public class UsersController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    /// <summary>
+    /// Geçerli kullanıcı adı: 1-20 karakter, boşluk / &lt; / &gt; içeremez.
+    /// AuthController.UsernameRegex ile birebir aynı kural — tek kaynak olarak
+    /// ileride ortak bir yardımcı sınıfa taşınabilir.
+    /// </summary>
+    private static readonly Regex UsernameRegex = new(@"^[^<>\s]{1,20}$", RegexOptions.Compiled);
 
-    public UsersController(AppDbContext context)
+    private static bool IsValidUsername(string username) =>
+        !string.IsNullOrEmpty(username) && UsernameRegex.IsMatch(username);
+
+    private readonly AppDbContext _context;
+    private readonly IEntryInteractionNotificationService _entryInteractionNotifications;
+
+    public UsersController(AppDbContext context, IEntryInteractionNotificationService entryInteractionNotifications)
     {
         _context = context;
+        _entryInteractionNotifications = entryInteractionNotifications;
+    }
+
+    /// <summary>
+    /// Kullanıcı adına göre canlı arama (@mention). En fazla 5 sonuç.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("search")]
+    public async Task<ActionResult<IReadOnlyList<UserMentionSearchItemDto>>> SearchUsers([FromQuery] string? q)
+    {
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            return Ok(Array.Empty<UserMentionSearchItemDto>());
+        }
+
+        var term = q.Trim();
+        if (term.Length == 0)
+        {
+            return Ok(Array.Empty<UserMentionSearchItemDto>());
+        }
+
+        // LIKE özel karakterlerini kaçır (PostgreSQL ILIKE)
+        var escaped = term.Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("%", "\\%", StringComparison.Ordinal)
+            .Replace("_", "\\_", StringComparison.Ordinal);
+        var prefixPattern = $"{escaped}%";
+        var containsPattern = $"%{escaped}%";
+
+        var items = await _context.Users
+            .AsNoTracking()
+            .Where(u => EF.Functions.ILike(u.Username, containsPattern))
+            .OrderByDescending(u => EF.Functions.ILike(u.Username, prefixPattern))
+            .ThenBy(u => u.Username)
+            .Take(5)
+            .Select(u => new UserMentionSearchItemDto
+            {
+                Id = u.Id,
+                Username = u.Username,
+                Avatar = u.Avatar
+            })
+            .ToListAsync();
+
+        return Ok(items);
     }
 
     [AllowAnonymous]
@@ -272,12 +329,12 @@ public class UsersController : ControllerBase
         var isValid = BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash);
         if (!isValid)
         {
-            return BadRequest(new { message = "Mevcut şifreniz hatalı." });
+            return BadRequest(new { message = "Mevcut parola hatalı." });
         }
 
         if (request.NewPassword.Length < 8 || !request.NewPassword.Any(char.IsUpper) || !request.NewPassword.Any(char.IsDigit))
         {
-            return BadRequest(new { message = "Şifreniz en az 8 karakter olmalı, 1 büyük harf ve 1 rakam içermelidir." });
+            return BadRequest(new { message = "Parolanız en az 8 karakter olmalı, 1 büyük harf ve 1 rakam içermelidir." });
         }
 
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
@@ -299,6 +356,11 @@ public class UsersController : ControllerBase
         if (string.IsNullOrEmpty(newUsername))
         {
             return BadRequest(new { message = "Yeni kullanıcı adı gereklidir." });
+        }
+
+        if (!IsValidUsername(newUsername))
+        {
+            return BadRequest(new { message = "Kullanıcı adı en fazla 20 karakter olabilir; boşluk ve < > karakterleri içeremez." });
         }
 
         var user = await _context.Users.FindAsync(userId);
@@ -351,12 +413,48 @@ public class UsersController : ControllerBase
             return NotFound();
         }
 
-        user.Avatar = string.IsNullOrWhiteSpace(request?.Avatar) ? null : request.Avatar.Trim();
+        var raw = request?.AvatarUrl?.Trim();
+        if (string.IsNullOrEmpty(raw))
+        {
+            user.Avatar = null;
+        }
+        else
+        {
+            const int maxHttpUrlLength = 2048;
+            const int maxDataImageLength = 262144;
+
+            if (raw.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+            {
+                if (raw.Length > maxDataImageLength)
+                {
+                    return BadRequest(new { message = "Gömülü görsel çok uzun (en fazla 256 KB)." });
+                }
+
+                user.Avatar = raw;
+            }
+            else
+            {
+                if (raw.Length > maxHttpUrlLength)
+                {
+                    return BadRequest(new { message = "Bağlantı çok uzun (en fazla 2048 karakter)." });
+                }
+
+                if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri)
+                    || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+                {
+                    return BadRequest(new { message = "Geçerli bir http veya https adresi girin." });
+                }
+
+                user.Avatar = raw;
+            }
+        }
+
         await _context.SaveChangesAsync();
         return Ok(new { avatar = user.Avatar, message = "Avatar güncellendi." });
     }
 
     [Authorize]
+    [EnableRateLimiting("interaction")]
     [HttpPost("{id:guid}/follow")]
     public async Task<IActionResult> ToggleFollow(Guid id)
     {
@@ -383,6 +481,7 @@ public class UsersController : ControllerBase
         if (existingFollow != null)
         {
             _context.UserFollows.Remove(existingFollow);
+            _entryInteractionNotifications.RemoveFollowNotifications(id, followerId);
             await _context.SaveChangesAsync();
             return Ok(new { isFollowing = false, message = "Takipten çıkıldı." });
         }
@@ -406,7 +505,7 @@ public class UsersController : ControllerBase
             Id = Guid.NewGuid(),
             UserId = id,
             SenderId = followerId,
-            Type = "Follow",
+            Type = EntryInteractionNotificationTypes.Follow,
             Message = $"{followerName} seni takip etmeye başladı.",
             IsRead = false,
             CreatedAt = DateTime.UtcNow

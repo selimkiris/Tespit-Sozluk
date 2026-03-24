@@ -5,6 +5,8 @@ public class User
     public Guid Id { get; set; }
     public string Email { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
+    public string? PasswordResetToken { get; set; }
+    public DateTime? PasswordResetTokenExpires { get; set; }
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     /// <summary>Benzersiz görünen ad (Nickname). Kullanıcı adı değişikliğinde güncellenir.</summary>

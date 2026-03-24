@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { EntryDetail } from "@/components/entry-detail"
 import { Navbar } from "@/components/navbar"
 import { getAuth, clearAuth } from "@/lib/auth"
@@ -31,11 +31,19 @@ interface EntryPageContentProps {
 
 export function EntryPageContent({ entry }: EntryPageContentProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const [auth, setAuth] = useState<{ token: string; user: { id: string; nickname?: string; email?: string } } | null>(null)
 
   useEffect(() => {
     setAuth(getAuth())
   }, [])
+
+  // Client navigasyonda (/entry/1 → /entry/2) RSC payload bazen eski entry ile kalabiliyor; URL segment'i ile eşleşmezse sunucu ağacını yenile.
+  useEffect(() => {
+    const segment = pathname?.match(/^\/entry\/([^/]+)/)?.[1]
+    if (!segment || segment === String(entry.id)) return
+    router.refresh()
+  }, [pathname, entry.id, router])
 
   const isLoggedIn = !!auth?.token
   const currentUser = auth?.user ? { id: auth.user.id } : null
@@ -73,8 +81,8 @@ export function EntryPageContent({ entry }: EntryPageContentProps) {
         onTopicSelect={(topicId) => router.push(`/?topic=${topicId}`)}
         onUserSelect={(userId) => router.push(`/user/${userId}`)}
       />
-      <main className="lg:pl-64 pt-14 md:pt-14">
-        <div className="max-w-2xl mx-auto px-4 py-6 lg:py-8">
+      <main className="w-full pt-14 md:pt-14 lg:flex lg:justify-start lg:pl-[312px] xl:pl-[344px]">
+        <div className="w-full max-w-2xl mx-auto px-4 py-6 lg:mx-0 lg:max-w-[786px] lg:px-6 lg:py-8">
           <EntryDetail
             entry={entry}
             isLoggedIn={isLoggedIn}

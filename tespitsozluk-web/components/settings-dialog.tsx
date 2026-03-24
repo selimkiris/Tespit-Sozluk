@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Settings, User, Lock, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
 import { getApiUrl, getAuthHeaders } from "@/lib/api"
+import { validateNicknameTrimmed } from "@/lib/nickname.schema"
 import {
   Dialog,
   DialogContent,
@@ -62,8 +63,9 @@ export function SettingsDialog({
     e.preventDefault()
     if (hasChangedUsername) return
     const trimmed = username.trim()
-    if (!trimmed || trimmed.length < 3) {
-      setUsernameError("Kullanıcı adı en az 3 karakter olmalıdır.")
+    const nickErr = validateNicknameTrimmed(trimmed)
+    if (nickErr) {
+      setUsernameError(nickErr)
       return
     }
     setUsernameSaving(true)
@@ -96,11 +98,11 @@ export function SettingsDialog({
       return
     }
     if (newPassword !== confirmPassword) {
-      setPasswordError("Yeni şifreler eşleşmiyor.")
+      setPasswordError("Yeni parolalar eşleşmiyor.")
       return
     }
     if (newPassword.length < 8) {
-      setPasswordError("Yeni şifre en az 8 karakter olmalıdır.")
+      setPasswordError("Yeni parola en az 8 karakter olmalıdır.")
       return
     }
     setPasswordSaving(true)
@@ -115,14 +117,14 @@ export function SettingsDialog({
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        throw new Error(data?.message ?? "Şifre güncellenemedi.")
+        throw new Error(data?.message ?? "Parola güncellenemedi.")
       }
       setCurrentPassword("")
       setNewPassword("")
       setConfirmPassword("")
       toast.success("Şifreniz güncellendi.")
     } catch (err) {
-      setPasswordError(err instanceof Error ? err.message : "Şifre güncellenemedi.")
+      setPasswordError(err instanceof Error ? err.message : "Parola güncellenemedi.")
     } finally {
       setPasswordSaving(false)
     }
@@ -152,7 +154,7 @@ export function SettingsDialog({
 
           <TabsContent value="account" className="mt-4 space-y-4">
             <p className="text-sm text-muted-foreground">
-              Yeni kullanıcı adınız
+              Nicknamenizi değiştirin
             </p>
             {hasChangedUsername ? (
               <div className="space-y-2">
@@ -169,17 +171,17 @@ export function SettingsDialog({
             ) : (
               <form onSubmit={handleUsernameSubmit} className="space-y-3">
                 <div className="space-y-2">
-                  <Label htmlFor="new-username">Yeni Kullanıcı Adı</Label>
+                  <Label htmlFor="new-username">Yeni Nickname</Label>
                   <Input
                     id="new-username"
                     value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="yeni_kullanici_adi"
+                    onChange={(e) => setUsername(e.target.value.slice(0, 20))}
+                    maxLength={20}
                     className="h-10"
                     disabled={usernameSaving}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Kullanıcı adınızı sadece 1 defa değiştirebilirsiniz. İyi düşünün :)
+                  <p className="text-sm font-semibold text-red-600 dark:text-red-400">
+                    Kullanıcı adını sadece 1 defa değiştirebilirsin. İyi düşünün :)
                   </p>
                 </div>
                 {usernameError && (
@@ -198,11 +200,11 @@ export function SettingsDialog({
 
           <TabsContent value="security" className="mt-4 space-y-4">
             <p className="text-sm text-muted-foreground">
-              Şifrenizi güncelleyin
+              Parolanızı değiştirin
             </p>
             <form onSubmit={handlePasswordSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="current-password">Mevcut Şifre</Label>
+                <Label htmlFor="current-password">Mevcut Parolanız</Label>
                 <div className="relative">
                   <Input
                     id="current-password"
@@ -223,7 +225,7 @@ export function SettingsDialog({
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="new-password">Yeni Şifre</Label>
+                <Label htmlFor="new-password">Yeni Parolanız</Label>
                 <div className="relative">
                   <Input
                     id="new-password"
@@ -244,7 +246,7 @@ export function SettingsDialog({
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirm-password">Yeni Şifre (Tekrar)</Label>
+                <Label htmlFor="confirm-password">Yeni Parolanız (Bir daha yazın)</Label>
                 <div className="relative">
                   <Input
                     id="confirm-password"
@@ -272,7 +274,7 @@ export function SettingsDialog({
                 disabled={passwordSaving}
                 className="w-full sm:w-auto"
               >
-                {passwordSaving ? "Güncelleniyor..." : "Şifreyi Güncelle"}
+                {passwordSaving ? "Güncelleniyor..." : "Parolayı Değiştir"}
               </Button>
             </form>
           </TabsContent>
