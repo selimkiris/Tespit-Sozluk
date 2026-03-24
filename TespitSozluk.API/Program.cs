@@ -53,20 +53,18 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // ── CORS — VULN-08 ────────────────────────────────────────────────────────────
-// İzin verilen originler appsettings.json > AllowedOrigins dizisinden okunur.
-// Yerel geliştirme için localhost:3000 ve üretim domaini varsayılan olarak eklenir.
-var allowedOrigins = builder.Configuration
-    .GetSection("AllowedOrigins")
-    .Get<string[]>()
-    ?? ["http://localhost:3000", "https://www.tespitsozluk.com", "https://tespitsozluk-api.onrender.com", "https://tespit-sozluk.vercel.app", "https://tespitsozluk-web.vercel.app"];
-
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins(allowedOrigins)
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        policy.WithOrigins(
+                "http://localhost:3000",
+                "https://tespit-sozluk.vercel.app",
+                "https://www.tespitsozluk.com"
+            )
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .SetIsOriginAllowedToAllowWildcardSubdomains(); // Ekstra güvenlik esnekliği
     });
 });
 
