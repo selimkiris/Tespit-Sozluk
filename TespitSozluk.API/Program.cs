@@ -61,7 +61,7 @@ builder.Services.AddCors(options =>
                 "http://localhost:3000",
                 "https://tespit-sozluk.vercel.app",
                 "https://www.tespitsozluk.com",
-                "https://tespitsozluk.com/"
+                "https://tespitsozluk.com"
             )
             .AllowAnyMethod()
             .AllowAnyHeader()
