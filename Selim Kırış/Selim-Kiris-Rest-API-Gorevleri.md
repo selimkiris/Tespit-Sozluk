@@ -2,7 +2,7 @@
 
 
 
-\*\*API Test Videosu:\*\* \[YouTube Video Linki Buraya Eklenecek](https://youtube.com/...)
+\*\*API Test Videosu:\*\* \[YouTube Video](https://youtu.be/bkJRcK9z8Os)
 
 
 

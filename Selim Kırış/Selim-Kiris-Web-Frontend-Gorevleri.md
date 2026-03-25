@@ -2,7 +2,7 @@
 
 
 
-\*\*Front-end Test Videosu:\*\* \[YouTube Video Linki Buraya Eklenecek](https://youtube.com/...)
+\*\*Front-end Test Videosu:\*\* \[YouTube Video](https://youtu.be/j4hWTF5d-jk)
 
 
 

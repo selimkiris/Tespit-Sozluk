@@ -1,0 +1,447 @@
+{
+  "info": {
+    "_postman_id": "2b995954-e19a-4450-9719-d11d64b579ac",
+    "name": "Tespit Sozluk API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "53496668",
+    "_collection_link": "https://go.postman.co/collection/53496668-2b995954-e19a-4450-9719-d11d64b579ac?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Kayıt ol",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n\r\n  \"username\": \"test1\",\r\n\r\n  \"email\": \"test1@gmail.com\",\r\n\r\n  \"password\": \"Test1123\"\r\n\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://tespitsozluk-api.onrender.com/api/Auth/register",
+          "protocol": "https",
+          "host": [
+            "tespitsozluk-api",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "api",
+            "Auth",
+            "register"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Kullanıcı Girişi",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\": \"test1@gmail.com\", \"password\": \"Test1123\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://tespitsozluk-api.onrender.com/api/auth/login",
+          "protocol": "https",
+          "host": [
+            "tespitsozluk-api",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Profil Görüntüleme",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://tespitsozluk-api.onrender.com/api/users/{2b426c0e-b3d5-4530-b1d3-69bfe60cbc3d}",
+          "protocol": "https",
+          "host": [
+            "tespitsozluk-api",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "api",
+            "users",
+            "{2b426c0e-b3d5-4530-b1d3-69bfe60cbc3d}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Başlıkları Listeleme",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://tespitsozluk-api.onrender.com/api/topics/latest",
+          "protocol": "https",
+          "host": [
+            "tespitsozluk-api",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "api",
+            "topics",
+            "latest"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Alfabetik Başlık Listeleme",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://tespitsozluk-api.onrender.com/api/topics/alphabetical",
+          "protocol": "https",
+          "host": [
+            "tespitsozluk-api",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "api",
+            "topics",
+            "alphabetical"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Arama Yapma",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://tespitsozluk-api.onrender.com/api/search?q=yazılım",
+          "protocol": "https",
+          "host": [
+            "tespitsozluk-api",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "api",
+            "search"
+          ],
+          "query": [
+            {
+              "key": "q",
+              "value": "yazılım"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Rastgele İçerik Listeleme",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://tespitsozluk-api.onrender.com/api/Topics/random",
+          "protocol": "https",
+          "host": [
+            "tespitsozluk-api",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "api",
+            "Topics",
+            "random"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Yeni Başlık Açma",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6IjJiNDI2YzBlLWIzZDUtNDUzMC1iMWQzLTY5YmZlNjBjYmMzZCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL2VtYWlsYWRkcmVzcyI6InRlc3QxQGdtYWlsLmNvbSIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6IlVzZXIiLCJleHAiOjE3NzQ1NjE2MTcsImlzcyI6IlRlc3BpdFNvemx1ayIsImF1ZCI6IlRlc3BpdFNvemx1a1VzZXJzIn0.bu_PHG6INILddbYa_wWSuVXUNAFwwD50qkOQSDgoXR0",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n  \"title\": \"test1\",\r\n  \"firstEntryContent\": \"test1\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://tespitsozluk-api.onrender.com/api/topics",
+          "protocol": "https",
+          "host": [
+            "tespitsozluk-api",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "api",
+            "topics"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Başlık Silme",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6IjJiNDI2YzBlLWIzZDUtNDUzMC1iMWQzLTY5YmZlNjBjYmMzZCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL2VtYWlsYWRkcmVzcyI6InRlc3QxQGdtYWlsLmNvbSIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6IlVzZXIiLCJleHAiOjE3NzQ1NjE2MTcsImlzcyI6IlRlc3BpdFNvemx1ayIsImF1ZCI6IlRlc3BpdFNvemx1a1VzZXJzIn0.bu_PHG6INILddbYa_wWSuVXUNAFwwD50qkOQSDgoXR0",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "https://tespitsozluk-api.onrender.com/api/topics/{89d91468-5ebf-41fa-aa12-776b3e683fd5}",
+          "protocol": "https",
+          "host": [
+            "tespitsozluk-api",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "api",
+            "topics",
+            "{89d91468-5ebf-41fa-aa12-776b3e683fd5}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Entry Girme",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6IjJiNDI2YzBlLWIzZDUtNDUzMC1iMWQzLTY5YmZlNjBjYmMzZCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL2VtYWlsYWRkcmVzcyI6InRlc3QxQGdtYWlsLmNvbSIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6IlVzZXIiLCJleHAiOjE3NzQ1NjE2MTcsImlzcyI6IlRlc3BpdFNvemx1ayIsImF1ZCI6IlRlc3BpdFNvemx1a1VzZXJzIn0.bu_PHG6INILddbYa_wWSuVXUNAFwwD50qkOQSDgoXR0",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"topicId\": \"3a82c5b0-e576-4459-88fe-5839dcb87b5c\", \"content\": \"test2\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://tespitsozluk-api.onrender.com/api/entries",
+          "protocol": "https",
+          "host": [
+            "tespitsozluk-api",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "api",
+            "entries"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Entry Düzenleme",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6IjJiNDI2YzBlLWIzZDUtNDUzMC1iMWQzLTY5YmZlNjBjYmMzZCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL2VtYWlsYWRkcmVzcyI6InRlc3QxQGdtYWlsLmNvbSIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6IlVzZXIiLCJleHAiOjE3NzQ1NjE2MTcsImlzcyI6IlRlc3BpdFNvemx1ayIsImF1ZCI6IlRlc3BpdFNvemx1a1VzZXJzIn0.bu_PHG6INILddbYa_wWSuVXUNAFwwD50qkOQSDgoXR0",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"content\": \"Düzeltilmiş entry içeriği.\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://tespitsozluk-api.onrender.com/api/entries/{85a6d428-9c5a-46a1-8b13-36a1cc3520bd}",
+          "protocol": "https",
+          "host": [
+            "tespitsozluk-api",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "api",
+            "entries",
+            "{85a6d428-9c5a-46a1-8b13-36a1cc3520bd}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Entry Silme",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6IjJiNDI2YzBlLWIzZDUtNDUzMC1iMWQzLTY5YmZlNjBjYmMzZCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL2VtYWlsYWRkcmVzcyI6InRlc3QxQGdtYWlsLmNvbSIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6IlVzZXIiLCJleHAiOjE3NzQ1NjE2MTcsImlzcyI6IlRlc3BpdFNvemx1ayIsImF1ZCI6IlRlc3BpdFNvemx1a1VzZXJzIn0.bu_PHG6INILddbYa_wWSuVXUNAFwwD50qkOQSDgoXR0",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "https://tespitsozluk-api.onrender.com/api/entries/{85a6d428-9c5a-46a1-8b13-36a1cc3520bd}",
+          "protocol": "https",
+          "host": [
+            "tespitsozluk-api",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "api",
+            "entries",
+            "{85a6d428-9c5a-46a1-8b13-36a1cc3520bd}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Entry Oylama",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6IjJiNDI2YzBlLWIzZDUtNDUzMC1iMWQzLTY5YmZlNjBjYmMzZCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL2VtYWlsYWRkcmVzcyI6InRlc3QxQGdtYWlsLmNvbSIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6IlVzZXIiLCJleHAiOjE3NzQ1NjE2MTcsImlzcyI6IlRlc3BpdFNvemx1ayIsImF1ZCI6IlRlc3BpdFNvemx1a1VzZXJzIn0.bu_PHG6INILddbYa_wWSuVXUNAFwwD50qkOQSDgoXR0",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"voteType\": \"upvote\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "https://tespitsozluk-api.onrender.com/api/entries/{b380c308-ff3a-4130-831d-0624cf0eb7e8}/upvote",
+          "protocol": "https",
+          "host": [
+            "tespitsozluk-api",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "api",
+            "entries",
+            "{b380c308-ff3a-4130-831d-0624cf0eb7e8}",
+            "upvote"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Çıkış Yapma",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy93cy8yMDA1LzA1L2lkZW50aXR5L2NsYWltcy9uYW1laWRlbnRpZmllciI6IjJiNDI2YzBlLWIzZDUtNDUzMC1iMWQzLTY5YmZlNjBjYmMzZCIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL2VtYWlsYWRkcmVzcyI6InRlc3QxQGdtYWlsLmNvbSIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6IlVzZXIiLCJleHAiOjE3NzQ1NjE2MTcsImlzcyI6IlRlc3BpdFNvemx1ayIsImF1ZCI6IlRlc3BpdFNvemx1a1VzZXJzIn0.bu_PHG6INILddbYa_wWSuVXUNAFwwD50qkOQSDgoXR0",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "https://tespitsozluk-api.onrender.com/api/auth/logout",
+          "protocol": "https",
+          "host": [
+            "tespitsozluk-api",
+            "onrender",
+            "com"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "logout"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
