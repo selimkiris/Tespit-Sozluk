@@ -2,10 +2,10 @@
 
 ## Proje Hakkında
 
-![Tespit Sözlük](./tespit-sozluk-banner.svg)
+![Tespit Sözlük](./tespitsozluk_banner.png)
 
 **Proje Tanımı:**
-Günümüz sözlük platformları maalesef birer dijital çöplüğe dönüştü. Kaliteyi yerle bir eden troll kültürü, kopyala-yapıştır sıradanlıklar, cehalet kokan başlıklar, moderasyon eksikliği ve yıllardır güncellenmeyen, çağ dışı kalmış bir mobil uygulama ve web altyapısı... İnsanların nitelikli okuma ve yazma hevesini kıran bu köhnemiş düzene bir son vermek gerekiyordu.
+Tespit Sözlük, internetin gürültüsünden, sıradanlıktan, trollükten, kopyala-yapıştır mizahlardan sıkılmış; yazmayı seven, düşünmeyi seven, farklı ve özgün fikirlere meraklı, eğlenmeyi bilen, çokça saçmalayan insanlar için kurulmuş bir platform. Burası ne bir haber sitesi, ne de bir forum. Burası bir sözlük ama o bildiğin sıkıcı ve kalabalık içinde kaybolmuş türden değil.
 
 **Proje Kategorisi:**
 Sosyal Medya / Sözlük
@@ -15,8 +15,8 @@ Sosyal Medya / Sözlük
 
 ## Proje Linkleri
 
-* **REST API Adresi:** Hazırlanıyor (deploy sonrası eklenecek)
-* **Web Frontend Adresi:** Hazırlanıyor (deploy sonrası eklenecek)
+* **REST API Adresi:** https://tespitsozluk-api.onrender.com
+* **Web Frontend Adresi:** https://tespitsozluk.com/
 
 ## Proje Ekibi
 

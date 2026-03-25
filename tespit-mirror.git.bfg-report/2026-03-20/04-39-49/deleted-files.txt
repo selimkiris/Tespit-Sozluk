@@ -1,4 +1,0 @@
-afc754cdcf5f47c4790971b06fc9eb44bac0f993 415 appsettings.Development.json
-0ccc2e9ce0e3730f739c087fb2fc3ecfa5a19246 487 appsettings.Development.json
-63ab4aa453a658588e072c5540249de88b1f4224 667 appsettings.Development.json
-3385fd23e8f3e6214f4dc52d37ea9f6fd232b0b2 532 appsettings.Development.json

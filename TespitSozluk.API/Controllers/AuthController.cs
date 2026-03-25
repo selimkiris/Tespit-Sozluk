@@ -120,9 +120,9 @@ public class AuthController : ControllerBase
         if (usernameTaken)
             return BadRequest(new { message = "Bu nick zaten seçilmiş, başka bir tane bul" });
 
-        var isTurnstileValid = await _turnstileService.VerifyAsync(dto.TurnstileToken);
-        if (!isTurnstileValid)
-            return BadRequest(new { message = "Bot doğrulaması başarısız oldu." });
+      //  var isTurnstileValid = await _turnstileService.VerifyAsync(dto.TurnstileToken);
+      //  if (!isTurnstileValid)
+      //      return BadRequest(new { message = "Bot doğrulaması başarısız oldu." });
 
         // Şifre kuralları: min 8 karakter, 1 büyük harf, 1 rakam
         if (string.IsNullOrEmpty(dto.Password) || dto.Password.Length < 8 ||
@@ -242,9 +242,9 @@ public class AuthController : ControllerBase
             });
         }
 
-        var isTurnstileValid = await _turnstileService.VerifyAsync(dto.TurnstileToken);
-        if (!isTurnstileValid)
-            return BadRequest(new { message = "Bot doğrulaması başarısız oldu." });
+      //  var isTurnstileValid = await _turnstileService.VerifyAsync(dto.TurnstileToken);
+      //  if (!isTurnstileValid)
+      //      return BadRequest(new { message = "Bot doğrulaması başarısız oldu." });
 
         var user = await _context.Users
             .FirstOrDefaultAsync(u => u.Email.ToLower() == dto.Email.ToLower());
