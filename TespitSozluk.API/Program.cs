@@ -60,7 +60,7 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
                 "http://localhost:3000",
                 "https://tespit-sozluk.vercel.app",
-                "https://www.tespitsozluk.com"
+                "https://www.tespitsozluk.com",
                 "https://tespitsozluk.com/"
             )
             .AllowAnyMethod()
