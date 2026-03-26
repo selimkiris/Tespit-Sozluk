@@ -536,7 +536,7 @@ export function HomePageContent() {
       />
 
       {/* Main Content — lg+: sola yaslı; pl = sidebar + gap-8 */}
-      <main className="w-full min-w-0 pt-14 md:pt-14 lg:flex lg:justify-start lg:pl-[312px] xl:pl-[344px]">
+      <main className="w-full min-w-0 pt-[6.5rem] md:pt-14 lg:flex lg:justify-start lg:pl-[312px] xl:pl-[344px]">
         <div
           className={cn(
             "w-full min-w-0 mx-auto px-4 py-4 lg:mx-0 lg:px-6 lg:py-6",

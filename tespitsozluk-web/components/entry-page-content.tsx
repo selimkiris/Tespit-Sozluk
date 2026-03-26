@@ -81,7 +81,7 @@ export function EntryPageContent({ entry }: EntryPageContentProps) {
         onTopicSelect={(topicId) => router.push(`/?topic=${topicId}`)}
         onUserSelect={(userId) => router.push(`/user/${userId}`)}
       />
-      <main className="w-full pt-14 md:pt-14 lg:flex lg:justify-start lg:pl-[312px] xl:pl-[344px]">
+      <main className="w-full pt-[6.5rem] md:pt-14 lg:flex lg:justify-start lg:pl-[312px] xl:pl-[344px]">
         <div className="w-full max-w-2xl mx-auto px-4 py-6 lg:mx-0 lg:max-w-[786px] lg:px-6 lg:py-8">
           <EntryDetail
             entry={entry}

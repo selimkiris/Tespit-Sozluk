@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { RichTextEditor } from "@/components/rich-text-editor"
@@ -30,15 +30,7 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSavingDraft, setIsSavingDraft] = useState(false)
   const [error, setError] = useState("")
-  const [draftMessage, setDraftMessage] = useState("")
   const [charCount, setCharCount] = useState(0)
-  const draftMessageClearRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    return () => {
-      if (draftMessageClearRef.current) clearTimeout(draftMessageClearRef.current)
-    }
-  }, [])
 
   const hasContent = !!content.replace(/<[^>]*>/g, "").trim()
   const isOverLimit = charCount >= 100_000
@@ -63,6 +55,7 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
 
   const handleSaveDraft = async () => {
     if (!hasContent) return
+    if (isSavingDraft) return
 
     const validTopicId =
       topicId &&
@@ -74,7 +67,6 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
     }
 
     setIsSavingDraft(true)
-    setDraftMessage("")
     setError("")
     try {
       const cleanContent = content
@@ -98,12 +90,10 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
         const msg = typeof data === "string" ? data : data.message ?? data.title ?? "Taslak kaydedilemedi"
         throw new Error(msg)
       }
-      setDraftMessage("Taslak kaydedildi. Profilinizden Taslaklar sekmesinde görebilirsiniz.")
-      if (draftMessageClearRef.current) clearTimeout(draftMessageClearRef.current)
-      draftMessageClearRef.current = setTimeout(() => {
-        setDraftMessage("")
-        draftMessageClearRef.current = null
-      }, 4000)
+      if (res.status === 200 || res.status === 201) {
+        alert("Taslak başarıyla oluşturuldu")
+        setContent("")
+      }
     } catch (err) {
       console.error(err)
       setError(err instanceof Error ? err.message : "Taslak kaydedilemedi")
@@ -168,7 +158,6 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
         </p>
       )}
       {!isOverLimit && error && <p className="text-sm text-destructive mt-2">{error}</p>}
-      {draftMessage && <p className="text-sm text-muted-foreground mt-2">{draftMessage}</p>}
       <div className="flex justify-end items-center gap-2 pt-3 border-t border-border/50 mt-3">
         <Button
           variant="outline"

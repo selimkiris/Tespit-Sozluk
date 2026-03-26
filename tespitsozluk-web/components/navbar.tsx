@@ -805,20 +805,21 @@ export function Navbar({
         </div>
       </div>
 
-      {/* Mobile Search */}
+      {/* Mobile: arama + Tüm Başlıklar (tek satır — içerik için toplam yükseklik toolbar + ~3rem) */}
       <div className="md:hidden px-4 pb-3">
-        <div ref={mobileSearchRef} className="relative w-full rounded-lg border border-transparent focus-within:border-[#2c64f6] focus-within:ring-1 focus-within:ring-[#2c64f6] transition-all duration-200">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
-          <input
-            type="text"
-            placeholder="başlık veya kişi ara..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => debouncedQuery.length >= 2 && setIsSearchOpen(true)}
-            className="w-full h-9 pl-9 pr-4 bg-secondary/50 border-0 rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none transition-all"
-          />
-          {isSearchOpen && debouncedQuery.length >= 2 && (
-            <div className="absolute top-full left-0 right-0 mt-1 py-2 bg-popover border border-border rounded-lg shadow-lg z-[100] max-h-80 overflow-y-auto">
+        <div className="flex items-center gap-2">
+          <div ref={mobileSearchRef} className="relative flex-1 min-w-0 rounded-lg border border-transparent focus-within:border-[#2c64f6] focus-within:ring-1 focus-within:ring-[#2c64f6] transition-all duration-200 z-10">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="başlık veya kişi ara..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => debouncedQuery.length >= 2 && setIsSearchOpen(true)}
+              className="w-full h-9 pl-9 pr-4 bg-secondary/50 border-0 rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none transition-all relative z-0"
+            />
+            {isSearchOpen && debouncedQuery.length >= 2 && (
+              <div className="absolute top-full left-0 right-0 mt-1 py-2 bg-popover border border-border rounded-lg shadow-lg z-[100] max-h-80 overflow-y-auto">
               {isSearchLoading ? (
                 <div className="px-4 py-6 text-center text-sm text-muted-foreground">Yükleniyor...</div>
               ) : !hasResults ? (
@@ -858,7 +859,16 @@ export function Navbar({
                 </div>
               )}
             </div>
-          )}
+            )}
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onAllTopicsClick}
+            className="shrink-0 h-9 px-2.5 text-xs font-medium whitespace-nowrap"
+          >
+            Tüm Başlıklar
+          </Button>
         </div>
       </div>
 

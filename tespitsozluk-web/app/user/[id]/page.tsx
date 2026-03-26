@@ -759,7 +759,7 @@ export default function UserProfilePage() {
         }}
       />
 
-      <main className="pt-14">
+      <main className="pt-[6.5rem] md:pt-14">
         {/* Header / Cover */}
         <div className="border-b border-border bg-card">
           <div className="w-full max-w-2xl mx-auto px-4 py-8 md:py-12 lg:max-w-[786px] lg:px-6">
