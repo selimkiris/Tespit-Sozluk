@@ -1,5 +1,8 @@
 import type { MetadataRoute } from "next"
-import { getApiUrl, getSiteUrl } from "@/lib/api"
+import { getApiUrl } from "@/lib/api"
+
+/** Sitemap ve Google için sabit kanonik kök — env kullanılmaz (Vercel önizleme alanı vb. karışmasın). */
+const SITE_ORIGIN = "https://tespitsozluk.com"
 
 /** Site haritası önbelleği (saniye). */
 export const revalidate = 3600
@@ -55,7 +58,6 @@ async function fetchTrendTopicIds(): Promise<Set<string>> {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = getSiteUrl()
   const now = new Date()
 
   const [allTopics, trendIds] = await Promise.all([
@@ -64,7 +66,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ])
 
   const topicEntries: MetadataRoute.Sitemap = allTopics.map((t) => ({
-    url: `${base}/?topic=${t.id}`,
+    url: `${SITE_ORIGIN}/?topic=${t.id}`,
     lastModified: t.createdAt ? new Date(t.createdAt) : now,
     changeFrequency: "weekly" as const,
     priority: trendIds.has(t.id) ? 0.9 : 0.7,
@@ -72,7 +74,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     {
-      url: base,
+      url: SITE_ORIGIN,
       lastModified: now,
       changeFrequency: "daily",
       priority: 1,
