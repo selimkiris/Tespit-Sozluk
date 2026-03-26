@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import { Geist, Geist_Mono } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
+import { Analytics } from '@vercel/analytics/react'
 import { ThemeProvider } from '@/components/theme-provider'
 import { WelcomeModal } from '@/components/welcome-modal'
 import { Toaster } from '@/components/ui/sonner'
+import { getSiteUrl } from '@/lib/api'
 import './globals.css'
 
 const inter = Inter({
@@ -17,6 +18,7 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(getSiteUrl()),
   title: 'Tespit Sözlük',
   description: 'Modern sözlük platformu - Tespit et, paylaş, keşfet',
   generator: 'v0.app',
@@ -24,6 +26,26 @@ export const metadata: Metadata = {
     icon: '/icon.svg',
     shortcut: '/icon.svg',
     apple: '/icon.svg',
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'tr_TR',
+    siteName: 'Tespit Sözlük',
+    title: 'Tespit Sözlük',
+    description: 'Modern sözlük platformu - Tespit et, paylaş, keşfet',
+    url: '/',
+    images: [
+      {
+        url: '/og-image.png',
+        alt: 'Tespit Sözlük',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Tespit Sözlük',
+    description: 'Modern sözlük platformu - Tespit et, paylaş, keşfet',
+    images: ['/og-image.png'],
   },
 }
 
@@ -49,10 +71,10 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
+          <Analytics />
           <WelcomeModal />
         </ThemeProvider>
         <Toaster richColors position="top-center" />
-        <Analytics />
       </body>
     </html>
   )

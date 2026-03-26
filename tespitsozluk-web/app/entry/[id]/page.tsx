@@ -41,11 +41,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       siteName: "Tespit Sözlük",
       type: "article",
       locale: "tr_TR",
+      images: [
+        {
+          url: "/og-image.png",
+          alt: title,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
+      images: ["/og-image.png"],
     },
     alternates: {
       canonical: entryUrl,
