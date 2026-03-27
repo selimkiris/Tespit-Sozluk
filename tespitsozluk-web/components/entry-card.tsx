@@ -487,13 +487,13 @@ export function EntryCard({
 
           <span className="text-[#7c8190]/45 text-[13px] shrink-0">·</span>
 
-          {/* Tarih + Edit: (alt alta) */}
-          <div className="hidden sm:flex flex-col items-end shrink-0 gap-0.5 text-right">
+          {/* Tarih + Edit: (alt alta) — tüm genişliklerde görünür; sm+ yerleşimi aynı */}
+          <div className="flex flex-col items-end shrink-0 gap-0.5 text-right min-w-0 ml-1.5 sm:ml-0">
             <span className="text-[#7c8190] text-[13px] leading-tight tabular-nums">
               {formatDate(entry.date)}
             </span>
             {editLineText !== "" && (
-              <span className="text-[#7c8190] text-[13px] italic leading-tight">
+              <span className="text-[#7c8190] text-[13px] italic leading-tight break-words text-right max-w-[min(100%,14rem)] sm:max-w-none">
                 Edit: {editLineText}
               </span>
             )}

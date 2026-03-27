@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect, useCallback } from "react"
-import { X, Search, Hash, ChevronDown } from "lucide-react"
+import { X, Search, Hash, ChevronDown, Loader2 } from "lucide-react"
 import { getApiUrl, apiFetch } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 
@@ -40,6 +40,7 @@ export function AllTopicsView({
   const [hasNextPage, setHasNextPage] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [totalTopicsCount, setTotalTopicsCount] = useState<number | null>(null)
 
   const fetchTopics = useCallback(async (pageNum: number, append: boolean) => {
     if (append) {
@@ -56,8 +57,13 @@ export function AllTopicsView({
       setTopics((prev) => (append ? [...prev, ...mapped] : mapped))
       setHasNextPage(data?.hasNextPage ?? false)
       setPage(pageNum)
+      const tc = data?.totalCount
+      if (typeof tc === "number") setTotalTopicsCount(tc)
     } catch {
-      if (!append) setTopics([])
+      if (!append) {
+        setTopics([])
+        setTotalTopicsCount(null)
+      }
     } finally {
       setIsLoading(false)
       setIsLoadingMore(false)
@@ -67,6 +73,7 @@ export function AllTopicsView({
   useEffect(() => {
     if (isOpen) {
       setPage(1)
+      setTotalTopicsCount(null)
       fetchTopics(1, false)
       if (initialSearchQuery != null) {
         setSearchQuery(initialSearchQuery)
@@ -138,7 +145,24 @@ export function AllTopicsView({
             />
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            {filteredTopics.length} başlık alfabetik sırayla listelendi
+            {searchQuery.trim() ? (
+              <>
+                {filteredTopics.length} başlık alfabetik sırayla listelendi
+              </>
+            ) : isLoading && !isLoadingMore ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Loader2 className="h-3 w-3 animate-spin shrink-0" aria-hidden />
+                <span>başlık alfabetik sırayla listelendi</span>
+              </span>
+            ) : totalTopicsCount !== null ? (
+              <>
+                {totalTopicsCount} başlık alfabetik sırayla listelendi
+              </>
+            ) : (
+              <>
+                <span className="tabular-nums">…</span> başlık alfabetik sırayla listelendi
+              </>
+            )}
           </p>
         </div>
 

@@ -277,7 +277,8 @@ public class TopicsController : ControllerBase
         var followedIds = userId.HasValue ? await GetFollowedTopicIdsAsync(userId.Value) : new HashSet<Guid>();
 
         var query = _context.Topics.AsNoTracking()
-            .OrderByDescending(t => t.CreatedAt);
+            .OrderByDescending(t =>
+                t.Entries.Select(e => (DateTime?)e.CreatedAt).Max() ?? t.CreatedAt);
 
         var totalCount = await query.CountAsync();
 
