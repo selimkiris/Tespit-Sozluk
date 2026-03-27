@@ -40,7 +40,7 @@ import { EditDraftModal } from "@/components/edit-draft-modal"
 import { FollowListModal } from "@/components/follow-list-modal"
 import { AyakIcon } from "@/components/icons/AyakIcon"
 import { CiviIcon } from "@/components/icons/CiviIcon"
-import { getApiUrl, getAuthHeaders } from "@/lib/api"
+import { getApiUrl, apiFetch } from "@/lib/api"
 import { ENTRY_BODY_RENDERER_CLASSNAME } from "@/lib/entry-body-renderer-classes"
 import { getAuth, clearAuth, updateAuthUser, type AuthData } from "@/lib/auth"
 import { cn } from "@/lib/utils"
@@ -247,9 +247,7 @@ export default function UserProfilePage() {
 
   const fetchUser = useCallback(async (userId: string) => {
     try {
-      const res = await fetch(getApiUrl(`api/Users/${userId}`), {
-        headers: getAuthHeaders(),
-      })
+      const res = await apiFetch(getApiUrl(`api/Users/${userId}`))
       if (!res.ok) {
         if (res.status === 404) return null
         throw new Error("Profil yüklenemedi")
@@ -284,9 +282,8 @@ export default function UserProfilePage() {
     try {
       const params = new URLSearchParams({ page: String(p), pageSize: "20", sortBy: sort })
       if (inclAnonymous) params.set("includeAnonymous", "true")
-      const res = await fetch(
-        getApiUrl(`api/Users/${userId}/entries?${params}`),
-        { headers: getAuthHeaders() }
+      const res = await apiFetch(
+        getApiUrl(`api/Users/${userId}/entries?${params}`)
       )
       if (!res.ok) throw new Error("Entry'ler yüklenemedi")
       const data = await res.json()
@@ -305,9 +302,7 @@ export default function UserProfilePage() {
   const fetchDrafts = useCallback(async () => {
     setDraftsLoading(true)
     try {
-      const res = await fetch(getApiUrl(`api/Drafts?page=${draftsPage}`), {
-        headers: getAuthHeaders(),
-      })
+      const res = await apiFetch(getApiUrl(`api/Drafts?page=${draftsPage}`))
       if (!res.ok) throw new Error("Taslaklar yüklenemedi")
       const data = await res.json()
       const pageSize = typeof data.pageSize === "number" ? data.pageSize : 25
@@ -331,9 +326,8 @@ export default function UserProfilePage() {
   const fetchLikedEntries = useCallback(async (userId: string, p: number) => {
     setLikedLoading(true)
     try {
-      const res = await fetch(
-        getApiUrl(`api/Users/${userId}/liked-entries?page=${p}&pageSize=20`),
-        { headers: getAuthHeaders() }
+      const res = await apiFetch(
+        getApiUrl(`api/Users/${userId}/liked-entries?page=${p}&pageSize=20`)
       )
       if (!res.ok) throw new Error("Kalplenenler yüklenemedi")
       const data = await res.json()
@@ -352,9 +346,8 @@ export default function UserProfilePage() {
   const fetchSavedEntries = useCallback(async (userId: string, p: number) => {
     setSavedLoading(true)
     try {
-      const res = await fetch(
-        getApiUrl(`api/Users/${userId}/saved-entries?page=${p}&pageSize=20`),
-        { headers: getAuthHeaders() }
+      const res = await apiFetch(
+        getApiUrl(`api/Users/${userId}/saved-entries?page=${p}&pageSize=20`)
       )
       if (!res.ok) throw new Error("Çivilenenler yüklenemedi")
       const data = await res.json()
@@ -377,9 +370,7 @@ export default function UserProfilePage() {
   useEffect(() => {
     const currentAuth = getAuth()
     if (currentAuth?.user?.role === "Admin" && currentAuth?.token) {
-      fetch(getApiUrl("api/Admin/reports/unread-count"), {
-        headers: { Authorization: `Bearer ${currentAuth.token}` },
-      })
+      apiFetch(getApiUrl("api/Admin/reports/unread-count"))
         .then((r) => r.ok ? r.json() : 0)
         .then((n) => setUnresolvedReportsCount(typeof n === "number" ? n : 0))
         .catch(() => setUnresolvedReportsCount(0))
@@ -438,9 +429,8 @@ export default function UserProfilePage() {
     }
     setBioSaving(true)
     try {
-      const res = await fetch(getApiUrl("api/Users/bio"), {
+      const res = await apiFetch(getApiUrl("api/Users/bio"), {
         method: "PUT",
-        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify({ bio: trimmed || null }),
       })
       if (!res.ok) {
@@ -463,9 +453,8 @@ export default function UserProfilePage() {
     if (!id || !auth?.token || followLoading) return
     setFollowLoading(true)
     try {
-      const res = await fetch(getApiUrl(`api/Users/${id}/follow`), {
+      const res = await apiFetch(getApiUrl(`api/Users/${id}/follow`), {
         method: "POST",
-        headers: getAuthHeaders(),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -491,9 +480,8 @@ export default function UserProfilePage() {
 
   const handleDeleteDraft = async (draftId: string) => {
     try {
-      const res = await fetch(getApiUrl(`api/Drafts/${draftId}`), {
+      const res = await apiFetch(getApiUrl(`api/Drafts/${draftId}`), {
         method: "DELETE",
-        headers: getAuthHeaders(),
       })
       if (!res.ok) throw new Error("Silinemedi")
       setDeleteDraftId(null)
@@ -505,9 +493,8 @@ export default function UserProfilePage() {
 
   const handlePublishDraft = async (draftId: string) => {
     try {
-      const res = await fetch(getApiUrl(`api/Drafts/${draftId}/publish`), {
+      const res = await apiFetch(getApiUrl(`api/Drafts/${draftId}/publish`), {
         method: "POST",
-        headers: getAuthHeaders(),
       })
       if (!res.ok) throw new Error("Yayınlanamadı")
       const data = await res.json()
@@ -529,7 +516,7 @@ export default function UserProfilePage() {
       setViewedUserEmail(null)
       return
     }
-    fetch(getApiUrl(`api/Admin/users/${id}/email`), { headers: getAuthHeaders() })
+    apiFetch(getApiUrl(`api/Admin/users/${id}/email`))
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => { if (data?.email) setViewedUserEmail(data.email) })
       .catch(() => setViewedUserEmail(null))
@@ -539,9 +526,8 @@ export default function UserProfilePage() {
     if (!id || sendMessageSending || !sendMessageText.trim()) return
     setSendMessageSending(true)
     try {
-      const res = await fetch(getApiUrl("api/Admin/send-message"), {
+      const res = await apiFetch(getApiUrl("api/Admin/send-message"), {
         method: "POST",
-        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify({ targetUserId: id, message: sendMessageText.trim() }),
       })
       if (!res.ok) {
@@ -568,9 +554,8 @@ export default function UserProfilePage() {
       }
       if (warnEntryId) body.entryId = warnEntryId
       if (warnTopicId) body.topicId = warnTopicId
-      const res = await fetch(getApiUrl("api/Admin/warn-user"), {
+      const res = await apiFetch(getApiUrl("api/Admin/warn-user"), {
         method: "POST",
-        headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify(body),
       })
       if (!res.ok) {
@@ -590,9 +575,8 @@ export default function UserProfilePage() {
     if (!id) return
     setIsAdminBanning(true)
     try {
-      const res = await fetch(getApiUrl(`api/Admin/users/${id}`), {
+      const res = await apiFetch(getApiUrl(`api/Admin/users/${id}`), {
         method: "DELETE",
-        headers: getAuthHeaders(),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -609,9 +593,7 @@ export default function UserProfilePage() {
     if (reportsLoading) return
     setReportsLoading(true)
     try {
-      const res = await fetch(getApiUrl("api/Admin/reports?pageSize=100"), {
-        headers: getAuthHeaders(),
-      })
+      const res = await apiFetch(getApiUrl("api/Admin/reports?pageSize=100"))
       if (!res.ok) throw new Error("Şikayetler yüklenemedi")
       const data = await res.json()
       const loaded = Array.isArray(data.reports) ? data.reports : []
@@ -627,9 +609,8 @@ export default function UserProfilePage() {
 
   const handleResolveReport = async (reportId: string) => {
     try {
-      const res = await fetch(getApiUrl(`api/Admin/reports/${reportId}/resolve`), {
+      const res = await apiFetch(getApiUrl(`api/Admin/reports/${reportId}/resolve`), {
         method: "PATCH",
-        headers: getAuthHeaders(),
       })
       if (!res.ok) throw new Error("İşaretlenemedi")
       const data = await res.json().catch(() => ({}))
@@ -642,9 +623,8 @@ export default function UserProfilePage() {
   }
 
   const handleReportDeleteEntry = async (entryId: string) => {
-    const res = await fetch(getApiUrl(`api/Admin/entries/${entryId}`), {
+    const res = await apiFetch(getApiUrl(`api/Admin/entries/${entryId}`), {
       method: "DELETE",
-      headers: getAuthHeaders(),
     })
     if (!res.ok) {
       const d = await res.json().catch(() => ({}))
@@ -657,9 +637,8 @@ export default function UserProfilePage() {
   }
 
   const handleReportDeleteTopic = async (topicId: string) => {
-    const res = await fetch(getApiUrl(`api/Admin/topics/${topicId}`), {
+    const res = await apiFetch(getApiUrl(`api/Admin/topics/${topicId}`), {
       method: "DELETE",
-      headers: getAuthHeaders(),
     })
     if (!res.ok) {
       const d = await res.json().catch(() => ({}))
@@ -680,9 +659,8 @@ export default function UserProfilePage() {
     setRenameTopicSaving(true)
     setRenameTopicError(null)
     try {
-      const res = await fetch(getApiUrl(`api/Admin/topics/${reportActionRenameTopic.topicId}/rename`), {
+      const res = await apiFetch(getApiUrl(`api/Admin/topics/${reportActionRenameTopic.topicId}/rename`), {
         method: "PATCH",
-        headers: getAuthHeaders(),
         body: JSON.stringify({ newTitle: trimmed }),
       })
       const data = await res.json().catch(() => ({}))

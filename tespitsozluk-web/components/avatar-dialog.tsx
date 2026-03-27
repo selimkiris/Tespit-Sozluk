@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { ImageIcon } from "lucide-react"
 import { toast } from "sonner"
-import { getApiUrl, getAuthHeaders } from "@/lib/api"
+import { getApiUrl, apiFetch } from "@/lib/api"
 import { HYBRID_AVATAR_COUNT, HYBRID_AVATAR_URLS } from "@/lib/avatar-data"
 import { isSystemAvatarUrl } from "@/lib/system-avatars"
 import {
@@ -143,9 +143,8 @@ export function AvatarDialog({
   const saveAvatar = async (url: string | null) => {
     setSaving(true)
     try {
-      const res = await fetch(getApiUrl("api/Users/settings/avatar"), {
+      const res = await apiFetch(getApiUrl("api/Users/settings/avatar"), {
         method: "PUT",
-        headers: getAuthHeaders(),
         body: JSON.stringify({ avatarUrl: url }),
       })
       const data = await res.json().catch(() => ({}))

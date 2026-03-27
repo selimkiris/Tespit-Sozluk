@@ -6,11 +6,10 @@ import { tr } from "date-fns/locale"
 import Link from "next/link"
 import { Heart, MoreHorizontal, Pencil, Trash2, User, Users, Flag, ShieldX, BadgeCheck } from "lucide-react"
 import { ShareMenu } from "@/components/share-menu"
-import { getSiteUrl } from "@/lib/api"
+import { getApiUrl, apiFetch, getSiteUrl } from "@/lib/api"
 import { CiviIcon } from "@/components/icons/CiviIcon"
 import { AyakIcon } from "@/components/icons/AyakIcon"
 import { cn } from "@/lib/utils"
-import { getApiUrl, getAuthHeaders } from "@/lib/api"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -166,9 +165,8 @@ export function EntryCard({
     setEditError(null)
     const savedContent = trimmedContent
     try {
-      const res = await fetch(getApiUrl(`api/Entries/${entry.id}`), {
+      const res = await apiFetch(getApiUrl(`api/Entries/${entry.id}`), {
         method: "PUT",
-        headers: getAuthHeaders(),
         body: JSON.stringify({ content: trimmedContent }),
       })
       const data = await res.json().catch(() => ({}))
@@ -190,9 +188,8 @@ export function EntryCard({
     setIsDeleting(true)
     setDeleteError(null)
     try {
-      const res = await fetch(getApiUrl(`api/Entries/${entry.id}`), {
+      const res = await apiFetch(getApiUrl(`api/Entries/${entry.id}`), {
         method: "DELETE",
-        headers: getAuthHeaders(),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -218,9 +215,8 @@ export function EntryCard({
     const prevCount = saveCount
     const prevSaved = isSaved
     try {
-      const res = await fetch(getApiUrl(`api/Entries/${entry.id}/save`), {
+      const res = await apiFetch(getApiUrl(`api/Entries/${entry.id}/save`), {
         method: "POST",
-        headers: getAuthHeaders(),
       })
       if (res.status === 401) {
         onLoginClick?.()
@@ -241,9 +237,8 @@ export function EntryCard({
   const handleAdminDelete = async () => {
     setIsAdminDeleting(true)
     try {
-      const res = await fetch(getApiUrl(`api/Admin/entries/${entry.id}`), {
+      const res = await apiFetch(getApiUrl(`api/Admin/entries/${entry.id}`), {
         method: "DELETE",
-        headers: getAuthHeaders(),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -283,9 +278,8 @@ export function EntryCard({
     const url = getApiUrl(`api/Entries/${entry.id}/${endpoint}`)
 
     try {
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method: "POST",
-        headers: getAuthHeaders(),
       })
 
       if (!res.ok) {

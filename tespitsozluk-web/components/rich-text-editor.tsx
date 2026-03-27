@@ -24,7 +24,7 @@ import {
   ENTRY_BODY_ENTRY_TEXT_CLASS,
   ENTRY_BODY_TIPTAP_ROOT_CLASS,
 } from "@/lib/entry-body-renderer-classes"
-import { getApiUrl, getAuthHeaders } from "@/lib/api"
+import { getApiUrl, apiFetch } from "@/lib/api"
 import { SpoilerMark } from "@/components/tiptap-extensions/spoiler-mark"
 import { Button } from "@/components/ui/button"
 import {
@@ -136,6 +136,7 @@ export function RichTextEditor({
         bulletList: false,
         orderedList: false,
         listItem: false,
+        link: false,
       }),
       Link.configure({
         openOnClick: false,
@@ -271,8 +272,7 @@ export function RichTextEditor({
     const t = window.setTimeout(async () => {
       setMention((prev) => (prev && prev.query === q ? { ...prev, loading: true } : prev))
       try {
-        const res = await fetch(getApiUrl(`api/Users/search?q=${encodeURIComponent(q)}`), {
-          headers: getAuthHeaders(),
+        const res = await apiFetch(getApiUrl(`api/Users/search?q=${encodeURIComponent(q)}`), {
           signal: ac.signal,
         })
         if (!res.ok) throw new Error("mention_search")

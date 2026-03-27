@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { toast } from "sonner"
-import { getApiUrl, getAuthHeaders } from "@/lib/api"
+import { getApiUrl, apiFetch } from "@/lib/api"
 import {
   Dialog,
   DialogContent,
@@ -69,9 +69,8 @@ export function ReportDialog({
 
     setIsSubmitting(true)
     try {
-      const res = await fetch(getApiUrl("api/Reports"), {
+      const res = await apiFetch(getApiUrl("api/Reports"), {
         method: "POST",
-        headers: getAuthHeaders(),
         body: JSON.stringify({
           entryId: entryId ?? null,
           topicId: topicId ?? null,

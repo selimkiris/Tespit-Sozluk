@@ -12,7 +12,7 @@ import { LoginModal, RegisterModal, type AuthResponse } from "@/components/auth-
 import { CreateTopicModal } from "@/components/create-topic-modal"
 import { AllTopicsView } from "@/components/all-topics-view"
 import { saveAuth, getAuth, clearAuth, updateAuthUser } from "@/lib/auth"
-import { getApiUrl, getAuthHeaders } from "@/lib/api"
+import { getApiUrl, apiFetch } from "@/lib/api"
 import { TOPIC_ENTRIES_PAGE_SIZE } from "@/lib/topic-entries"
 import { FEED_COLUMN_MAX_WIDTH_CLASS } from "@/lib/feed-layout"
 import { toast } from "sonner"
@@ -166,7 +166,7 @@ export function HomePageContent() {
     }
     try {
       const url = getApiUrl(`api/Entries/feed?feedMode=${effectiveMode}&page=${pageNum}&pageSize=50`)
-      const res = await fetch(url, { headers: getAuthHeaders() })
+      const res = await apiFetch(url)
       if (!res.ok) throw new Error("Entries yüklenemedi")
       const data = await res.json()
       const list = Array.isArray(data?.items) ? data.items.map(mapApiEntry) : []
@@ -224,12 +224,30 @@ export function HomePageContent() {
   }, [topicFromUrl, loginFromUrl, registerFromUrl, topicsFromUrl])
 
   useEffect(() => {
-    if (loginFromUrl === "1") setShowLoginModal(true)
-  }, [loginFromUrl])
+    if (loginFromUrl !== "1") return
+    if (getAuth()) {
+      setShowLoginModal(false)
+      const params = new URLSearchParams(searchParams.toString())
+      params.delete("login")
+      const qs = params.toString()
+      router.replace(qs ? `/?${qs}` : "/", { scroll: false })
+      return
+    }
+    setShowLoginModal(true)
+  }, [loginFromUrl, router, searchParams])
 
   useEffect(() => {
-    if (registerFromUrl === "1") setShowRegisterModal(true)
-  }, [registerFromUrl])
+    if (registerFromUrl !== "1") return
+    if (getAuth()) {
+      setShowRegisterModal(false)
+      const params = new URLSearchParams(searchParams.toString())
+      params.delete("register")
+      const qs = params.toString()
+      router.replace(qs ? `/?${qs}` : "/", { scroll: false })
+      return
+    }
+    setShowRegisterModal(true)
+  }, [registerFromUrl, router, searchParams])
 
   useEffect(() => {
     if (topicsFromUrl === "1") setShowAllTopicsModal(true)
@@ -264,8 +282,8 @@ export function HomePageContent() {
     const fetchTopic = async () => {
       try {
         const [entriesRes, topicRes] = await Promise.all([
-          fetch(getApiUrl(`api/Topics/${selectedTopicId}/entries?page=1&pageSize=1`), { headers: getAuthHeaders() }),
-          fetch(getApiUrl(`api/Topics/${selectedTopicId}`), { headers: getAuthHeaders() }),
+          apiFetch(getApiUrl(`api/Topics/${selectedTopicId}/entries?page=1&pageSize=1`)),
+          apiFetch(getApiUrl(`api/Topics/${selectedTopicId}`)),
         ])
         if (cancelled) return
         const data = entriesRes.ok ? await entriesRes.json() : null
@@ -343,9 +361,8 @@ export function HomePageContent() {
       if (!auth?.token) return null
 
       try {
-        const createTopicRes = await fetch(getApiUrl("api/Topics"), {
+        const createTopicRes = await apiFetch(getApiUrl("api/Topics"), {
           method: "POST",
-          headers: getAuthHeaders(),
           body: JSON.stringify({
             title: title.trim(),
             isAnonymous,
@@ -405,9 +422,8 @@ export function HomePageContent() {
       }
 
       try {
-        const res = await fetch(getApiUrl("api/Entries"), {
+        const res = await apiFetch(getApiUrl("api/Entries"), {
           method: "POST",
-          headers: getAuthHeaders(),
           body: JSON.stringify({ topicId: selectedTopicId, content: content.trim(), isAnonymous }),
         })
         const data = await res.json().catch(() => ({}))
@@ -425,7 +441,7 @@ export function HomePageContent() {
 
         let newCount = fallbackEntryCount()
         try {
-          const topicRes = await fetch(getApiUrl(`api/Topics/${selectedTopicId}`), { headers: getAuthHeaders() })
+          const topicRes = await apiFetch(getApiUrl(`api/Topics/${selectedTopicId}`))
           if (topicRes.ok) {
             const freshTopic = await topicRes.json().catch(() => null)
             if (freshTopic && typeof freshTopic === "object") {

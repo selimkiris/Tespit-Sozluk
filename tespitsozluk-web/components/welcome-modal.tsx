@@ -55,6 +55,7 @@ function consumeOneWelcomeIncrement(storageKey: string): boolean {
 }
 
 export function WelcomeModal() {
+  const [mounted, setMounted] = React.useState(false)
   const [open, setOpen] = React.useState(false)
   const [dontShowAgain, setDontShowAgain] = React.useState(false)
   const storageKey = React.useMemo(
@@ -63,6 +64,11 @@ export function WelcomeModal() {
   )
 
   React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  React.useEffect(() => {
+    if (!mounted) return
     if (!welcomeConfig.isActive) return
 
     const current = readState(storageKey)
@@ -76,7 +82,7 @@ export function WelcomeModal() {
     }
 
     setOpen(true)
-  }, [storageKey])
+  }, [storageKey, mounted])
 
   const persistDontShowIfNeeded = React.useCallback(() => {
     if (!dontShowAgain) return
@@ -100,6 +106,10 @@ export function WelcomeModal() {
   }, [persistDontShowIfNeeded])
 
   if (!welcomeConfig.isActive) {
+    return null
+  }
+
+  if (!mounted) {
     return null
   }
 

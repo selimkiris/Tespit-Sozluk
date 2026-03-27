@@ -5,11 +5,10 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, Bell, BellOff, Search, Flag, ShieldAlert, FolderOutput, User } from "lucide-react"
 import { ShareMenu } from "@/components/share-menu"
-import { getSiteUrl } from "@/lib/api"
+import { getApiUrl, apiFetch, getSiteUrl } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { EntryCard } from "@/components/entry-card"
 import { EntryForm } from "@/components/entry-form"
-import { getApiUrl, getAuthHeaders } from "@/lib/api"
 import { TOPIC_ENTRIES_PAGE_SIZE } from "@/lib/topic-entries"
 import {
   DropdownMenu,
@@ -181,7 +180,7 @@ export function TopicDetail({
 
   const fetchTopicFromApi = useCallback(async () => {
     try {
-      const res = await fetch(getApiUrl(`api/Topics/${topic.id}`), { headers: getAuthHeaders() })
+      const res = await apiFetch(getApiUrl(`api/Topics/${topic.id}`))
       if (!res.ok) return
       const d = await res.json()
       setTopicDetail({
@@ -212,9 +211,8 @@ export function TopicDetail({
     if (!isLoggedIn || isFollowLoading) return
     setIsFollowLoading(true)
     try {
-      const res = await fetch(getApiUrl(`api/Topics/${topic.id}/follow`), {
+      const res = await apiFetch(getApiUrl(`api/Topics/${topic.id}/follow`), {
         method: "POST",
-        headers: getAuthHeaders(),
       })
       if (res.ok) {
         const data = await res.json()
@@ -235,9 +233,7 @@ export function TopicDetail({
       params.set("pageSize", String(TOPIC_ENTRIES_PAGE_SIZE))
       params.set("sortBy", sortBy)
       if (search.trim()) params.set("search", search.trim())
-      const res = await fetch(getApiUrl(`api/Topics/${topic.id}/entries?${params.toString()}`), {
-        headers: getAuthHeaders(),
-      })
+      const res = await apiFetch(getApiUrl(`api/Topics/${topic.id}/entries?${params.toString()}`))
       if (!res.ok) throw new Error("Entries yüklenemedi")
       const data = await res.json()
       const list = Array.isArray(data?.items) ? data.items.map(mapApiEntry) : []
@@ -382,9 +378,8 @@ export function TopicDetail({
     const url = getApiUrl(`api/Topics/${topic.id}`)
     const body = JSON.stringify({ title: trimmed })
     try {
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method: "PUT",
-        headers: getAuthHeaders(),
         body,
       })
       const text = await res.text()
@@ -412,9 +407,8 @@ export function TopicDetail({
     setIsDeleting(true)
     setDeleteError(null)
     try {
-      const res = await fetch(getApiUrl(`api/Topics/${topic.id}`), {
+      const res = await apiFetch(getApiUrl(`api/Topics/${topic.id}`), {
         method: "DELETE",
-        headers: getAuthHeaders(),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -434,9 +428,8 @@ export function TopicDetail({
   const handleAdminDeleteTopic = async () => {
     setIsAdminDeleting(true)
     try {
-      const res = await fetch(getApiUrl(`api/Admin/topics/${topic.id}`), {
+      const res = await apiFetch(getApiUrl(`api/Admin/topics/${topic.id}`), {
         method: "DELETE",
-        headers: getAuthHeaders(),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -457,9 +450,8 @@ export function TopicDetail({
     setIsAdminRenameSaving(true)
     setAdminRenameError(null)
     try {
-      const res = await fetch(getApiUrl(`api/Admin/topics/${topic.id}/rename`), {
+      const res = await apiFetch(getApiUrl(`api/Admin/topics/${topic.id}/rename`), {
         method: "PATCH",
-        headers: getAuthHeaders(),
         body: JSON.stringify({ newTitle: trimmed }),
       })
       const data = await res.json().catch(() => ({}))
@@ -477,9 +469,7 @@ export function TopicDetail({
   const searchTopicsForMove = useCallback(async (q: string) => {
     if (q.trim().length < 1) { setAdminMoveSearchResults([]); return }
     try {
-      const res = await fetch(getApiUrl(`api/Topics/search?q=${encodeURIComponent(q)}&limit=8`), {
-        headers: getAuthHeaders(),
-      })
+      const res = await apiFetch(getApiUrl(`api/Topics/search?q=${encodeURIComponent(q)}&limit=8`))
       if (res.ok) {
         const data = await res.json()
         setAdminMoveSearchResults(Array.isArray(data) ? data.filter((t: { id: string; title: string }) => t.id !== topic.id) : [])
@@ -499,9 +489,8 @@ export function TopicDetail({
     setIsAdminMoving(true)
     setAdminMoveError(null)
     try {
-      const res = await fetch(getApiUrl(`api/Admin/topics/${topic.id}/move-entries-to/${targetId}`), {
+      const res = await apiFetch(getApiUrl(`api/Admin/topics/${topic.id}/move-entries-to/${targetId}`), {
         method: "POST",
-        headers: getAuthHeaders(),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(typeof data === "string" ? data : (data.message ?? "Taşıma başarısız"))

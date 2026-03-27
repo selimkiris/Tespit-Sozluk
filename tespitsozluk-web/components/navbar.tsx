@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, type MouseEvent as ReactMouse
 import Link from "next/link"
 import { Search, Menu, X, Hash, User, Bell, Settings, ShieldAlert, Info } from "lucide-react"
 import DOMPurify from "isomorphic-dompurify"
-import { getApiUrl, getAuthHeaders } from "@/lib/api"
+import { getApiUrl, apiFetch } from "@/lib/api"
 import {
   mapNotificationFromApi,
   isHtmlNotificationType,
@@ -121,7 +121,7 @@ export function Navbar({
     }
     setIsSearchLoading(true)
     try {
-      const res = await fetch(getApiUrl(`api/Search?q=${encodeURIComponent(q)}`))
+      const res = await apiFetch(getApiUrl(`api/Search?q=${encodeURIComponent(q)}`))
       if (!res.ok) {
         toast.error(NAVBAR_LIST_FETCH_ERROR)
         setSearchResults({ topics: [], users: [] })
@@ -178,7 +178,7 @@ export function Navbar({
   const fetchUnreadCount = useCallback(async () => {
     if (!isLoggedIn) return
     try {
-      const res = await fetch(getApiUrl("api/Notifications/unread-count"), { headers: getAuthHeaders() })
+      const res = await apiFetch(getApiUrl("api/Notifications/unread-count"))
       if (res.ok) {
         const n = await res.json()
         setUnreadCount(typeof n === "number" ? n : 0)
@@ -191,7 +191,7 @@ export function Navbar({
   const fetchAdminUnreadReports = useCallback(async () => {
     if (!isLoggedIn || user?.role !== "Admin") return
     try {
-      const res = await fetch(getApiUrl("api/Admin/reports/unread-count"), { headers: getAuthHeaders() })
+      const res = await apiFetch(getApiUrl("api/Admin/reports/unread-count"))
       if (res.ok) {
         const n = await res.json()
         setAdminUnreadReports(typeof n === "number" ? n : 0)
@@ -205,7 +205,7 @@ export function Navbar({
     if (!isLoggedIn) return
     setNotificationsLoading(true)
     try {
-      const res = await fetch(getApiUrl("api/Notifications"), { headers: getAuthHeaders() })
+      const res = await apiFetch(getApiUrl("api/Notifications"))
       if (!res.ok) {
         toast.error(NAVBAR_LIST_FETCH_ERROR)
         setNotifications([])
@@ -240,9 +240,8 @@ export function Navbar({
   const markAllNotificationsReadAndRefresh = useCallback(async () => {
     if (!isLoggedIn) return
     try {
-      const res = await fetch(getApiUrl("api/Notifications/mark-all-read"), {
+      const res = await apiFetch(getApiUrl("api/Notifications/mark-all-read"), {
         method: "PUT",
-        headers: getAuthHeaders(),
       })
       if (res.ok) setUnreadCount(0)
     } catch {
@@ -261,9 +260,8 @@ export function Navbar({
 
   const handleMarkAsRead = useCallback(async (id: string) => {
     try {
-      const res = await fetch(getApiUrl(`api/Notifications/${id}/read`), {
+      const res = await apiFetch(getApiUrl(`api/Notifications/${id}/read`), {
         method: "PUT",
-        headers: getAuthHeaders(),
       })
       if (res.ok) {
         setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)))

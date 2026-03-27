@@ -1,7 +1,9 @@
 /**
  * Tüm API istekleri C# backend'e (NEXT_PUBLIC_API_URL) gider.
- * Authorization: Bearer token gerektiren istekler için getAuthToken() kullanın.
+ * Kimlik doğrulamalı istekler için apiFetch kullanın (Bearer + 401 davranışı).
  */
+
+import { clearAuth, getAuthToken } from "./auth"
 
 const getBaseUrl = () =>
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5295"
@@ -33,6 +35,45 @@ export function getAuthHeaders(): Record<string, string> {
   return headers
 }
 
+let sessionExpiredRedirectInFlight = false
+
+function shouldIgnore401ForSessionHandling(url: string): boolean {
+  const u = url.toLowerCase()
+  if (u.includes("/api/auth/login")) return true
+  if (u.includes("/api/auth/register")) return true
+  if (u.includes("/api/auth/reset-password")) return true
+  return false
+}
+
+/**
+ * Backend fetch: getAuthHeaders ile birleştirir. 401 + geçerli oturum token'ı ise
+ * localStorage temizlenir, toast gösterilir, /login'e yönlendirilir.
+ */
+export async function apiFetch(input: string, init?: RequestInit): Promise<Response> {
+  const baseHeaders = getAuthHeaders()
+  const merged = new Headers(baseHeaders)
+  if (init?.headers) {
+    new Headers(init.headers).forEach((value, key) => merged.set(key, value))
+  }
+  const res = await fetch(input, { ...init, headers: merged })
+  if (
+    typeof window !== "undefined" &&
+    res.status === 401 &&
+    !shouldIgnore401ForSessionHandling(input) &&
+    getAuthToken()
+  ) {
+    if (!sessionExpiredRedirectInFlight) {
+      sessionExpiredRedirectInFlight = true
+      clearAuth()
+      void import("sonner").then(({ toast }) => {
+        toast.error("Oturumunuz sona erdi, lütfen tekrar giriş yapın")
+      })
+      window.location.assign("/login")
+    }
+  }
+  return res
+}
+
 /** GET api/Entries/{id}/likes — yalnızca entry sahibi (yetkili oturum). */
 export type EntryUpvoterUser = {
   id: string
@@ -42,9 +83,7 @@ export type EntryUpvoterUser = {
 }
 
 export async function fetchEntryUpvoters(entryId: string): Promise<EntryUpvoterUser[]> {
-  const res = await fetch(getApiUrl(`api/Entries/${entryId}/likes`), {
-    headers: getAuthHeaders(),
-  })
+  const res = await apiFetch(getApiUrl(`api/Entries/${entryId}/likes`))
   if (!res.ok) {
     throw new Error(`entry_likes_${res.status}`)
   }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Settings, User, Lock, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
-import { getApiUrl, getAuthHeaders } from "@/lib/api"
+import { getApiUrl, apiFetch } from "@/lib/api"
 import { validateNicknameTrimmed } from "@/lib/nickname.schema"
 import {
   Dialog,
@@ -71,9 +71,8 @@ export function SettingsDialog({
     setUsernameSaving(true)
     setUsernameError(null)
     try {
-      const res = await fetch(getApiUrl("api/Users/settings/username"), {
+      const res = await apiFetch(getApiUrl("api/Users/settings/username"), {
         method: "PUT",
-        headers: getAuthHeaders(),
         body: JSON.stringify({ newUsername: trimmed }),
       })
       const data = await res.json().catch(() => ({}))
@@ -107,9 +106,8 @@ export function SettingsDialog({
     }
     setPasswordSaving(true)
     try {
-      const res = await fetch(getApiUrl("api/Users/settings/password"), {
+      const res = await apiFetch(getApiUrl("api/Users/settings/password"), {
         method: "PUT",
-        headers: getAuthHeaders(),
         body: JSON.stringify({
           currentPassword,
           newPassword,

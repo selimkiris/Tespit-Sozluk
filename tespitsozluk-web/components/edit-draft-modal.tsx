@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { RichTextEditor } from "@/components/rich-text-editor"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { getApiUrl, getAuthHeaders } from "@/lib/api"
+import { getApiUrl, apiFetch } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { TOPIC_TITLE_MAX_LENGTH } from "@/lib/topic.schema"
 import { clampTopicTitleRaw, normalizeTopicTitleForApi } from "@/lib/topic-title-input"
@@ -54,7 +54,7 @@ export function EditDraftModal({
       return
     }
     try {
-      const res = await fetch(getApiUrl(`api/Search?q=${encodeURIComponent(q.trim())}`))
+      const res = await apiFetch(getApiUrl(`api/Search?q=${encodeURIComponent(q.trim())}`))
       if (!res.ok) return
       const data = await res.json()
       const topics = (data.topics ?? []).map((t: { id: string; title: string }) => ({
@@ -140,9 +140,8 @@ export function EditDraftModal({
         body.newTopicTitle = normalizedNewTopicTitle
       }
 
-      const res = await fetch(getApiUrl(`api/Drafts/${draft.id}`), {
+      const res = await apiFetch(getApiUrl(`api/Drafts/${draft.id}`), {
         method: "PUT",
-        headers: getAuthHeaders(),
         body: JSON.stringify(body),
       })
 

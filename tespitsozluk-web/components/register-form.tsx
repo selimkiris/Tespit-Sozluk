@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Eye, EyeOff } from "lucide-react"
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile"
 import { toast } from "sonner"
-import { getApiUrl } from "@/lib/api"
+import { getApiUrl, apiFetch } from "@/lib/api"
 import {
   registerFormSchema,
   type RegisterFormValues,
@@ -81,7 +81,7 @@ export function RegisterForm({ onRegistered: _onRegistered, onClose: _onClose, o
 
     setIsLoading(true)
     try {
-      const registerRes = await fetch(getApiUrl("api/Auth/register"), {
+      const registerRes = await apiFetch(getApiUrl("api/Auth/register"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

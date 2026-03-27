@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react"
 import { X } from "lucide-react"
-import { getApiUrl } from "@/lib/api"
+import { getApiUrl, apiFetch } from "@/lib/api"
 import type { AuthResponse } from "@/lib/auth-types"
 import { LoginForm } from "@/components/login-form"
 import { RegisterForm } from "@/components/register-form"
@@ -44,7 +44,7 @@ export function LoginModal({ isOpen, onClose, onLogin, onSwitchToRegister }: Log
     setIsLoading(true)
 
     try {
-      const res = await fetch(getApiUrl("api/Auth/login"), {
+      const res = await apiFetch(getApiUrl("api/Auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, turnstileToken }),

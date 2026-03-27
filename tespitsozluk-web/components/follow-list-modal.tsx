@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { getApiUrl, getAuthHeaders } from "@/lib/api"
+import { getApiUrl, apiFetch } from "@/lib/api"
 import { toast } from "sonner"
 
 const FOLLOW_LIST_FETCH_ERROR =
@@ -46,7 +46,7 @@ export function FollowListModal({
         ? `api/Users/${userId}/followers`
         : `api/Users/${userId}/following`
     setLoading(true)
-    fetch(getApiUrl(endpoint), { headers: getAuthHeaders() })
+    apiFetch(getApiUrl(endpoint))
       .then((res) => {
         if (!res.ok) {
           toast.error(FOLLOW_LIST_FETCH_ERROR)

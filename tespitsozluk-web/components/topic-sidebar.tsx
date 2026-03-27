@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { Plus, ChevronDown } from "lucide-react"
-import { getApiUrl, getAuthHeaders } from "@/lib/api"
+import { getApiUrl, apiFetch } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -121,7 +121,7 @@ export function TopicSidebar({
         setIsLoading(true)
       }
       setError(null)
-      const res = await fetch(url, { headers: getAuthHeaders() })
+      const res = await apiFetch(url)
       if (!res.ok) {
         throw new Error(`Sunucu hatası: ${res.status}`)
       }

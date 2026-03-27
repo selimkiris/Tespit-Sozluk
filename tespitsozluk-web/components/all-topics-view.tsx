@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react"
 import { X, Search, Hash, ChevronDown } from "lucide-react"
-import { getApiUrl } from "@/lib/api"
+import { getApiUrl, apiFetch } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 
 interface Topic {
@@ -48,7 +48,7 @@ export function AllTopicsView({
       setIsLoading(true)
     }
     try {
-      const res = await fetch(getApiUrl(`api/Topics/alphabetical?page=${pageNum}&pageSize=50`))
+      const res = await apiFetch(getApiUrl(`api/Topics/alphabetical?page=${pageNum}&pageSize=50`))
       if (!res.ok) throw new Error("Başlıklar yüklenemedi")
       const data = await res.json()
       const items = data?.items ?? []

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { RichTextEditor } from "@/components/rich-text-editor"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { getApiUrl, getAuthHeaders } from "@/lib/api"
+import { getApiUrl, apiFetch } from "@/lib/api"
 
 function trimHtmlContent(html: string): string {
   if (!html) return ''
@@ -80,9 +80,8 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
         isAnonymous,
       }
       // Mevcut başlık sayfasındayız - newTopicTitle kesinlikle gönderilmez
-      const res = await fetch(getApiUrl("api/Drafts"), {
+      const res = await apiFetch(getApiUrl("api/Drafts"), {
         method: "POST",
-        headers: getAuthHeaders(),
         body: JSON.stringify(body),
       })
       const data = await res.json().catch(() => ({}))
