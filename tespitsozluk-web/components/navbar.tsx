@@ -424,9 +424,9 @@ export function Navbar({
                       const timeLabel = formatNotificationTime(n.createdAt)
                       const timeRow =
                         timeLabel !== "" ? (
-                          <p className="mt-1 w-full text-right text-[11px] leading-none tabular-nums text-muted-foreground/70">
+                          <div className="mt-1 block w-full shrink-0 text-right text-[10px] leading-none text-muted-foreground/60 tabular-nums isolate">
                             {timeLabel}
-                          </p>
+                          </div>
                         ) : null
 
                       if (isHtmlType) {
@@ -467,9 +467,9 @@ export function Navbar({
 
                         const timeRowForHtml =
                           isAdminMessage && timeLabel !== "" ? (
-                            <p className="mt-1 w-full text-right text-[11px] leading-none tabular-nums text-[#8a8d91]/70">
+                            <div className="mt-1 block w-full shrink-0 text-right text-[10px] leading-none text-[#8a8d91]/60 tabular-nums isolate">
                               {timeLabel}
-                            </p>
+                            </div>
                           ) : (
                             timeRow
                           )
