@@ -12,6 +12,7 @@ import {
   formatNotificationTime,
   type NotificationItem,
 } from "@/lib/notification-types"
+import { renderNotificationCopy } from "@/lib/notification-message"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -525,8 +526,6 @@ export function Navbar({
                         "font-medium text-[#55d197] hover:underline underline-offset-2"
                       const inlineEntryLinkClass = "text-foreground font-bold hover:underline"
 
-                      const senderLabel = n.senderName.trim() || "Bir kullanıcı"
-
                       if (n.type === NotificationType.Follow) {
                         return (
                           <div
@@ -539,14 +538,13 @@ export function Navbar({
                             className={`w-full flex flex-col gap-0.5 px-3 py-2.5 text-left cursor-pointer hover:bg-accent transition-colors border-b border-border last:border-b-0 ${!n.isRead ? "bg-accent/50" : ""}`}
                           >
                             <p className="text-sm text-foreground leading-snug">
-                              {n.senderId ? (
-                                <Link href={`/user/${n.senderId}`} className={userLinkClass} onClick={markReadOnLinkClick}>
-                                  {senderLabel}
-                                </Link>
-                              ) : (
-                                <span className="font-medium">{senderLabel}</span>
-                              )}{" "}
-                              <span className="text-muted-foreground">seni takip etmeye başladı. Artık hayran kitlen var 🎭</span>
+                              {renderNotificationCopy({
+                                notification: n,
+                                variant: "follow",
+                                userLinkClass,
+                                inlineEntryLinkClass,
+                                onLinkClick: markReadOnLinkClick,
+                              })}
                             </p>
                             {timeRow}
                           </div>
@@ -565,27 +563,13 @@ export function Navbar({
                             className={`w-full flex flex-col gap-1 px-3 py-2.5 text-left cursor-pointer hover:bg-accent transition-colors border-b border-border last:border-b-0 ${!n.isRead ? "bg-accent/50" : ""}`}
                           >
                             <p className="text-sm text-foreground leading-snug">
-                              {n.senderId ? (
-                                <Link href={`/user/${n.senderId}`} className={userLinkClass} onClick={markReadOnLinkClick}>
-                                  {senderLabel}
-                                </Link>
-                              ) : (
-                                <span className="font-medium">{senderLabel}</span>
-                              )}{" "}
-                              {n.entryId ? (
-                                <>
-                                  <Link
-                                    href={`/entry/${n.entryId}`}
-                                    className={inlineEntryLinkClass}
-                                    onClick={markReadOnLinkClick}
-                                  >
-                                    entrynize
-                                  </Link>{" "}
-                                  kalp bıraktı. Bu insanlar ne okuyacağını biliyor ❤️
-                                </>
-                              ) : (
-                                <span className="text-muted-foreground">{n.message}</span>
-                              )}
+                              {renderNotificationCopy({
+                                notification: n,
+                                variant: "like",
+                                userLinkClass,
+                                inlineEntryLinkClass,
+                                onLinkClick: markReadOnLinkClick,
+                              })}
                             </p>
                             {timeRow}
                           </div>
@@ -604,21 +588,13 @@ export function Navbar({
                             className={`w-full flex flex-col gap-1 px-3 py-2.5 text-left cursor-pointer hover:bg-accent transition-colors border-b border-border last:border-b-0 ${!n.isRead ? "bg-accent/50" : ""}`}
                           >
                             <p className="text-sm text-foreground leading-snug">
-                              {n.entryId ? (
-                                <>
-                                  Birisi{" "}
-                                  <Link
-                                    href={`/entry/${n.entryId}`}
-                                    className={inlineEntryLinkClass}
-                                    onClick={markReadOnLinkClick}
-                                  >
-                                    entrynize
-                                  </Link>{" "}
-                                  ayak soktu (leş gibi), kim olduğu göremedim 🦶
-                                </>
-                              ) : (
-                                <span className="text-muted-foreground">{n.message}</span>
-                              )}
+                              {renderNotificationCopy({
+                                notification: n,
+                                variant: "dislike",
+                                userLinkClass,
+                                inlineEntryLinkClass,
+                                onLinkClick: markReadOnLinkClick,
+                              })}
                             </p>
                             {timeRow}
                           </div>
@@ -637,21 +613,13 @@ export function Navbar({
                             className={`w-full flex flex-col gap-1 px-3 py-2.5 text-left cursor-pointer hover:bg-accent transition-colors border-b border-border last:border-b-0 ${!n.isRead ? "bg-accent/50" : ""}`}
                           >
                             <p className="text-sm text-foreground leading-snug">
-                              {n.entryId ? (
-                                <>
-                                  Bir{" "}
-                                  <Link
-                                    href={`/entry/${n.entryId}`}
-                                    className={inlineEntryLinkClass}
-                                    onClick={markReadOnLinkClick}
-                                  >
-                                    entryniz
-                                  </Link>{" "}
-                                  gizemli biri tarafından çivilendi. Bu gerçek bir şaheser 🏆
-                                </>
-                              ) : (
-                                <span className="text-muted-foreground">{n.message}</span>
-                              )}
+                              {renderNotificationCopy({
+                                notification: n,
+                                variant: "save",
+                                userLinkClass,
+                                inlineEntryLinkClass,
+                                onLinkClick: markReadOnLinkClick,
+                              })}
                             </p>
                             {timeRow}
                           </div>
@@ -659,14 +627,6 @@ export function Navbar({
                       }
 
                       if (n.type === NotificationType.Mention) {
-                        const actorProfileId = (n.actorId || n.senderId).trim()
-                        const entryHref =
-                          n.topicId && n.entryId
-                            ? `/?topic=${n.topicId}#entry-${n.entryId}`
-                            : n.entryId
-                              ? `/entry/${n.entryId}`
-                              : undefined
-
                         return (
                           <div
                             key={n.id}
@@ -678,30 +638,13 @@ export function Navbar({
                             className={`w-full flex flex-col gap-0.5 px-3 py-2.5 text-left cursor-pointer hover:bg-accent transition-colors border-b border-border last:border-b-0 ${!n.isRead ? "bg-accent/50" : ""}`}
                           >
                             <p className="text-sm text-foreground leading-snug">
-                              {actorProfileId ? (
-                                <Link
-                                  href={`/user/${actorProfileId}`}
-                                  className={userLinkClass}
-                                  onClick={markReadOnLinkClick}
-                                >
-                                  {senderLabel}
-                                </Link>
-                              ) : (
-                                <span className="font-medium">{senderLabel}</span>
-                              )}{" "}
-                              sizi bir{" "}
-                              {entryHref ? (
-                                <Link
-                                  href={entryHref}
-                                  className={inlineEntryLinkClass}
-                                  onClick={markReadOnLinkClick}
-                                >
-                                  entrye
-                                </Link>
-                              ) : (
-                                <span>entrye</span>
-                              )}{" "}
-                              etiketledi, inş hayırlı bir şeydir 📌
+                              {renderNotificationCopy({
+                                notification: n,
+                                variant: "mention",
+                                userLinkClass,
+                                inlineEntryLinkClass,
+                                onLinkClick: markReadOnLinkClick,
+                              })}
                             </p>
                             {timeRow}
                           </div>
