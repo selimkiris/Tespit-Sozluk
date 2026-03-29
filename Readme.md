@@ -15,8 +15,8 @@ Sosyal Medya / Sözlük
 
 ## Proje Linkleri
 
-* **REST API Adresi:** https://tespitsozluk-api.onrender.com
-* **Web Frontend Adresi:** https://tespitsozluk.com/
+* **REST API Adresi:** tespitsozluk-api.onrender.com
+* **Web Frontend Adresi:** tespitsozluk.com
 
 ## Proje Ekibi
 
