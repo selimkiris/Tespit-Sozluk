@@ -985,14 +985,14 @@ export default function UserProfilePage() {
         {/* Tabs: Yazılan Entryler / Kalplenenler / Çivilenenler / Taslaklar */}
         <div className="w-full max-w-2xl mx-auto px-4 py-6 lg:max-w-[786px] lg:px-6">
           <Tabs defaultValue="entries" className="w-full">
-            <TabsList
-              className="w-full flex overflow-x-auto bg-transparent p-0 h-auto rounded-none border-b-2 border-border mb-8 gap-0 [&::-webkit-scrollbar]:hidden"
-              style={{ scrollbarWidth: "none" }}
-            >
+            <div className="-mx-4 px-4 lg:-mx-6 lg:px-6 mb-8 overflow-x-auto scrollbar-hide">
+              <TabsList
+                className="flex w-max min-w-full flex-nowrap justify-start bg-transparent p-0 h-auto rounded-none border-b-2 border-border gap-0"
+              >
               {/* ─── Yazılan Entryler ─── */}
               <TabsTrigger
                 value="entries"
-                className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent shrink-0 text-muted-foreground font-semibold text-sm hover:text-foreground hover:bg-muted/25 data-[state=active]:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
+                className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent flex-none flex-shrink-0 text-muted-foreground font-semibold text-sm hover:text-foreground hover:bg-muted/25 data-[state=active]:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
               >
                 <PencilLine className="h-[18px] w-[18px] shrink-0 transition-all duration-200 group-data-[state=active]:scale-110" />
                 <span className="tracking-tight">Yazılan Entryler</span>
@@ -1004,7 +1004,7 @@ export default function UserProfilePage() {
               {/* ─── Kalplenenler ─── */}
               <TabsTrigger
                 value="liked"
-                className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent shrink-0 text-muted-foreground font-semibold text-sm hover:text-rose-500 hover:bg-rose-500/5 data-[state=active]:text-rose-500 data-[state=active]:border-rose-500 data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
+                className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent flex-none flex-shrink-0 text-muted-foreground font-semibold text-sm hover:text-rose-500 hover:bg-rose-500/5 data-[state=active]:text-rose-500 data-[state=active]:border-rose-500 data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
               >
                 <Heart className="h-[18px] w-[18px] shrink-0 transition-all duration-200 group-data-[state=active]:fill-rose-500/20 group-data-[state=active]:scale-110" />
                 <span className="tracking-tight">Kalplenenler</span>
@@ -1018,7 +1018,7 @@ export default function UserProfilePage() {
                   {/* ─── Çivilenenler ─── */}
                   <TabsTrigger
                     value="saved"
-                    className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent shrink-0 text-muted-foreground font-semibold text-sm hover:text-purple-400 hover:bg-purple-500/5 data-[state=active]:text-purple-500 data-[state=active]:border-purple-500 data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
+                    className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent flex-none flex-shrink-0 text-muted-foreground font-semibold text-sm hover:text-purple-400 hover:bg-purple-500/5 data-[state=active]:text-purple-500 data-[state=active]:border-purple-500 data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
                   >
                     <CiviIcon className="h-[18px] w-[18px] shrink-0 text-inherit transition-all duration-200 group-data-[state=active]:scale-110" />
                     <span className="tracking-tight">Çivilenenler</span>
@@ -1030,7 +1030,7 @@ export default function UserProfilePage() {
                   {/* ─── Taslaklar ─── */}
                   <TabsTrigger
                     value="drafts"
-                    className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent shrink-0 text-muted-foreground font-semibold text-sm hover:text-amber-500 hover:bg-amber-500/5 data-[state=active]:text-amber-500 data-[state=active]:border-amber-500 data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
+                    className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent flex-none flex-shrink-0 text-muted-foreground font-semibold text-sm hover:text-amber-500 hover:bg-amber-500/5 data-[state=active]:text-amber-500 data-[state=active]:border-amber-500 data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
                   >
                     <FileEdit className="h-[18px] w-[18px] shrink-0 transition-all duration-200 group-data-[state=active]:scale-110" />
                     <span className="tracking-tight">Taslaklar</span>
@@ -1044,7 +1044,7 @@ export default function UserProfilePage() {
                     <TabsTrigger
                       value="reports"
                       onClick={() => { if (!reportsLoaded) fetchReports() }}
-                      className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent shrink-0 text-muted-foreground font-semibold text-sm hover:text-destructive hover:bg-destructive/5 data-[state=active]:text-destructive data-[state=active]:border-destructive data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
+                      className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent flex-none flex-shrink-0 text-muted-foreground font-semibold text-sm hover:text-destructive hover:bg-destructive/5 data-[state=active]:text-destructive data-[state=active]:border-destructive data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
                     >
                       <Flag className="h-[18px] w-[18px] shrink-0 transition-all duration-200 group-data-[state=active]:scale-110" />
                       <span className="tracking-tight">Şikayetler</span>
@@ -1062,6 +1062,7 @@ export default function UserProfilePage() {
                 </>
               )}
             </TabsList>
+            </div>
 
             <TabsContent value="entries">
               <div className="mb-4">

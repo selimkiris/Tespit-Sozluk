@@ -220,6 +220,15 @@ h3 {
     background: rgba(44, 100, 246, 0.5);
   }
 
+  /* Yatay kaydırmalı sekmeler — scrollbar görünmez (Android/iOS) */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   /* ── Aktif sekme / navigasyon alt çizgisi ─────────────────── */
   .dark .nav-active-indicator {
     border-bottom: 2px solid var(--brand);
