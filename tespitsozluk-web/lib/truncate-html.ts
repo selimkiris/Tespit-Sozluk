@@ -56,7 +56,9 @@ export function truncateHtmlByTextLength(html: string, maxChars: number): string
     if (!walk(wrapper)) return html
 
     if (cutTextNode) {
-      let n: Node | null = cutTextNode
+      // Açık Node ataması: TS, Text | null → döngüde yanlışlıkla `never` çıkarımını önler
+      const startFrom: Node = cutTextNode
+      let n: Node | null = startFrom
       while (n && n !== wrapper) {
         while (n.nextSibling) {
           n.parentNode?.removeChild(n.nextSibling)
