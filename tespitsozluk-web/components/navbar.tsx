@@ -12,7 +12,7 @@ import {
   formatNotificationTime,
   type NotificationItem,
 } from "@/lib/notification-types"
-import { renderNotificationCopy } from "@/lib/notification-message"
+import { NotificationCopy } from "@/lib/notification-message"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -424,7 +424,10 @@ export function Navbar({
                       const timeLabel = formatNotificationTime(n.createdAt)
                       const timeRow =
                         timeLabel !== "" ? (
-                          <div className="mt-1 block w-full shrink-0 text-right text-[10px] leading-none text-muted-foreground/60 tabular-nums isolate">
+                          <div
+                            className="mt-1 block w-full shrink-0 text-right text-[10px] leading-none text-muted-foreground/60 tabular-nums isolate"
+                            suppressHydrationWarning
+                          >
                             {timeLabel}
                           </div>
                         ) : null
@@ -467,7 +470,10 @@ export function Navbar({
 
                         const timeRowForHtml =
                           isAdminMessage && timeLabel !== "" ? (
-                            <div className="mt-1 block w-full shrink-0 text-right text-[10px] leading-none text-[#8a8d91]/60 tabular-nums isolate">
+                            <div
+                              className="mt-1 block w-full shrink-0 text-right text-[10px] leading-none text-[#8a8d91]/60 tabular-nums isolate"
+                              suppressHydrationWarning
+                            >
                               {timeLabel}
                             </div>
                           ) : (
@@ -542,13 +548,13 @@ export function Navbar({
                             className={`w-full flex flex-col gap-0.5 px-3 py-2.5 text-left cursor-pointer hover:bg-accent transition-colors border-b border-border last:border-b-0 ${!n.isRead ? "bg-accent/50" : ""}`}
                           >
                             <p className="text-sm text-foreground leading-snug">
-                              {renderNotificationCopy({
-                                notification: n,
-                                variant: "follow",
-                                userLinkClass,
-                                inlineEntryLinkClass,
-                                onLinkClick: markReadOnLinkClick,
-                              })}
+                              <NotificationCopy
+                                notification={n}
+                                variant="follow"
+                                userLinkClass={userLinkClass}
+                                inlineEntryLinkClass={inlineEntryLinkClass}
+                                onLinkClick={markReadOnLinkClick}
+                              />
                             </p>
                             {timeRow}
                           </div>
@@ -567,13 +573,13 @@ export function Navbar({
                             className={`w-full flex flex-col gap-1 px-3 py-2.5 text-left cursor-pointer hover:bg-accent transition-colors border-b border-border last:border-b-0 ${!n.isRead ? "bg-accent/50" : ""}`}
                           >
                             <p className="text-sm text-foreground leading-snug">
-                              {renderNotificationCopy({
-                                notification: n,
-                                variant: "like",
-                                userLinkClass,
-                                inlineEntryLinkClass,
-                                onLinkClick: markReadOnLinkClick,
-                              })}
+                              <NotificationCopy
+                                notification={n}
+                                variant="like"
+                                userLinkClass={userLinkClass}
+                                inlineEntryLinkClass={inlineEntryLinkClass}
+                                onLinkClick={markReadOnLinkClick}
+                              />
                             </p>
                             {timeRow}
                           </div>
@@ -592,13 +598,13 @@ export function Navbar({
                             className={`w-full flex flex-col gap-1 px-3 py-2.5 text-left cursor-pointer hover:bg-accent transition-colors border-b border-border last:border-b-0 ${!n.isRead ? "bg-accent/50" : ""}`}
                           >
                             <p className="text-sm text-foreground leading-snug">
-                              {renderNotificationCopy({
-                                notification: n,
-                                variant: "dislike",
-                                userLinkClass,
-                                inlineEntryLinkClass,
-                                onLinkClick: markReadOnLinkClick,
-                              })}
+                              <NotificationCopy
+                                notification={n}
+                                variant="dislike"
+                                userLinkClass={userLinkClass}
+                                inlineEntryLinkClass={inlineEntryLinkClass}
+                                onLinkClick={markReadOnLinkClick}
+                              />
                             </p>
                             {timeRow}
                           </div>
@@ -617,13 +623,13 @@ export function Navbar({
                             className={`w-full flex flex-col gap-1 px-3 py-2.5 text-left cursor-pointer hover:bg-accent transition-colors border-b border-border last:border-b-0 ${!n.isRead ? "bg-accent/50" : ""}`}
                           >
                             <p className="text-sm text-foreground leading-snug">
-                              {renderNotificationCopy({
-                                notification: n,
-                                variant: "save",
-                                userLinkClass,
-                                inlineEntryLinkClass,
-                                onLinkClick: markReadOnLinkClick,
-                              })}
+                              <NotificationCopy
+                                notification={n}
+                                variant="save"
+                                userLinkClass={userLinkClass}
+                                inlineEntryLinkClass={inlineEntryLinkClass}
+                                onLinkClick={markReadOnLinkClick}
+                              />
                             </p>
                             {timeRow}
                           </div>
@@ -642,13 +648,13 @@ export function Navbar({
                             className={`w-full flex flex-col gap-0.5 px-3 py-2.5 text-left cursor-pointer hover:bg-accent transition-colors border-b border-border last:border-b-0 ${!n.isRead ? "bg-accent/50" : ""}`}
                           >
                             <p className="text-sm text-foreground leading-snug">
-                              {renderNotificationCopy({
-                                notification: n,
-                                variant: "mention",
-                                userLinkClass,
-                                inlineEntryLinkClass,
-                                onLinkClick: markReadOnLinkClick,
-                              })}
+                              <NotificationCopy
+                                notification={n}
+                                variant="mention"
+                                userLinkClass={userLinkClass}
+                                inlineEntryLinkClass={inlineEntryLinkClass}
+                                onLinkClick={markReadOnLinkClick}
+                              />
                             </p>
                             {timeRow}
                           </div>

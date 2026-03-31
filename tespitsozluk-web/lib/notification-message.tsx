@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useEffect, useState } from "react"
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react"
 import type { NotificationItem } from "@/lib/notification-types"
 
@@ -105,6 +106,7 @@ const MENTION_MESSAGES = [
 /** entry / enrty + isteğe bağlı Türkçe ek (kesme ve harfler) */
 const ENTRY_TOKEN_RE = /((?:enrty|entry)(?:[''\u2019][a-zA-ZüğıöşçÜĞİÖŞÇ]+)?)/gi
 
+/** Sunucu ve istemcide aynı şablon indeksini verir (Math.random kullanılmaz). */
 export function pickTemplateIndex(notificationId: string, length: number): number {
   if (length <= 0) return 0
   const sum = notificationId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
@@ -258,4 +260,29 @@ export function renderNotificationCopy({
   }
 
   return <span className="text-muted-foreground">{notification.message}</span>
+}
+
+export type NotificationCopyProps = {
+  notification: NotificationItem
+  variant: NotificationCopyVariant
+  userLinkClass: string
+  inlineEntryLinkClass: string
+  onLinkClick: LinkClick
+}
+
+/**
+ * Şablonlu bildirim metnini yalnızca istemci mount olduktan sonra gösterir; SSR ile ilk hidrasyon çakışmasını önler.
+ * İçerik/link/Nick_name/entry mantığı `renderNotificationCopy` ile aynıdır.
+ */
+export function NotificationCopy(props: NotificationCopyProps) {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+  if (!mounted) {
+    return (
+      <span className="inline-block min-h-[1.25rem] w-full" aria-hidden suppressHydrationWarning />
+    )
+  }
+  return <span suppressHydrationWarning>{renderNotificationCopy(props)}</span>
 }
