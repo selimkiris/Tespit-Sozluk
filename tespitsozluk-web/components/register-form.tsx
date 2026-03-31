@@ -196,7 +196,7 @@ export function RegisterForm({ onRegistered: _onRegistered, onClose: _onClose, o
             {...register("email")}
           />
           <p className="text-xs text-muted-foreground">
-            E-posta doğrulaması gerekebilir, lütfen geçerli bir e-posta adresi giriniz
+            E-posta doğrulaması gerekebilir, lütfen geçerli bir e-posta adresi giriniz. E-posta adresinizi diğer kullanıcılar göremez 🔒
           </p>
           {errors.email?.message && (
             <p className="text-sm text-destructive">{errors.email.message}</p>
