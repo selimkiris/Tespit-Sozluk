@@ -169,6 +169,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Topic>()
             .HasIndex(t => t.CreatedAt);
 
+        modelBuilder.Entity<Topic>()
+            .HasIndex(t => t.Title);
+
         modelBuilder.Entity<Entry>()
             .HasIndex(e => e.CreatedAt);
     }

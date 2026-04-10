@@ -77,6 +77,33 @@ public class UsersController : ControllerBase
         return Ok(items);
     }
 
+    /// <summary>
+    /// Kullanıcı adı varlığı — tek satır, AsNoTracking; Username üzerinde index kullanılır.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("exists")]
+    public async Task<ActionResult<UserExistsResponseDto>> UserExists([FromQuery] string? username)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            return Ok(new UserExistsResponseDto(false, null));
+        }
+
+        var u = username.Trim();
+        if (!IsValidUsername(u))
+        {
+            return Ok(new UserExistsResponseDto(false, null));
+        }
+
+        var row = await _context.Users
+            .AsNoTracking()
+            .Where(x => x.Username.ToLower() == u.ToLower())
+            .Select(x => new { x.Id })
+            .FirstOrDefaultAsync();
+
+        return Ok(new UserExistsResponseDto(row != null, row?.Id));
+    }
+
     [AllowAnonymous]
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<UserProfileResponseDto>> GetUser(Guid id)

@@ -4,35 +4,7 @@ import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import DOMPurify from "isomorphic-dompurify"
 import { cn } from "@/lib/utils"
-
-/**
- * Backend'in doğruladığı @mention kalıbı: [@kullaniciadi](/user/{guid})
- * Geçersiz @ kullanımları düz metin kalır; bu regex sadece çözümlenenleri yakalar.
- * Sanitize etmeden ÖNCE uygulanır.
- */
-function applyMentionLinks(html: string): string {
-  return html.replace(
-    /\[@([^\]]+)\]\(\/user\/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\)/gi,
-    (_, username: string, userId: string) =>
-      `<a href="/user/${userId}" data-profile-link="1" class="text-emerald-500 font-medium hover:underline">@${escapeHtmlText(username)}</a>`
-  )
-}
-
-function escapeHtmlText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-}
-
-/**
- * (bkz: kelime) kalıplarını arama linkine çevirir.
- * Sanitize etmeden ÖNCE uygulanır.
- */
-function applyBkzLinks(html: string): string {
-  return html.replace(
-    /\(bkz:\s*([^)]+)\)/gi,
-    (_, kelime) =>
-      `<a href="/?search=${encodeURIComponent(kelime.trim())}" class="text-emerald-500 font-medium hover:underline">(bkz: ${kelime.trim()})</a>`
-  )
-}
+import { applyBkzLinks, applyMentionLinks } from "@/lib/entry-body-link-transforms"
 
 interface HtmlRendererProps {
   html: string

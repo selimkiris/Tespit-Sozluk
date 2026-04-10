@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useEditor, EditorContent } from "@tiptap/react"
 import type { Editor } from "@tiptap/core"
 import StarterKit from "@tiptap/starter-kit"
-import Link from "@tiptap/extension-link"
 import Placeholder from "@tiptap/extension-placeholder"
 import {
   Bold,
@@ -43,6 +42,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import data from "@emoji-mart/data"
 import Picker from "@emoji-mart/react"
+import { escapeHtmlText } from "@/lib/entry-body-link-transforms"
+import { EditorLink } from "@/components/tiptap-extensions/editor-link"
+import { useEntryPatternExistsValidation } from "@/hooks/use-entry-pattern-exists-validation"
 
 const CHAR_LIMIT = 100_000
 const CHAR_WARN_THRESHOLD = 95_000
@@ -116,13 +118,20 @@ export function RichTextEditor({
     onCharCountChange?.(count)
   }, [onCharCountChange])
 
-  const insertMention = useCallback((username: string) => {
+  const insertMention = useCallback((item: MentionSearchItem) => {
     const ed = editorRef.current
     const m = mentionRef.current
-    if (!ed || !m) return
+    if (!ed || !m || !item.id) return
     const pos = ed.state.selection.from
     mentionEscapeSuppressAtRef.current = null
-    ed.chain().focus().deleteRange({ from: m.rangeFrom, to: pos }).insertContent(`@${username} `).run()
+    const safe = escapeHtmlText(item.username)
+    ed.chain()
+      .focus()
+      .deleteRange({ from: m.rangeFrom, to: pos })
+      .insertContent(
+        `<a href="/user/${item.id}" target="_blank" rel="noopener noreferrer" class="text-emerald-600 dark:text-emerald-400 hover:underline">@${safe}</a> `
+      )
+      .run()
     setMention(null)
   }, [])
 
@@ -138,10 +147,19 @@ export function RichTextEditor({
         listItem: false,
         link: false,
       }),
-      Link.configure({
+      EditorLink.configure({
+        autolink: true,
         openOnClick: false,
         HTMLAttributes: {
           class: "text-emerald-600 dark:text-emerald-400 hover:underline",
+          target: "_blank",
+          rel: "noopener noreferrer",
+        },
+        isAllowedUri: (url, ctx) => {
+          const u = (url ?? "").trim()
+          if (!u) return false
+          if (u.startsWith("/") && !u.startsWith("//")) return true
+          return ctx.defaultValidate(u)
         },
       }),
       Placeholder.configure({
@@ -160,6 +178,20 @@ export function RichTextEditor({
           ENTRY_BODY_RENDERER_CLASSNAME,
           contentMinHeightClass
         ),
+      },
+      handleClick: (view, _pos, event) => {
+        if (event.button !== 0) return false
+        const el = (event.target as HTMLElement | null)?.closest?.("a")
+        if (!el || !view.dom.contains(el)) return false
+        const href = el.getAttribute("href")
+        if (!href?.trim() || href.trim().toLowerCase().startsWith("javascript:")) return false
+        event.preventDefault()
+        event.stopPropagation()
+        window.open(href, "_blank", "noopener,noreferrer")
+        requestAnimationFrame(() => {
+          view.focus()
+        })
+        return true
       },
       handleKeyDown: (_view, event) => {
         const m = mentionRef.current
@@ -187,7 +219,7 @@ export function RichTextEditor({
             const pick = m.results[m.selectedIndex]
             if (pick) {
               event.preventDefault()
-              insertMention(pick.username)
+              insertMention(pick)
               return true
             }
           }
@@ -221,6 +253,8 @@ export function RichTextEditor({
       editorRef.current = null
     }
   }, [editor])
+
+  useEntryPatternExistsValidation(editor)
 
   useEffect(() => {
     if (!editor) return
@@ -324,7 +358,7 @@ export function RichTextEditor({
     if (!url?.trim()) return
     const safeUrl = url.replace(/"/g, "&quot;")
     const displayText = (text?.trim() || url).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
-    editor.chain().focus().insertContent(`<a href="${safeUrl}" title="${safeUrl}" target="_blank" class="text-blue-500 hover:underline">${displayText}</a> `).run()
+    editor.chain().focus().insertContent(`<a href="${safeUrl}" title="${safeUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">${displayText}</a> `).run()
     setLinkModalOpen(false)
     setLinkData({ text: "", url: "" })
   }, [editor, linkData])
@@ -487,7 +521,7 @@ export function RichTextEditor({
                     onMouseEnter={() =>
                       setMention((prev) => (prev ? { ...prev, selectedIndex: i } : null))
                     }
-                    onClick={() => insertMention(u.username)}
+                    onClick={() => insertMention(u)}
                   >
                     {u.avatar?.startsWith("http") ? (
                       <img

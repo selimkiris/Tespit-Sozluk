@@ -378,6 +378,33 @@ public class TopicsController : ControllerBase
         return Ok(results);
     }
 
+    /// <summary>
+    /// Başlık varlığı — tek satır, AsNoTracking; başlık eşleşmesi CreateTopic ile aynı (büyük/küçük harf duyarsız).
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("exists")]
+    public async Task<ActionResult<TopicExistsResponseDto>> TopicExists([FromQuery] string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return Ok(new TopicExistsResponseDto(false, null));
+        }
+
+        var n = name.Trim();
+        if (n.Length > 60)
+        {
+            return Ok(new TopicExistsResponseDto(false, null));
+        }
+
+        var row = await _context.Topics
+            .AsNoTracking()
+            .Where(t => t.Title.ToLower() == n.ToLower())
+            .Select(t => new { t.Id })
+            .FirstOrDefaultAsync();
+
+        return Ok(new TopicExistsResponseDto(row != null, row?.Id));
+    }
+
     [AllowAnonymous]
     [HttpGet("alphabetical")]
     public async Task<ActionResult<PagedTopicsDto>> GetAlphabetical(
