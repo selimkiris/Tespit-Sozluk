@@ -518,7 +518,7 @@ export function HomePageContent() {
         : "#2c64f6"
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" suppressHydrationWarning>
       {/* Navbar */}
       <Navbar
         isLoggedIn={isLoggedIn}
