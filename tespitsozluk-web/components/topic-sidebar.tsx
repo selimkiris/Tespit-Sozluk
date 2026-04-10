@@ -35,6 +35,8 @@ interface TopicSidebarProps {
   onClose: () => void
   refreshTrigger?: number
   accentColor?: string
+  /** true: sadece lg altı (hamburger menü) — masaüstünde sabit şerit gösterme (ör. profil sayfası) */
+  mobileOnly?: boolean
 }
 
 const ACCENT_RGB: Record<string, string> = {
@@ -103,6 +105,7 @@ export function TopicSidebar({
   onClose,
   refreshTrigger = 0,
   accentColor = "#2c64f6",
+  mobileOnly = false,
 }: TopicSidebarProps) {
   const accentRgb = ACCENT_RGB[accentColor] ?? "44,100,246"
   const buttonColor = BUTTON_COLOR[accentColor] ?? "#1f408e"
@@ -176,8 +179,13 @@ export function TopicSidebar({
 
       <aside
         className={cn(
-          "fixed left-0 top-[6.5rem] z-40 h-[calc(100vh-6.5rem)] w-64 md:top-14 md:h-[calc(100vh-3.5rem)] lg:w-[280px] xl:w-[312px] border-r-2 bg-[#252728] transition-transform duration-300 lg:translate-x-0 overflow-hidden shadow-[2px_0_16px_rgba(0,0,0,0.28)]",
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          "fixed left-0 top-[6.5rem] z-40 h-[calc(100vh-6.5rem)] w-64 md:top-14 md:h-[calc(100vh-3.5rem)] border-r-2 bg-[#252728] transition-transform duration-300 overflow-hidden shadow-[2px_0_16px_rgba(0,0,0,0.28)]",
+          mobileOnly
+            ? cn(isOpen ? "translate-x-0" : "-translate-x-full", "lg:hidden")
+            : cn(
+                "lg:w-[280px] xl:w-[312px] lg:translate-x-0",
+                isOpen ? "translate-x-0" : "-translate-x-full"
+              )
         )}
         style={{
           backgroundColor: "#252728",

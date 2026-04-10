@@ -6,6 +6,8 @@ import { ArrowLeft, Lock, FileText, Pencil, Trash2, Send, Plus, User, UserPlus, 
 import { toast } from "sonner"
 import Link from "next/link"
 import { Navbar } from "@/components/navbar"
+import { TopicSidebar } from "@/components/topic-sidebar"
+import { CreateTopicModal } from "@/components/create-topic-modal"
 import { EntryCard } from "@/components/entry-card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -244,6 +246,9 @@ export default function UserProfilePage() {
   const [warnTopicId, setWarnTopicId] = useState<string | null>(null)
   const [warnMessage, setWarnMessage] = useState("")
   const [warnSending, setWarnSending] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [showCreateTopicModal, setShowCreateTopicModal] = useState(false)
+  const [topicSidebarRefresh, setTopicSidebarRefresh] = useState(0)
 
   const fetchUser = useCallback(async (userId: string) => {
     try {
@@ -690,6 +695,39 @@ export default function UserProfilePage() {
     }
   }
 
+  const handleCreateTopicFromSidebar = useCallback(
+    async (title: string, firstEntry: string, isAnonymous: boolean = false): Promise<string | null> => {
+      const tokenAuth = getAuth()
+      if (!tokenAuth?.token) return null
+      const createTopicRes = await apiFetch(getApiUrl("api/Topics"), {
+        method: "POST",
+        body: JSON.stringify({
+          title: title.trim(),
+          isAnonymous,
+          firstEntryContent: firstEntry.trim(),
+        }),
+      })
+      const topicData = await createTopicRes.json().catch(() => ({}))
+      if (createTopicRes.status === 429) {
+        const seconds = Math.ceil(topicData.retryAfterSeconds ?? 60)
+        toast.warning(`Çok hızlı gidiyorsun! Yeni bir işlem yapmak için ${seconds} saniye beklemen gerekiyor ⏳`, {
+          duration: 7000,
+          style: { background: "#78350f", color: "#fef3c7", border: "1px solid #d97706" },
+        })
+        throw new Error("")
+      }
+      if (!createTopicRes.ok) {
+        throw new Error(typeof topicData === "string" ? topicData : (topicData.title ?? topicData.message ?? "Başlık oluşturulamadı"))
+      }
+      const topicId = String(topicData.id)
+      setIsMobileMenuOpen(false)
+      setTopicSidebarRefresh((t) => t + 1)
+      router.push(`/?topic=${topicId}`)
+      return topicId
+    },
+    [router],
+  )
+
   const isLoggedIn = !!auth?.token
 
   if (!id) {
@@ -728,12 +766,21 @@ export default function UserProfilePage() {
         onRegisterClick={() => router.push("/?register=1")}
         onLogout={() => { clearAuth(); window.location.href = "/" }}
         onProfileClick={() => auth?.user?.id && router.push(`/user/${auth.user.id}`)}
-        onMenuClick={() => {}}
-        isMobileMenuOpen={false}
+        onMenuClick={() => setIsMobileMenuOpen((open) => !open)}
+        isMobileMenuOpen={isMobileMenuOpen}
         onHomeClick={() => router.push("/")}
-        onAllTopicsClick={() => router.push("/?topics=1")}
-        onTopicSelect={(topicId) => router.push(`/?topic=${topicId}`)}
-        onUserSelect={(userId) => router.push(`/user/${userId}`)}
+        onAllTopicsClick={() => {
+          setIsMobileMenuOpen(false)
+          router.push("/?topics=1")
+        }}
+        onTopicSelect={(topicId) => {
+          router.push(`/?topic=${topicId}`)
+          setIsMobileMenuOpen(false)
+        }}
+        onUserSelect={(userId) => {
+          router.push(`/user/${userId}`)
+          setIsMobileMenuOpen(false)
+        }}
         onUserUpdate={(updates) => {
           const updated = updateAuthUser(updates)
           if (updated) {
@@ -741,6 +788,24 @@ export default function UserProfilePage() {
             setUser((prev) => prev ? { ...prev, nickname: updated.nickname ?? prev.nickname, avatar: updated.avatar ?? prev.avatar } : null)
           }
         }}
+      />
+
+      <TopicSidebar
+        selectedTopicId={undefined}
+        onTopicSelect={(topicId) => {
+          router.push(`/?topic=${topicId}`)
+          setIsMobileMenuOpen(false)
+        }}
+        onCreateTopic={() => setShowCreateTopicModal(true)}
+        onAllTopicsClick={() => {
+          setIsMobileMenuOpen(false)
+          router.push("/?topics=1")
+        }}
+        isOpen={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
+        refreshTrigger={topicSidebarRefresh}
+        accentColor="#2c64f6"
+        mobileOnly
       />
 
       <main className="pt-[6.5rem] md:pt-14">
@@ -1945,6 +2010,16 @@ export default function UserProfilePage() {
           />
         </>
       )}
+      <CreateTopicModal
+        isOpen={showCreateTopicModal}
+        onClose={() => setShowCreateTopicModal(false)}
+        onCreate={handleCreateTopicFromSidebar}
+        isLoggedIn={isLoggedIn}
+        onLoginClick={() => {
+          setShowCreateTopicModal(false)
+          router.push("/?login=1")
+        }}
+      />
     </div>
   )
 }
