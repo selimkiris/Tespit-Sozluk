@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useState, useEffect, useLayoutEffect, useCallback } from "react"
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, Lock, FileText, Pencil, Trash2, Send, Plus, User, UserPlus, UserMinus, CalendarDays, Heart, Save, PencilLine, ShieldX, CheckCircle2, Clock, AlertTriangle, RotateCcw, Flag, Trash, BadgeCheck, Mail, ShieldAlert, MessageCircle, FileEdit } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
@@ -155,6 +155,16 @@ type Report = {
   } | null
 }
 
+function normalizeProfileTabFromQuery(
+  raw: string | null,
+  isOwnProfile: boolean,
+): string {
+  const t = (raw && raw.trim()) || "entries"
+  if (t === "entries" || t === "liked") return t
+  if (isOwnProfile && (t === "saved" || t === "drafts")) return t
+  return "entries"
+}
+
 function mapEntry(e: ApiEntry) {
   const userVote: "up" | "down" | null =
     e.userVoteType === 1 ? "up" : e.userVoteType === -1 ? "down" : null
@@ -180,6 +190,8 @@ function mapEntry(e: ApiEntry) {
 export default function UserProfilePage() {
   const params = useParams()
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const id = typeof params.id === "string" ? params.id : params.id?.[0]
 
   const [user, setUser] = useState<UserProfile | null>(null)
@@ -195,6 +207,7 @@ export default function UserProfilePage() {
   const [draftsPage, setDraftsPage] = useState(1)
   const [draftsTotalPages, setDraftsTotalPages] = useState(1)
   const [auth, setAuth] = useState<AuthData | null>(null)
+  const isOwnProfile = !!auth?.user?.id && id === auth.user.id
   const [createDraftOpen, setCreateDraftOpen] = useState(false)
   const [editDraftOpen, setEditDraftOpen] = useState(false)
   const [editingDraft, setEditingDraft] = useState<ApiDraft | null>(null)
@@ -249,6 +262,46 @@ export default function UserProfilePage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [showCreateTopicModal, setShowCreateTopicModal] = useState(false)
   const [topicSidebarRefresh, setTopicSidebarRefresh] = useState(0)
+  const profileTabQuery = searchParams.get("tab")
+  const [profileTab, setProfileTab] = useState(() =>
+    normalizeProfileTabFromQuery(profileTabQuery, false),
+  )
+
+  useLayoutEffect(() => {
+    setProfileTab(
+      normalizeProfileTabFromQuery(profileTabQuery, isOwnProfile),
+    )
+  }, [isOwnProfile, profileTabQuery])
+
+  const handleProfileTabChange = useCallback(
+    (newTab: string) => {
+      setProfileTab(newTab)
+      const base = pathname || ""
+      if (
+        newTab === "entries" ||
+        newTab === "liked" ||
+        newTab === "saved" ||
+        newTab === "drafts"
+      ) {
+        router.replace(`${base}?tab=${newTab}`, { scroll: false })
+      } else if (newTab === "reports") {
+        router.replace(base, { scroll: false })
+      }
+    },
+    [pathname, router],
+  )
+
+  /** Aynı içerik sekmesine tekrar tıklanınca: sadece sayfa > 1 ise 1'e dön; aksi halde no-op (tam yenileme yok). */
+  const handleProfileContentTabTriggerClick = useCallback(
+    (tab: "entries" | "liked" | "saved" | "drafts") => {
+      if (profileTab !== tab) return
+      if (tab === "entries" && page > 1) setPage(1)
+      else if (tab === "liked" && likedPage > 1) setLikedPage(1)
+      else if (tab === "saved" && savedPage > 1) setSavedPage(1)
+      else if (tab === "drafts" && draftsPage > 1) setDraftsPage(1)
+    },
+    [profileTab, page, likedPage, savedPage, draftsPage],
+  )
 
   const fetchUser = useCallback(async (userId: string) => {
     try {
@@ -400,7 +453,6 @@ export default function UserProfilePage() {
     fetchEntries(id, page, includeAnonymous, entriesSortBy)
   }, [id, user, page, includeAnonymous, entriesSortBy, fetchEntries])
 
-  const isOwnProfile = !!auth?.user?.id && id === auth.user.id
   useEffect(() => {
     if (isOwnProfile && auth?.token) fetchDrafts()
   }, [isOwnProfile, auth?.token, fetchDrafts])
@@ -1055,7 +1107,7 @@ export default function UserProfilePage() {
 
         {/* Tabs: Yazılan Entryler / Kalplenenler / Çivilenenler / Taslaklar */}
         <div className="w-full max-w-2xl mx-auto px-4 py-6 lg:max-w-[786px] lg:px-6">
-          <Tabs defaultValue="entries" className="w-full">
+          <Tabs value={profileTab} onValueChange={handleProfileTabChange} className="w-full">
             <div className="-mx-4 px-4 lg:-mx-6 lg:px-6 mb-8 overflow-x-auto scrollbar-hide">
               <TabsList
                 className="flex w-max min-w-full flex-nowrap justify-start bg-transparent p-0 h-auto rounded-none border-b-2 border-border gap-0"
@@ -1063,6 +1115,7 @@ export default function UserProfilePage() {
               {/* ─── Yazılan Entryler ─── */}
               <TabsTrigger
                 value="entries"
+                onClick={() => handleProfileContentTabTriggerClick("entries")}
                 className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent flex-none flex-shrink-0 text-muted-foreground font-semibold text-sm hover:text-foreground hover:bg-muted/25 data-[state=active]:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
               >
                 <PencilLine className="h-[18px] w-[18px] shrink-0 transition-all duration-200 group-data-[state=active]:scale-110" />
@@ -1075,6 +1128,7 @@ export default function UserProfilePage() {
               {/* ─── Kalplenenler ─── */}
               <TabsTrigger
                 value="liked"
+                onClick={() => handleProfileContentTabTriggerClick("liked")}
                 className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent flex-none flex-shrink-0 text-muted-foreground font-semibold text-sm hover:text-rose-500 hover:bg-rose-500/5 data-[state=active]:text-rose-500 data-[state=active]:border-rose-500 data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
               >
                 <Heart className="h-[18px] w-[18px] shrink-0 transition-all duration-200 group-data-[state=active]:fill-rose-500/20 group-data-[state=active]:scale-110" />
@@ -1089,6 +1143,7 @@ export default function UserProfilePage() {
                   {/* ─── Çivilenenler ─── */}
                   <TabsTrigger
                     value="saved"
+                    onClick={() => handleProfileContentTabTriggerClick("saved")}
                     className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent flex-none flex-shrink-0 text-muted-foreground font-semibold text-sm hover:text-purple-400 hover:bg-purple-500/5 data-[state=active]:text-purple-500 data-[state=active]:border-purple-500 data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
                   >
                     <CiviIcon className="h-[18px] w-[18px] shrink-0 text-inherit transition-all duration-200 group-data-[state=active]:scale-110" />
@@ -1101,6 +1156,7 @@ export default function UserProfilePage() {
                   {/* ─── Taslaklar ─── */}
                   <TabsTrigger
                     value="drafts"
+                    onClick={() => handleProfileContentTabTriggerClick("drafts")}
                     className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent flex-none flex-shrink-0 text-muted-foreground font-semibold text-sm hover:text-amber-500 hover:bg-amber-500/5 data-[state=active]:text-amber-500 data-[state=active]:border-amber-500 data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
                   >
                     <FileEdit className="h-[18px] w-[18px] shrink-0 transition-all duration-200 group-data-[state=active]:scale-110" />
