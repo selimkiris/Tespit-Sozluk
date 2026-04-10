@@ -1,8 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { format } from "date-fns"
-import { tr } from "date-fns/locale"
 import Link from "next/link"
 import { Heart, MoreHorizontal, Pencil, Trash2, User, Users, Flag, ShieldX, BadgeCheck } from "lucide-react"
 import { ShareMenu } from "@/components/share-menu"
@@ -43,6 +41,7 @@ import { DangerConfirmModal } from "@/components/admin/danger-confirm-modal"
 import { EntryLikersModal } from "@/components/entry-likers-modal"
 import { ENTRY_BODY_RENDERER_CLASSNAME } from "@/lib/entry-body-renderer-classes"
 import { FEED_COLUMN_MAX_WIDTH_CLASS } from "@/lib/feed-layout"
+import { formatTurkeyDateTime } from "@/lib/turkey-datetime"
 
 interface Entry {
   id: string
@@ -311,22 +310,7 @@ export function EntryCard({
     }
   }
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return new Intl.DateTimeFormat("tr-TR", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(date)
-  }
-
-  const formatEditTimestamp = (dateString: string) => {
-    const d = new Date(dateString)
-    if (Number.isNaN(d.getTime())) return ""
-    return format(d, "d MMMM yyyy HH:mm", { locale: tr })
-  }
+  const formatDate = (dateString: string) => formatTurkeyDateTime(dateString)
 
   const createdMs = new Date(entry.date).getTime()
   const updatedMs = localUpdatedAt ? new Date(localUpdatedAt).getTime() : 0
@@ -334,7 +318,7 @@ export function EntryCard({
     !!localUpdatedAt && !Number.isNaN(updatedMs) && !Number.isNaN(createdMs) && updatedMs > createdMs
 
   const editLineText =
-    showEditTimestamp && localUpdatedAt ? formatEditTimestamp(localUpdatedAt) : ""
+    showEditTimestamp && localUpdatedAt ? formatDate(localUpdatedAt) : ""
 
   const accentBorderColor =
     activeTab === "discover"

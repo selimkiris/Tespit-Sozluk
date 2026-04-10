@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Share2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -30,7 +30,10 @@ export function ShareMenu({
   tooltipTitle,
 }: ShareMenuProps) {
   const [copied, setCopied] = useState(false)
-  const canNativeShare = typeof navigator !== "undefined" && !!navigator.share
+  const [canNativeShare, setCanNativeShare] = useState(false)
+  useEffect(() => {
+    setCanNativeShare(typeof navigator !== "undefined" && !!navigator.share)
+  }, [])
 
   const handleCopyLink = async () => {
     try {

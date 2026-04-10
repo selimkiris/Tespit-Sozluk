@@ -48,6 +48,7 @@ import { ReportDialog } from "@/components/report-dialog"
 import { cn } from "@/lib/utils"
 import { clampTopicTitleRaw, normalizeTopicTitleForApi } from "@/lib/topic-title-input"
 import { FEED_COLUMN_MAX_WIDTH_CLASS } from "@/lib/feed-layout"
+import { formatTurkeyDateOnly } from "@/lib/turkey-datetime"
 import { TOPIC_TITLE_MAX_LENGTH } from "@/lib/topic.schema"
 import { DangerConfirmModal } from "@/components/admin/danger-confirm-modal"
 
@@ -343,11 +344,7 @@ export function TopicDetail({
   const topicOpenedLabel = (() => {
     const raw = mergedTopic.createdAt
     if (!raw) return null
-    try {
-      return new Date(raw).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })
-    } catch {
-      return null
-    }
+    return formatTurkeyDateOnly(raw)
   })()
 
   const topicAuthorDisplay =

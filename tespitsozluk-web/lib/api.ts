@@ -8,15 +8,15 @@ import { clearAuth, getAuthToken } from "./auth"
 const getBaseUrl = () =>
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:5295"
 
-/** Sitenin public URL'si (paylaşım, OG meta için). Server & client uyumlu. */
+/** Sitenin public URL'si (paylaşım, OG meta için). Önce env — SSR ile hydration aynı kalır. */
 export function getSiteUrl(): string {
-  if (typeof window !== "undefined") {
-    return window.location.origin
-  }
   const url = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL
   if (url) {
     const base = url.startsWith("http") ? url : `https://${url}`
     return base.replace(/\/$/, "")
+  }
+  if (typeof window !== "undefined") {
+    return window.location.origin
   }
   return "https://tespitsozluk.com"
 }
