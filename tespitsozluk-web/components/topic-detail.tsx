@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, Bell, BellOff, Search, Flag, ShieldAlert, FolderOutput, User } from "lucide-react"
 import { ShareMenu } from "@/components/share-menu"
 import { getApiUrl, apiFetch, getSiteUrl } from "@/lib/api"
@@ -171,6 +171,7 @@ export function TopicDetail({
   const entriesContainerRef = useRef<HTMLDivElement>(null)
   const titleLinkPointerStartRef = useRef<{ x: number; y: number } | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const onEntriesPageUrlChangeRef = useRef(onEntriesPageUrlChange)
   onEntriesPageUrlChangeRef.current = onEntriesPageUrlChange
@@ -547,7 +548,21 @@ export function TopicDetail({
               }
             }
             const sel = window.getSelection()?.toString() ?? ""
-            if (sel.trim().length > 0) e.preventDefault()
+            if (sel.trim().length > 0) {
+              e.preventDefault()
+              return
+            }
+            const urlTopic = searchParams.get("topic")
+            const urlPage = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
+            if (urlTopic === topic.id) {
+              e.preventDefault()
+              window.scrollTo({ top: 0, behavior: "auto" })
+              if (urlPage <= 1) {
+                window.location.reload()
+              } else {
+                window.location.replace(`/?topic=${topic.id}&page=1`)
+              }
+            }
           }}
         >
           <h1 className="select-text w-full min-w-0 max-w-full text-center text-3xl md:text-4xl font-bold tracking-tight text-slate-200 dark:text-slate-300 break-words hyphens-auto whitespace-pre-wrap leading-tight">

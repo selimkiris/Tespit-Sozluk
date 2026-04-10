@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, type MouseEvent as ReactMouseEvent } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Search, Menu, X, Hash, User, Bell, Settings, ShieldAlert, Info } from "lucide-react"
 import DOMPurify from "isomorphic-dompurify"
 import { getApiUrl, apiFetch } from "@/lib/api"
@@ -95,6 +95,8 @@ export function Navbar({
   accentColor = "#2c64f6",
 }: NavbarProps) {
   const pathname = usePathname()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const accentRgb = ACCENT_RGB[accentColor] ?? "44,100,246"
   const navbarBorderAlpha = NAVBAR_BORDER_ALPHA[accentColor] ?? 0.3
   const navbarShadowAlpha = NAVBAR_SHADOW_ALPHA[accentColor] ?? 0.05
@@ -288,12 +290,13 @@ export function Navbar({
   }
 
   const handleLogoClick = useCallback(() => {
-    if (pathname === "/") {
+    const isCleanHome = pathname === "/" && !searchParams.has("topic")
+    if (isCleanHome) {
       window.location.reload()
       return
     }
-    onHomeClick()
-  }, [pathname, onHomeClick])
+    router.push("/")
+  }, [pathname, router, searchParams])
 
   return (
     <header

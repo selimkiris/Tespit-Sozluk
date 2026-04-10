@@ -631,7 +631,16 @@ export function HomePageContent() {
                         type="button"
                         role="tab"
                         aria-selected={isActive}
-                        onClick={() => handleFeedModeChange(mode)}
+                        onClick={() => {
+                          if (mode === "discover" && feedMode === "discover" && !selectedTopicId) {
+                            if (typeof window !== "undefined") {
+                              window.scrollTo({ top: 0, behavior: "auto" })
+                            }
+                            void fetchFeedEntries(1, false, "discover")
+                            return
+                          }
+                          handleFeedModeChange(mode)
+                        }}
                         className={cn(
                           "group flex flex-1 flex-col items-center justify-center gap-1 px-3 py-2 transition-all duration-200 focus-visible:outline-none -mb-[1px] border-b-[3px]",
                           isActive ? activeBorder : "border-transparent",
