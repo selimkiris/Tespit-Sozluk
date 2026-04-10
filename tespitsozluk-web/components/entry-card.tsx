@@ -557,24 +557,25 @@ export function EntryCard({
       <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) setEditError(null) }}>
         <DialogContent
           className={cn(
-            "w-full max-w-[calc(100%-2rem)] min-w-0 overflow-x-hidden p-5 gap-4",
+            "w-full max-w-[calc(100%-2rem)] min-w-0 overflow-x-hidden p-5 gap-0",
             FEED_COLUMN_MAX_WIDTH_CLASS
           )}
         >
-          <DialogHeader>
+          <DialogHeader className="space-y-0 p-0 pb-3 text-left">
             <DialogTitle>Entry Düzenle</DialogTitle>
           </DialogHeader>
-          <div className="min-w-0 max-w-full space-y-2 overflow-x-hidden">
+          <div className="m-0 min-w-0 max-w-full p-0">
             <RichTextEditor
               value={content}
               onChange={setContent}
               placeholder="İçeriği yazın..."
               bodyScrollMaxHeightClass="max-h-[60vh]"
               innerContentPaddingClassName="px-[0.7rem]"
+              toolbarStickyTopClass="top-0"
             />
-            {editError && <p className="text-sm text-destructive">{editError}</p>}
+            {editError && <p className="mt-2 text-sm text-destructive">{editError}</p>}
           </div>
-          <DialogFooter>
+          <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>İptal</Button>
             <Button onClick={handleEdit} disabled={isEditSaving}>
               {isEditSaving ? "Kaydediliyor..." : "Kaydet"}

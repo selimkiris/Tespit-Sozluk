@@ -20,8 +20,6 @@ import { cn } from "@/lib/utils"
 import {
   ENTRY_BODY_RENDERER_CLASSNAME,
   ENTRY_BODY_OUTER_WRAPPER_CLASS,
-  ENTRY_BODY_INNER_SCROLL_CLASS,
-  ENTRY_BODY_ENTRY_TEXT_CLASS,
   ENTRY_BODY_TIPTAP_ROOT_CLASS,
 } from "@/lib/entry-body-renderer-classes"
 import { getApiUrl, apiFetch } from "@/lib/api"
@@ -92,6 +90,10 @@ interface RichTextEditorProps {
   bodyScrollMaxHeightClass?: string
   /** Gövde metin alanına ek yatay iç boşluk (yayınlanan entry satır genişliğiyle hizalamak için). */
   innerContentPaddingClassName?: string
+  /**
+   * Sayfa (navbar altı): `top-[56px]`. Modal/diyalog içi kaydırma: `top-0`.
+   */
+  toolbarStickyTopClass?: string
 }
 
 function ensureHtml(value: string): string {
@@ -105,9 +107,10 @@ export function RichTextEditor({
   onChange,
   placeholder,
   onCharCountChange,
-  contentMinHeightClass = "min-h-[80px]",
+  contentMinHeightClass = "min-h-[150px]",
   bodyScrollMaxHeightClass,
   innerContentPaddingClassName,
+  toolbarStickyTopClass = "top-[56px]",
 }: RichTextEditorProps) {
   const [emojiOpen, setEmojiOpen] = useState(false)
   const [linkModalOpen, setLinkModalOpen] = useState(false)
@@ -186,10 +189,11 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         class: cn(
-          "focus:outline-none max-w-none min-w-0 w-full max-w-full break-words whitespace-pre-wrap overflow-x-hidden",
+          "tiptap focus:outline-none max-w-none min-w-0 w-full max-w-full min-h-[inherit] break-words whitespace-pre-wrap p-4 text-foreground",
           ENTRY_BODY_TIPTAP_ROOT_CLASS,
           "prose-a:text-emerald-500 prose-a:font-medium prose-a:no-underline prose-a:underline-offset-2 prose-a:hover:underline",
           ENTRY_BODY_RENDERER_CLASSNAME,
+          "[&_p]:!text-foreground [&_li]:!text-foreground [&_blockquote]:!text-foreground",
           contentMinHeightClass
         ),
       },
@@ -426,8 +430,13 @@ export function RichTextEditor({
   if (!editor) return null
 
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden overflow-x-hidden box-border min-w-0 w-full max-w-full">
-      <div className="flex flex-wrap items-center gap-0.5 border-b border-border bg-muted/30 px-1 py-1.5">
+    <div className="min-h-[150px] w-full min-w-0 max-w-full rounded-lg border border-border bg-card box-border">
+      <div
+        className={cn(
+          "sticky z-30 flex w-full flex-wrap items-center gap-0.5 border-b border-border bg-gray-100 dark:bg-[#2b2d2e] px-1 py-1.5",
+          toolbarStickyTopClass
+        )}
+      >
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}
           isActive={editor.isActive("bold")}
@@ -493,17 +502,23 @@ export function RichTextEditor({
           <EyeOff className="h-4 w-4" />
         </ToolbarButton>
       </div>
-      <div className={cn(ENTRY_BODY_OUTER_WRAPPER_CLASS, "mb-0")}>
+      <div className={cn(ENTRY_BODY_OUTER_WRAPPER_CLASS, "mb-0 w-full")}>
         <div
           className={cn(
-            ENTRY_BODY_INNER_SCROLL_CLASS,
-            "relative whitespace-pre-wrap break-words box-border",
+            "relative w-full min-w-0 max-w-full whitespace-pre-wrap break-words box-border",
             bodyScrollMaxHeightClass &&
-              "min-h-0 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]",
-            bodyScrollMaxHeightClass
+              cn(
+                "min-h-0 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]",
+                bodyScrollMaxHeightClass
+              )
           )}
         >
-          <div className={cn(ENTRY_BODY_ENTRY_TEXT_CLASS, innerContentPaddingClassName)}>
+          <div
+            className={cn(
+              "entry-text w-full min-w-0 max-w-full min-h-[inherit]",
+              innerContentPaddingClassName
+            )}
+          >
             <EditorContent editor={editor} />
             {mention && (
               <div

@@ -88,7 +88,7 @@ export function CreateTopicModal({
         )}
       >
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-6 pb-3 pt-4">
           <h2 className="text-xl font-semibold text-foreground">Yeni Başlık</h2>
           <button
             type="button"
@@ -99,7 +99,7 @@ export function CreateTopicModal({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 min-w-0 max-w-full overflow-x-hidden overflow-y-auto box-border px-6 py-5">
+        <div className="min-h-0 flex-1 min-w-0 max-w-full overflow-x-hidden overflow-y-auto box-border px-6 pb-5 pt-0">
           {!isLoggedIn ? (
             <div className="py-6 text-center">
               <p className="mb-4 text-muted-foreground">
@@ -116,7 +116,7 @@ export function CreateTopicModal({
               </Button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="flex min-h-0 min-w-0 max-w-full flex-col gap-4 overflow-x-hidden">
+            <form onSubmit={handleSubmit} className="flex w-full min-w-0 max-w-full flex-col gap-0 [&>*+*]:mt-4">
               <div className="space-y-2">
                 <Label htmlFor="topic-title" className="text-sm text-foreground">
                   Başlık
@@ -141,14 +141,15 @@ export function CreateTopicModal({
                 </div>
               </div>
 
-              <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col space-y-2 overflow-x-hidden">
-                <Label className="text-sm text-foreground">İlk Entry</Label>
-                <div className="min-h-0 min-w-0 max-w-full flex-1 overflow-x-hidden [&_div.tiptap]:!min-h-[min(38vh,320px)]">
+              <div className="flex w-full min-w-0 max-w-full flex-col space-y-0">
+                <Label className="mb-2 text-sm text-foreground">İlk Entry</Label>
+                <div className="m-0 w-full min-w-0 max-w-full p-0">
                   <RichTextEditor
                     value={firstEntry}
                     onChange={setFirstEntry}
                     placeholder="düşüncelerinizi yazın..."
                     onCharCountChange={setCharCount}
+                    toolbarStickyTopClass="top-0"
                   />
                 </div>
               </div>

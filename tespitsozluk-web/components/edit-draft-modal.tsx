@@ -194,7 +194,7 @@ export function EditDraftModal({
           FEED_COLUMN_MAX_WIDTH_CLASS
         )}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-6 pb-3 pt-4">
           <h2 className="text-xl font-semibold text-foreground">Taslağı Düzenle</h2>
           <button
             type="button"
@@ -205,8 +205,8 @@ export function EditDraftModal({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 min-w-0 max-w-full overflow-x-hidden overflow-y-auto box-border px-6 py-5">
-          <div className="flex min-h-0 min-w-0 max-w-full flex-col gap-4 overflow-x-hidden">
+        <div className="min-h-0 flex-1 min-w-0 max-w-full overflow-x-hidden overflow-y-auto box-border px-6 pb-5 pt-0">
+          <div className="flex w-full min-w-0 max-w-full flex-col gap-0 [&>*+*]:mt-4">
             <RadioGroup
               value={mode}
               onValueChange={(v) => {
@@ -285,13 +285,13 @@ export function EditDraftModal({
               </div>
             )}
 
-            <div className="flex min-h-0 min-w-0 max-w-full flex-1 flex-col space-y-2 overflow-x-hidden">
-              <Label className="text-sm text-foreground" htmlFor="edit-draft-content">
+            <div className="flex w-full min-w-0 max-w-full flex-col space-y-0">
+              <Label className="mb-2 text-sm text-foreground" htmlFor="edit-draft-content">
                 İçerik
               </Label>
-              <div className="min-h-0 min-w-0 max-w-full flex-1 overflow-x-hidden [&_div.tiptap]:!min-h-[min(38vh,320px)]">
+              <div className="m-0 w-full min-w-0 max-w-full p-0">
                 {draftLoading ? (
-                  <div className="flex min-h-[min(38vh,320px)] items-center justify-center rounded-md border border-border bg-secondary/30 text-sm text-muted-foreground">
+                  <div className="flex min-h-[150px] items-center justify-center rounded-md border border-border bg-secondary/30 text-sm text-muted-foreground">
                     Taslak yükleniyor…
                   </div>
                 ) : (
@@ -299,7 +299,7 @@ export function EditDraftModal({
                     value={content}
                     onChange={setContent}
                     placeholder="düşüncelerinizi yazın..."
-                    innerContentPaddingClassName="px-[0.45rem]"
+                    toolbarStickyTopClass="top-0"
                   />
                 )}
               </div>
