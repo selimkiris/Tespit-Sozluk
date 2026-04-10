@@ -100,9 +100,9 @@ export function CreateTopicModal({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 min-w-0 max-w-full overflow-x-hidden overflow-y-auto box-border px-6 pb-5 pt-0">
+        <div className="min-h-0 flex-1 min-w-0 max-w-full overflow-x-hidden overflow-y-auto box-border px-6 pb-5 pt-6">
           {!isLoggedIn ? (
-            <div className="py-6 text-center">
+            <div className="pb-6 pt-0 text-center">
               <p className="mb-4 text-muted-foreground">
                 Yeni başlık oluşturmak için giriş yapmalısınız.
               </p>
@@ -160,7 +160,7 @@ export function CreateTopicModal({
                 <RadioGroup
                   value={isAnonymous ? "anonymous" : "account"}
                   onValueChange={(v) => setIsAnonymous(v === "anonymous")}
-                  className="flex flex-wrap gap-4"
+                  className="flex flex-wrap items-center gap-x-6 gap-y-3"
                 >
                   <div className="flex items-center gap-2">
                     <RadioGroupItem value="account" id="create-topic-account" />

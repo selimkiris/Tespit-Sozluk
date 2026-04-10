@@ -168,7 +168,7 @@ export function CreateDraftModal({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 min-w-0 max-w-full overflow-x-hidden overflow-y-auto box-border px-6 pb-5 pt-0">
+        <div className="min-h-0 flex-1 min-w-0 max-w-full overflow-x-hidden overflow-y-auto box-border px-6 pb-5 pt-6">
           <div className="flex w-full min-w-0 max-w-full flex-col gap-0 [&>*+*]:mt-4">
             <RadioGroup
               value={mode}
@@ -179,7 +179,7 @@ export function CreateDraftModal({
                 setNewTopicTitle("")
                 setError("")
               }}
-              className="flex gap-4"
+              className="flex flex-wrap items-center gap-x-6 gap-y-3"
             >
               <div className="flex items-center gap-2">
                 <RadioGroupItem value="existing" id="mode-existing" />
