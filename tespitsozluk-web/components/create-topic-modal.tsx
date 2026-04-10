@@ -11,6 +11,7 @@ import { RichTextEditor } from "@/components/rich-text-editor"
 import { TOPIC_TITLE_MAX_LENGTH, topicTitleSchema } from "@/lib/topic.schema"
 import { clampTopicTitleRaw, normalizeTopicTitleForApi } from "@/lib/topic-title-input"
 import { FEED_COLUMN_MAX_WIDTH_CLASS } from "@/lib/feed-layout"
+import { ENTRY_BODY_EDITOR_INNER_INSET_MODAL_NEW_TOPIC } from "@/lib/entry-body-renderer-classes"
 
 function trimHtmlContent(html: string): string {
   if (!html) return ''
@@ -149,6 +150,7 @@ export function CreateTopicModal({
                     onChange={setFirstEntry}
                     placeholder="düşüncelerinizi yazın..."
                     onCharCountChange={setCharCount}
+                    innerContentPaddingClassName={ENTRY_BODY_EDITOR_INNER_INSET_MODAL_NEW_TOPIC}
                     toolbarStickyTopClass="top-0"
                   />
                 </div>

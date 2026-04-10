@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 import { TOPIC_TITLE_MAX_LENGTH } from "@/lib/topic.schema"
 import { clampTopicTitleRaw, normalizeTopicTitleForApi } from "@/lib/topic-title-input"
 import { FEED_COLUMN_MAX_WIDTH_CLASS } from "@/lib/feed-layout"
+import { ENTRY_BODY_EDITOR_INNER_INSET_MODAL_DRAFT } from "@/lib/entry-body-renderer-classes"
 
 type TopicSearchResult = { id: string; title: string }
 
@@ -256,6 +257,7 @@ export function CreateDraftModal({
                   value={content}
                   onChange={setContent}
                   placeholder="düşüncelerinizi yazın..."
+                  innerContentPaddingClassName={ENTRY_BODY_EDITOR_INNER_INSET_MODAL_DRAFT}
                   toolbarStickyTopClass="top-0"
                 />
               </div>

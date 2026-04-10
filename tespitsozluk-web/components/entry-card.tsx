@@ -570,7 +570,7 @@ export function EntryCard({
               onChange={setContent}
               placeholder="İçeriği yazın..."
               bodyScrollMaxHeightClass="max-h-[60vh]"
-              innerContentPaddingClassName="px-[0.7rem]"
+              innerContentPaddingClassName="px-[14px]"
               toolbarStickyTopClass="top-0"
             />
             {editError && <p className="mt-2 text-sm text-destructive">{editError}</p>}

@@ -11,3 +11,10 @@ export const ENTRY_BODY_ENTRY_TEXT_CLASS = "entry-text min-w-0 w-full max-w-full
 export const ENTRY_BODY_TIPTAP_ROOT_CLASS =
   "font-sans antialiased box-border !px-0 !text-[15px] !leading-[1.85] !tracking-[0.013em] !font-normal !text-[#c2c6cf]"
 
+/**
+ * RichTextEditor `innerContentPaddingClassName` — yeni başlık / taslak modallarında metin sütununu başlık altı entry ile hizalamak için yatay iç boşluk (px; sol+sağ toplamı yaklaşık parantez içinde).
+ */
+/** Yeni başlık modalı: yatay padding 18px/yan → sol+sağ toplam 36px */
+export const ENTRY_BODY_EDITOR_INNER_INSET_MODAL_NEW_TOPIC = "px-[18px]"
+/** Taslak oluştur / düzenle: yatay padding 17px/yan → sol+sağ toplam 34px */
+export const ENTRY_BODY_EDITOR_INNER_INSET_MODAL_DRAFT = "px-[17px]"
