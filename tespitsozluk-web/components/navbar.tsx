@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, type MouseEvent as ReactMouseEvent } from "react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { Search, Menu, X, Hash, User, Bell, Settings, ShieldAlert, Info } from "lucide-react"
 import DOMPurify from "isomorphic-dompurify"
 import { getApiUrl, apiFetch } from "@/lib/api"
@@ -93,6 +94,7 @@ export function Navbar({
   onUserUpdate,
   accentColor = "#2c64f6",
 }: NavbarProps) {
+  const pathname = usePathname()
   const accentRgb = ACCENT_RGB[accentColor] ?? "44,100,246"
   const navbarBorderAlpha = NAVBAR_BORDER_ALPHA[accentColor] ?? 0.3
   const navbarShadowAlpha = NAVBAR_SHADOW_ALPHA[accentColor] ?? 0.05
@@ -285,6 +287,14 @@ export function Navbar({
       .toUpperCase()
   }
 
+  const handleLogoClick = useCallback(() => {
+    if (pathname === "/") {
+      window.location.reload()
+      return
+    }
+    onHomeClick()
+  }, [pathname, onHomeClick])
+
   return (
     <header
       className="fixed top-0 left-0 right-0 z-50 flex flex-col border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
@@ -307,7 +317,8 @@ export function Navbar({
             {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
           <button
-            onClick={onHomeClick}
+            type="button"
+            onClick={handleLogoClick}
             className="flex h-full items-center hover:opacity-80 transition-opacity ml-9 lg:ml-10"
           >
             <span className="inline-flex h-full max-h-full items-center dark:invert">
