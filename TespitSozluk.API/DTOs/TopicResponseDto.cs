@@ -18,4 +18,6 @@ public class TopicResponseDto
     public bool IsAnonymous { get; set; }
     /// <summary>Oturum açmış kullanıcı bu başlığın gerçek sahibi mi (anonim görünse bile).</summary>
     public bool IsTopicOwner { get; set; }
+    /// <summary>Başlığı düzenle/sil: açan kullanıcı olmalı ve başlıktaki tüm entry'ler ona ait olmalı.</summary>
+    public bool CanManageTopic { get; set; }
 }

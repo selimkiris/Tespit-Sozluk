@@ -71,6 +71,7 @@ type SidebarTopicPayload = {
   createdAt?: string
   isAnonymous?: boolean
   isTopicOwner?: boolean
+  canManageTopic?: boolean
   isFollowedByCurrentUser?: boolean
 }
 
@@ -127,6 +128,7 @@ export function HomePageContent() {
     createdAt?: string
     isAnonymous?: boolean
     isTopicOwner?: boolean
+    canManageTopic?: boolean
     isFollowedByCurrentUser?: boolean
   }[]>([])
   const [entries, setEntries] = useState<ReturnType<typeof mapApiEntry>[]>([])
@@ -146,6 +148,7 @@ export function HomePageContent() {
       createdAt: typeof t.createdAt === "string" ? t.createdAt : undefined,
       isAnonymous: t.isAnonymous === true,
       isTopicOwner: t.isTopicOwner === true,
+      canManageTopic: typeof t.canManageTopic === "boolean" ? t.canManageTopic : undefined,
       isFollowedByCurrentUser: t.isFollowedByCurrentUser === true,
     }))
     setTopics(mapped)
@@ -269,6 +272,7 @@ export function HomePageContent() {
     createdAt?: string
     isAnonymous?: boolean
     isTopicOwner?: boolean
+    canManageTopic?: boolean
     isFollowedByCurrentUser?: boolean
   } | null>(null)
 
@@ -301,6 +305,7 @@ export function HomePageContent() {
           createdAt: topicData?.createdAt,
           isAnonymous: topicData?.isAnonymous === true,
           isTopicOwner: topicData?.isTopicOwner === true,
+          canManageTopic: typeof topicData?.canManageTopic === "boolean" ? topicData.canManageTopic : undefined,
         })
       } catch {
         if (!cancelled) setFetchedTopicForUrl(null)
@@ -389,6 +394,7 @@ export function HomePageContent() {
           authorId: isAnonymous ? undefined : currentUser.id,
           isAnonymous: Boolean(topicData.isAnonymous ?? isAnonymous),
           isTopicOwner: topicData.isTopicOwner !== false,
+          canManageTopic: topicData.canManageTopic !== false,
         }
 
         setTopics((prev) => [newTopic, ...(Array.isArray(prev) ? prev : [])])

@@ -156,7 +156,7 @@ public class TopicsController : ControllerBase
             .Include(t => t.Author)
             .FirstAsync(t => t.Id == topic.Id);
 
-        return Ok(MapTopicToDto(created, authorId, false, 1));
+        return Ok(MapTopicToDto(created, authorId, false, 1, canManageTopic: true));
     }
 
     private static string NormalizeEntryContentForCreate(string content)
@@ -179,7 +179,7 @@ public class TopicsController : ControllerBase
         return content.Trim();
     }
 
-    private static TopicResponseDto MapTopicToDto(Topic topic, Guid? currentUserId, bool isFollowed, int entryCount)
+    private static TopicResponseDto MapTopicToDto(Topic topic, Guid? currentUserId, bool isFollowed, int entryCount, bool canManageTopic)
     {
         var author = topic.Author;
         var effectiveAnon = topic.IsAnonymous || !topic.AuthorId.HasValue || author == null;
@@ -202,7 +202,8 @@ public class TopicsController : ControllerBase
             EntryCount = entryCount,
             IsFollowedByCurrentUser = isFollowed,
             IsAnonymous = effectiveAnon,
-            IsTopicOwner = isOwner
+            IsTopicOwner = isOwner,
+            CanManageTopic = canManageTopic
         };
     }
 
@@ -223,7 +224,8 @@ public class TopicsController : ControllerBase
         string? authorRole,
         int entryCount,
         Guid? currentUserId,
-        bool isFollowed)
+        bool isFollowed,
+        bool canManageTopic)
     {
         var effectiveAnon = isAnonymousTopic || !authorId.HasValue || !hasAuthor;
         var isOwner = currentUserId.HasValue && authorId.HasValue && authorId.Value == currentUserId.Value;
@@ -245,7 +247,8 @@ public class TopicsController : ControllerBase
             EntryCount = entryCount,
             IsFollowedByCurrentUser = isFollowed,
             IsAnonymous = effectiveAnon,
-            IsTopicOwner = isOwner
+            IsTopicOwner = isOwner,
+            CanManageTopic = canManageTopic
         };
     }
 
@@ -260,6 +263,19 @@ public class TopicsController : ControllerBase
         return (await _context.UserTopicFollows
             .Where(utf => utf.UserId == userId)
             .Select(utf => utf.TopicId)
+            .ToListAsync()).ToHashSet();
+    }
+
+    /// <summary>
+    /// Oturum sahibinin açtığı başlıklarda, başka bir kullanıcıya ait entry olan başlık Id'leri.
+    /// </summary>
+    private async Task<HashSet<Guid>> GetTopicIdsWithForeignEntriesAsync(Guid currentUserId, List<Guid> topicIdsOwnedByCurrentUser)
+    {
+        if (topicIdsOwnedByCurrentUser.Count == 0) return new HashSet<Guid>();
+        return (await _context.Entries.AsNoTracking()
+            .Where(e => topicIdsOwnedByCurrentUser.Contains(e.TopicId) && e.AuthorId != currentUserId)
+            .Select(e => e.TopicId)
+            .Distinct()
             .ToListAsync()).ToHashSet();
     }
 
@@ -302,6 +318,13 @@ public class TopicsController : ControllerBase
             })
             .ToListAsync();
 
+        HashSet<Guid> topicIdsWithForeignEntries = new();
+        if (userId.HasValue && rows.Count > 0)
+        {
+            var myTopicIds = rows.Where(r => r.AuthorId == userId.Value).Select(r => r.Id).ToList();
+            topicIdsWithForeignEntries = await GetTopicIdsWithForeignEntriesAsync(userId.Value, myTopicIds);
+        }
+
         var items = rows
             .Select(r => MapTopicProjectionToDto(
                 r.Id,
@@ -317,7 +340,8 @@ public class TopicsController : ControllerBase
                 r.AuthorRole,
                 r.EntryCount,
                 userId,
-                followedIds.Contains(r.Id)))
+                followedIds.Contains(r.Id),
+                userId.HasValue && r.AuthorId == userId && !topicIdsWithForeignEntries.Contains(r.Id)))
             .ToList();
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
@@ -392,6 +416,13 @@ public class TopicsController : ControllerBase
             })
             .ToListAsync();
 
+        HashSet<Guid> topicIdsWithForeignEntriesAlpha = new();
+        if (userId.HasValue && rows.Count > 0)
+        {
+            var myTopicIds = rows.Where(r => r.AuthorId == userId.Value).Select(r => r.Id).ToList();
+            topicIdsWithForeignEntriesAlpha = await GetTopicIdsWithForeignEntriesAsync(userId.Value, myTopicIds);
+        }
+
         var items = rows
             .Select(r => MapTopicProjectionToDto(
                 r.Id,
@@ -407,7 +438,8 @@ public class TopicsController : ControllerBase
                 r.AuthorRole,
                 r.EntryCount,
                 userId,
-                followedIds.Contains(r.Id)))
+                followedIds.Contains(r.Id),
+                userId.HasValue && r.AuthorId == userId && !topicIdsWithForeignEntriesAlpha.Contains(r.Id)))
             .ToList();
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
@@ -580,6 +612,13 @@ public class TopicsController : ControllerBase
         }
 
         var r = recentTopics[Random.Shared.Next(recentTopics.Count)];
+        var canManageRandom = false;
+        if (userId.HasValue && r.AuthorId == userId)
+        {
+            canManageRandom = !await _context.Entries.AsNoTracking()
+                .AnyAsync(e => e.TopicId == r.Id && e.AuthorId != userId.Value);
+        }
+
         return MapTopicProjectionToDto(
             r.Id,
             r.Title,
@@ -594,7 +633,8 @@ public class TopicsController : ControllerBase
             r.AuthorRole,
             r.EntryCount,
             userId,
-            followedIds.Contains(r.Id));
+            followedIds.Contains(r.Id),
+            canManageRandom);
     }
 
     [AllowAnonymous]
@@ -626,6 +666,13 @@ public class TopicsController : ControllerBase
             .AsNoTracking()
             .AnyAsync(utf => utf.UserId == userId.Value && utf.TopicId == id);
 
+        var canManageById = false;
+        if (userId.HasValue && row.AuthorId.HasValue && row.AuthorId.Value == userId.Value)
+        {
+            canManageById = !await _context.Entries.AsNoTracking()
+                .AnyAsync(e => e.TopicId == id && e.AuthorId != userId.Value);
+        }
+
         return MapTopicProjectionToDto(
             row.Id,
             row.Title,
@@ -640,7 +687,8 @@ public class TopicsController : ControllerBase
             row.AuthorRole,
             row.EntryCount,
             userId,
-            isFollowed);
+            isFollowed,
+            canManageById);
     }
 
     [Authorize]
@@ -697,20 +745,19 @@ public class TopicsController : ControllerBase
             return BadRequest("Başlık adı boş olamaz.");
         }
 
-        var topic = await _context.Topics
-            .Include(t => t.Entries)
-            .FirstOrDefaultAsync(t => t.Id == id);
+        var topic = await _context.Topics.FirstOrDefaultAsync(t => t.Id == id);
         if (topic == null)
         {
             return NotFound();
         }
 
-        if (topic.AuthorId != (Guid?)userId)
+        if (!topic.AuthorId.HasValue || topic.AuthorId.Value != userId)
         {
             return StatusCode(403, "Bu başlığı düzenleme yetkiniz yok.");
         }
 
-        var hasOtherAuthorsEntries = (topic.Entries ?? Enumerable.Empty<Entry>()).Any(e => e.AuthorId != userId);
+        var hasOtherAuthorsEntries = await _context.Entries
+            .AnyAsync(e => e.TopicId == id && e.AuthorId != userId);
         if (hasOtherAuthorsEntries)
         {
             return StatusCode(403, "Bu başlıkta başkalarının da entry'si var, silemez/düzenleyemezsiniz.");
@@ -745,20 +792,19 @@ public class TopicsController : ControllerBase
             return Unauthorized();
         }
 
-        var topic = await _context.Topics
-            .Include(t => t.Entries)
-            .FirstOrDefaultAsync(t => t.Id == id);
+        var topic = await _context.Topics.FirstOrDefaultAsync(t => t.Id == id);
         if (topic == null)
         {
             return NotFound();
         }
 
-        if (topic.AuthorId != (Guid?)userId)
+        if (!topic.AuthorId.HasValue || topic.AuthorId.Value != userId)
         {
             return StatusCode(403, "Bu başlığı silme yetkiniz yok.");
         }
 
-        var hasOtherAuthorsEntries = (topic.Entries ?? Enumerable.Empty<Entry>()).Any(e => e.AuthorId != userId);
+        var hasOtherAuthorsEntries = await _context.Entries
+            .AnyAsync(e => e.TopicId == id && e.AuthorId != userId);
         if (hasOtherAuthorsEntries)
         {
             return StatusCode(403, "Bu başlıkta başkalarının da entry'si var, silemez/düzenleyemezsiniz.");

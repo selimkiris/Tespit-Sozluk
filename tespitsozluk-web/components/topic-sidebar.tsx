@@ -20,6 +20,7 @@ interface Topic {
   createdAt?: string
   isAnonymous?: boolean
   isTopicOwner?: boolean
+  canManageTopic?: boolean
   isFollowedByCurrentUser?: boolean
 }
 
@@ -72,6 +73,7 @@ function mapApiTopic(apiTopic: {
   createdAt?: string
   isAnonymous?: boolean
   isTopicOwner?: boolean
+  canManageTopic?: boolean
   isFollowedByCurrentUser?: boolean
 }): Topic {
   return {
@@ -85,6 +87,7 @@ function mapApiTopic(apiTopic: {
     createdAt: apiTopic.createdAt,
     isAnonymous: apiTopic.isAnonymous,
     isTopicOwner: apiTopic.isTopicOwner,
+    canManageTopic: apiTopic.canManageTopic,
     isFollowedByCurrentUser: apiTopic.isFollowedByCurrentUser,
   }
 }

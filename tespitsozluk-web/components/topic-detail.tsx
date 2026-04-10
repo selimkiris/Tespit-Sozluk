@@ -65,6 +65,8 @@ interface Entry {
   upvotes: number
   downvotes: number
   userVote?: "up" | "down" | null
+  /** Anonim entry'de author.id maskeli olsa bile API'den gelir. */
+  canManage?: boolean
 }
 
 interface Topic {
@@ -78,6 +80,8 @@ interface Topic {
   createdAt?: string
   isAnonymous?: boolean
   isTopicOwner?: boolean
+  /** Backend: başlık sahibi ve tüm entry'ler aynı kullanıcıya ait. */
+  canManageTopic?: boolean
   isFollowedByCurrentUser?: boolean
 }
 
@@ -194,6 +198,7 @@ export function TopicDetail({
         createdAt: d.createdAt,
         isAnonymous: d.isAnonymous === true,
         isTopicOwner: d.isTopicOwner === true,
+        canManageTopic: typeof d.canManageTopic === "boolean" ? d.canManageTopic : undefined,
         isFollowedByCurrentUser: d.isFollowedByCurrentUser,
       })
       if (typeof d.isFollowedByCurrentUser === "boolean") {
@@ -352,9 +357,11 @@ export function TopicDetail({
 
   const canManage =
     !!currentUser &&
-    (mergedTopic.isTopicOwner === true ||
-      (!!mergedTopic.authorId && currentUser.id === mergedTopic.authorId)) &&
-    entries.every((e) => e.author.id === currentUser.id)
+    (typeof mergedTopic.canManageTopic === "boolean"
+      ? mergedTopic.canManageTopic
+      : mergedTopic.isTopicOwner === true &&
+        !entriesLoading &&
+        entries.every((e) => e.canManage === true))
 
   useEffect(() => {
     setEditTitle(mergedTopic.title)
