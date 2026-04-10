@@ -307,7 +307,7 @@ public class DraftsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/publish")]
-    public async Task<ActionResult<object>> PublishDraft(Guid id)
+    public async Task<ActionResult<object>> PublishDraft(Guid id, [FromBody] PublishDraftDto? dto = null)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var authorId))
@@ -323,6 +323,8 @@ public class DraftsController : ControllerBase
         {
             return NotFound("Taslak bulunamadı.");
         }
+
+        var publishAsAnonymous = dto?.IsAnonymous ?? draft.IsAnonymous;
 
         Guid targetTopicId;
         string? message = null;
@@ -354,7 +356,8 @@ public class DraftsController : ControllerBase
                     Id = Guid.NewGuid(),
                     Title = draft.NewTopicTitle.Trim(),
                     AuthorId = authorId,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    IsAnonymous = publishAsAnonymous
                 };
                 _context.Topics.Add(newTopic);
                 await _context.SaveChangesAsync();
@@ -389,7 +392,7 @@ public class DraftsController : ControllerBase
             Content = draft.Content.Trim(),
             TopicId = targetTopicId,
             AuthorId = authorId,
-            IsAnonymous = draft.IsAnonymous,
+            IsAnonymous = publishAsAnonymous,
             CreatedAt = DateTime.UtcNow
         };
 

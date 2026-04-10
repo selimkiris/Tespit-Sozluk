@@ -493,8 +493,14 @@ export default function UserProfilePage() {
 
   const handlePublishDraft = async (draftId: string) => {
     try {
+      const draftRow = drafts.find((d) => d.id === draftId)
+      const publishBody =
+        draftRow != null && typeof draftRow.isAnonymous === "boolean"
+          ? { isAnonymous: draftRow.isAnonymous }
+          : {}
       const res = await apiFetch(getApiUrl(`api/Drafts/${draftId}/publish`), {
         method: "POST",
+        body: JSON.stringify(publishBody),
       })
       if (!res.ok) throw new Error("Yayınlanamadı")
       const data = await res.json()
