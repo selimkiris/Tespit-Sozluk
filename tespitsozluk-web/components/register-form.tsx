@@ -184,7 +184,7 @@ export function RegisterForm({ onRegistered: _onRegistered, onClose: _onClose, o
           <Input
             id="nickname"
             type="text"
-            placeholder="anonim_kullanici"
+            placeholder="kendine bir mahlas bul"
             autoComplete="username"
             maxLength={20}
             className="h-10 bg-secondary/50 border-border focus:border-ring"
@@ -205,7 +205,7 @@ export function RegisterForm({ onRegistered: _onRegistered, onClose: _onClose, o
           <Input
             id="register-email"
             type="email"
-            placeholder="ornek@email.com"
+            placeholder="ornek@gmail.com"
             autoComplete="email"
             className="h-10 bg-secondary/50 border-border focus:border-ring"
             {...register("email")}
