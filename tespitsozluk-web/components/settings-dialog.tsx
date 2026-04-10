@@ -5,6 +5,7 @@ import { Settings, User, Lock, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
 import { getApiUrl, apiFetch } from "@/lib/api"
 import { validateNicknameTrimmed } from "@/lib/nickname.schema"
+import { isReservedNickname } from "@/lib/reserved-usernames"
 import {
   Dialog,
   DialogContent,
@@ -47,6 +48,9 @@ export function SettingsDialog({
   const [passwordError, setPasswordError] = useState<string | null>(null)
 
   const hasChangedUsername = user.hasChangedUsername ?? false
+  const usernameTrimmed = username.trim()
+  const usernameReservedBlocked =
+    usernameTrimmed.length > 0 && isReservedNickname(usernameTrimmed)
 
   useEffect(() => {
     if (open) {
@@ -63,6 +67,10 @@ export function SettingsDialog({
     e.preventDefault()
     if (hasChangedUsername) return
     const trimmed = username.trim()
+    if (isReservedNickname(trimmed)) {
+      setUsernameError("Bu isim kullanılamaz")
+      return
+    }
     const nickErr = validateNicknameTrimmed(trimmed)
     if (nickErr) {
       setUsernameError(nickErr)
@@ -182,12 +190,20 @@ export function SettingsDialog({
                     Kullanıcı adını sadece 1 defa değiştirebilirsin. İyi düşünün :)
                   </p>
                 </div>
-                {usernameError && (
-                  <p className="text-sm text-destructive">{usernameError}</p>
+                {(usernameReservedBlocked || usernameError) && (
+                  <p className="text-sm text-destructive" role="alert">
+                    {usernameReservedBlocked
+                      ? "Bu isim kullanılamaz"
+                      : usernameError}
+                  </p>
                 )}
                 <Button
                   type="submit"
-                  disabled={!username.trim() || usernameSaving}
+                  disabled={
+                    !username.trim() ||
+                    usernameSaving ||
+                    usernameReservedBlocked
+                  }
                   className="w-full sm:w-auto"
                 >
                   {usernameSaving ? "Kaydediliyor..." : "Kullanıcı Adını Güncelle"}

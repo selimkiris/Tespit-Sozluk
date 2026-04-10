@@ -13,7 +13,9 @@ import {
   type RegisterFormValues,
   REGISTER_EMAIL_TAKEN_MESSAGE,
   REGISTER_NICK_TAKEN_MESSAGE,
+  REGISTER_RESERVED_USERNAME_MESSAGE,
 } from "@/lib/auth.schema"
+import { isReservedNickname } from "@/lib/reserved-usernames"
 import type { AuthResponse } from "@/lib/auth-types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -60,6 +62,7 @@ export function RegisterForm({ onRegistered: _onRegistered, onClose: _onClose, o
     handleSubmit,
     setError,
     clearErrors,
+    watch,
     formState: { errors },
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerFormSchema),
@@ -70,6 +73,14 @@ export function RegisterForm({ onRegistered: _onRegistered, onClose: _onClose, o
       confirmPassword: "",
     },
   })
+
+  const nicknameWatch = watch("nickname")
+  const nicknameTrimmed = nicknameWatch?.trim() ?? ""
+  const isReservedNick =
+    nicknameTrimmed.length > 0 && isReservedNickname(nicknameTrimmed)
+  const nicknameFeedback =
+    errors.nickname?.message ??
+    (isReservedNick ? "Bu isim kullanılamaz" : "")
 
   const onSubmit = async (values: RegisterFormValues) => {
     clearErrors("root")
@@ -121,6 +132,8 @@ export function RegisterForm({ onRegistered: _onRegistered, onClose: _onClose, o
         const msg = extractApiMessage(registerData) || "Kayıt yapılamadı"
 
         if (msg === REGISTER_NICK_TAKEN_MESSAGE) {
+          setError("nickname", { type: "server", message: msg })
+        } else if (msg === REGISTER_RESERVED_USERNAME_MESSAGE) {
           setError("nickname", { type: "server", message: msg })
         } else if (msg === REGISTER_EMAIL_TAKEN_MESSAGE) {
           setError("email", { type: "server", message: msg })
@@ -178,9 +191,11 @@ export function RegisterForm({ onRegistered: _onRegistered, onClose: _onClose, o
             {...register("nickname")}
           />
           <p className="text-xs text-muted-foreground">Bu isim herkese görünür olacak</p>
-          {errors.nickname?.message && (
-            <p className="text-sm text-destructive">{errors.nickname.message}</p>
-          )}
+          {nicknameFeedback ? (
+            <p className="text-sm text-destructive" role="alert">
+              {nicknameFeedback}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
@@ -269,7 +284,7 @@ export function RegisterForm({ onRegistered: _onRegistered, onClose: _onClose, o
 
         <Button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || isReservedNick}
           className="w-full h-10 bg-foreground text-background hover:bg-foreground/90"
         >
           {isLoading ? "Kayıt yapılıyor..." : "Kayıt Ol"}

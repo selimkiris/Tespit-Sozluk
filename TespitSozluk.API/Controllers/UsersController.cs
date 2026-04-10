@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using TespitSozluk.API.Data;
 using TespitSozluk.API.DTOs;
 using TespitSozluk.API.Entities;
+using TespitSozluk.API.Helpers;
 using TespitSozluk.API.Services;
 
 namespace TespitSozluk.API.Controllers;
@@ -362,6 +363,9 @@ public class UsersController : ControllerBase
         {
             return BadRequest(new { message = "Kullanıcı adı en fazla 20 karakter olabilir; boşluk ve < > karakterleri içeremez." });
         }
+
+        if (ReservedUsernames.IsReserved(newUsername))
+            return BadRequest(new { message = ReservedUsernames.ReservedMessage });
 
         var user = await _context.Users.FindAsync(userId);
         if (user == null)

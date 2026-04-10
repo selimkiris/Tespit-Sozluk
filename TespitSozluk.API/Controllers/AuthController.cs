@@ -10,6 +10,7 @@ using Microsoft.IdentityModel.Tokens;
 using TespitSozluk.API.Data;
 using TespitSozluk.API.DTOs;
 using TespitSozluk.API.Entities;
+using TespitSozluk.API.Helpers;
 using TespitSozluk.API.Services;
 
 namespace TespitSozluk.API.Controllers;
@@ -114,6 +115,9 @@ public class AuthController : ControllerBase
 
         if (!IsValidUsername(nick))
             return BadRequest(new { message = "Kullanıcı adı en fazla 20 karakter olabilir; boşluk ve < > karakterleri içeremez." });
+
+        if (ReservedUsernames.IsReserved(nick))
+            return BadRequest(new { message = ReservedUsernames.ReservedMessage });
 
         var nickNormalized = nick.ToLowerInvariant();
         var usernameTaken = await _context.Users.AnyAsync(u => u.Username.ToLower() == nickNormalized);
