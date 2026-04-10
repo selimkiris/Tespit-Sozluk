@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useEditor, EditorContent } from "@tiptap/react"
 import type { Editor } from "@tiptap/core"
 import StarterKit from "@tiptap/starter-kit"
+import HardBreak from "@tiptap/extension-hard-break"
 import Placeholder from "@tiptap/extension-placeholder"
 import {
   Bold,
@@ -45,6 +46,18 @@ import Picker from "@emoji-mart/react"
 import { escapeHtmlText } from "@/lib/entry-body-link-transforms"
 import { EditorLink } from "@/components/tiptap-extensions/editor-link"
 import { useEntryPatternExistsValidation } from "@/hooks/use-entry-pattern-exists-validation"
+
+/** Enter = Shift+Enter: yeni paragraf değil, satır sonu (<br>). Mention açıkken Enter seçim için handleKeyDown’da ayrılır. */
+const EntryBodyHardBreak = HardBreak.extend({
+  priority: 2500,
+  addKeyboardShortcuts() {
+    return {
+      "Mod-Enter": () => this.editor.commands.setHardBreak(),
+      "Shift-Enter": () => this.editor.commands.setHardBreak(),
+      Enter: () => this.editor.commands.setHardBreak(),
+    }
+  },
+})
 
 const CHAR_LIMIT = 100_000
 const CHAR_WARN_THRESHOLD = 95_000
@@ -146,7 +159,9 @@ export function RichTextEditor({
         orderedList: false,
         listItem: false,
         link: false,
+        hardBreak: false,
       }),
+      EntryBodyHardBreak,
       EditorLink.configure({
         autolink: true,
         openOnClick: false,
@@ -173,7 +188,6 @@ export function RichTextEditor({
         class: cn(
           "focus:outline-none max-w-none min-w-0 w-full max-w-full break-words whitespace-pre-wrap overflow-x-hidden",
           ENTRY_BODY_TIPTAP_ROOT_CLASS,
-          "[&_p]:!my-0",
           "prose-a:text-emerald-500 prose-a:font-medium prose-a:no-underline prose-a:underline-offset-2 prose-a:hover:underline",
           ENTRY_BODY_RENDERER_CLASSNAME,
           contentMinHeightClass
@@ -195,6 +209,14 @@ export function RichTextEditor({
       },
       handleKeyDown: (_view, event) => {
         const m = mentionRef.current
+        if (m && m.results.length > 0 && event.key === "Enter" && !event.shiftKey) {
+          const pick = m.results[m.selectedIndex]
+          if (pick) {
+            event.preventDefault()
+            insertMention(pick)
+            return true
+          }
+        }
         if (m && m.results.length > 0) {
           if (event.key === "ArrowDown") {
             event.preventDefault()
@@ -214,14 +236,6 @@ export function RichTextEditor({
               prev ? { ...prev, selectedIndex: Math.max(0, prev.selectedIndex - 1) } : null
             )
             return true
-          }
-          if (event.key === "Enter" && !event.shiftKey) {
-            const pick = m.results[m.selectedIndex]
-            if (pick) {
-              event.preventDefault()
-              insertMention(pick)
-              return true
-            }
           }
         }
         if (m && event.key === "Escape") {
