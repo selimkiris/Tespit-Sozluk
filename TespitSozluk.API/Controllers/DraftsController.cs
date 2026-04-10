@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using TespitSozluk.API.Data;
 using TespitSozluk.API.DTOs;
 using TespitSozluk.API.Entities;
+using TespitSozluk.API.Helpers;
 
 namespace TespitSozluk.API.Controllers;
 
@@ -57,6 +58,16 @@ public class DraftsController : ControllerBase
                 UpdatedAt = d.UpdatedAt
             })
             .ToListAsync();
+
+        if (drafts.Count > 0)
+        {
+            var raw = drafts.Select(d => d.Content).ToList();
+            var processed = await EntryPublicContentBatch.ProcessContentsAsync(_context, raw, HttpContext.RequestAborted);
+            for (var i = 0; i < drafts.Count; i++)
+            {
+                drafts[i].Content = processed[i].Content;
+            }
+        }
 
         return new DraftsPagedResponseDto
         {

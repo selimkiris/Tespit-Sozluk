@@ -47,6 +47,8 @@ export function EditDraftModal({
   const [isAnonymous, setIsAnonymous] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
+  /** Liste API’si görüntüleme için işlenmiş içerik döndürebilir; düzenleme her zaman ham GET ile yüklenir. */
+  const [draftLoading, setDraftLoading] = useState(false)
 
   const searchTopics = useCallback(async (q: string) => {
     if (!q.trim() || q.trim().length < 2) {
@@ -73,28 +75,49 @@ export function EditDraftModal({
   }, [topicSearch, searchTopics])
 
   useEffect(() => {
-    if (draft && open) {
-      setContent(draft.content)
-      setIsAnonymous(draft.isAnonymous ?? false)
-      if (draft.topicId && draft.topicTitle) {
-        setMode("existing")
-        setSelectedTopic({ id: draft.topicId, title: draft.topicTitle })
-        setTopicSearch(draft.topicTitle)
-        setNewTopicTitle("")
-      } else if (draft.newTopicTitle) {
-        setMode("new")
-        setNewTopicTitle(draft.newTopicTitle)
-        setSelectedTopic(null)
-        setTopicSearch("")
-      } else {
-        setMode("existing")
-        setSelectedTopic(null)
-        setTopicSearch("")
-        setNewTopicTitle("")
+    if (!draft || !open) return
+    let cancelled = false
+    setDraftLoading(true)
+    setError("")
+    ;(async () => {
+      try {
+        const res = await apiFetch(getApiUrl(`api/Drafts/${draft.id}`))
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          const msg = typeof data === "string" ? data : data.message ?? data.title ?? "Taslak yüklenemedi"
+          throw new Error(msg)
+        }
+        if (cancelled) return
+        setContent(typeof data.content === "string" ? data.content : "")
+        setIsAnonymous(Boolean(data.isAnonymous))
+        if (data.topicId && data.topicTitle) {
+          setMode("existing")
+          setSelectedTopic({ id: String(data.topicId), title: String(data.topicTitle) })
+          setTopicSearch(String(data.topicTitle))
+          setNewTopicTitle("")
+        } else if (data.newTopicTitle) {
+          setMode("new")
+          setNewTopicTitle(String(data.newTopicTitle))
+          setSelectedTopic(null)
+          setTopicSearch("")
+        } else {
+          setMode("existing")
+          setSelectedTopic(null)
+          setTopicSearch("")
+          setNewTopicTitle("")
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Taslak yüklenemedi")
+        }
+      } finally {
+        if (!cancelled) setDraftLoading(false)
       }
-      setError("")
+    })()
+    return () => {
+      cancelled = true
     }
-  }, [draft, open])
+  }, [draft?.id, open])
 
   const handleOpenChange = (next: boolean) => {
     if (!next) setError("")
@@ -102,7 +125,7 @@ export function EditDraftModal({
   }
 
   const handleSubmit = async () => {
-    if (!draft) return
+    if (!draft || draftLoading) return
     const cleanContent = content.trim()
     if (!cleanContent.replace(/<[^>]*>/g, "").trim()) {
       setError("İçerik boş olamaz.")
@@ -267,12 +290,18 @@ export function EditDraftModal({
                 İçerik
               </Label>
               <div className="min-h-0 min-w-0 max-w-full flex-1 overflow-x-hidden [&_div.tiptap]:!min-h-[min(38vh,320px)]">
-                <RichTextEditor
-                  value={content}
-                  onChange={setContent}
-                  placeholder="düşüncelerinizi yazın..."
-                  innerContentPaddingClassName="px-[0.45rem]"
-                />
+                {draftLoading ? (
+                  <div className="flex min-h-[min(38vh,320px)] items-center justify-center rounded-md border border-border bg-secondary/30 text-sm text-muted-foreground">
+                    Taslak yükleniyor…
+                  </div>
+                ) : (
+                  <RichTextEditor
+                    value={content}
+                    onChange={setContent}
+                    placeholder="düşüncelerinizi yazın..."
+                    innerContentPaddingClassName="px-[0.45rem]"
+                  />
+                )}
               </div>
             </div>
 
@@ -309,7 +338,12 @@ export function EditDraftModal({
               <Button type="button" variant="outline" className="h-10 w-full sm:w-auto" onClick={() => handleOpenChange(false)}>
                 İptal
               </Button>
-              <Button type="button" className="h-10 w-full bg-foreground text-background hover:bg-foreground/90 sm:w-auto" onClick={handleSubmit} disabled={isSubmitting}>
+              <Button
+                type="button"
+                className="h-10 w-full bg-foreground text-background hover:bg-foreground/90 sm:w-auto"
+                onClick={handleSubmit}
+                disabled={isSubmitting || draftLoading}
+              >
                 {isSubmitting ? "Kaydediliyor..." : "Kaydet"}
               </Button>
             </div>

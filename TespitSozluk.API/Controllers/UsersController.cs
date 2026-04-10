@@ -267,13 +267,16 @@ public class UsersController : ControllerBase
             }
         }
 
-        var entries = entriesData.Select(e =>
+        var rawContents = entriesData.Select(e => e.Content).ToList();
+        var processedContents = await EntryPublicContentBatch.ProcessContentsAsync(_context, rawContents, HttpContext.RequestAborted);
+
+        var entries = entriesData.Select((e, i) =>
         {
             var canManage = requestorId.HasValue && e.AuthorId == requestorId.Value;
             return new EntryResponseDto
             {
                 Id = e.Id,
-                Content = e.Content,
+                Content = processedContents[i].Content,
                 Upvotes = e.Upvotes,
                 Downvotes = e.Downvotes,
                 TopicId = e.TopicId,
@@ -288,7 +291,8 @@ public class UsersController : ControllerBase
                 CanManage = canManage,
                 SaveCount = saveCounts.TryGetValue(e.Id, out var sc) ? sc : 0,
                 IsSavedByCurrentUser = userSavedIds.Contains(e.Id),
-                UserVoteType = requestorId.HasValue && userVotes.TryGetValue(e.Id, out var vt) ? vt : 0
+                UserVoteType = requestorId.HasValue && userVotes.TryGetValue(e.Id, out var vt) ? vt : 0,
+                ValidBkzs = processedContents[i].ValidBkzs,
             };
         }).ToList();
 
@@ -710,13 +714,16 @@ public class UsersController : ControllerBase
             }
         }
 
-        var entries = entriesData.Select(e =>
+        var rawContentsOwn = entriesData.Select(e => e.Content).ToList();
+        var processedOwn = await EntryPublicContentBatch.ProcessContentsAsync(_context, rawContentsOwn, HttpContext.RequestAborted);
+
+        var entries = entriesData.Select((e, i) =>
         {
             var canManage = isOwnProfile && requestorId.HasValue && e.AuthorId == requestorId.Value;
             return new EntryResponseDto
             {
                 Id = e.Id,
-                Content = e.Content,
+                Content = processedOwn[i].Content,
                 Upvotes = e.Upvotes,
                 Downvotes = e.Downvotes,
                 TopicId = e.TopicId,
@@ -731,7 +738,8 @@ public class UsersController : ControllerBase
                 CanManage = canManage,
                 SaveCount = saveCounts.TryGetValue(e.Id, out var sc) ? sc : 0,
                 IsSavedByCurrentUser = userSavedIds.Contains(e.Id),
-                UserVoteType = requestorId.HasValue && userVotes.TryGetValue(e.Id, out var vt) ? vt : 0
+                UserVoteType = requestorId.HasValue && userVotes.TryGetValue(e.Id, out var vt) ? vt : 0,
+                ValidBkzs = processedOwn[i].ValidBkzs,
             };
         }).ToList();
 
@@ -821,13 +829,16 @@ public class UsersController : ControllerBase
             userSavedIds = entryIds.ToHashSet();
         }
 
-        var entries = entriesData.Select(e =>
+        var rawContentsSaved = entriesData.Select(e => e.Content).ToList();
+        var processedSaved = await EntryPublicContentBatch.ProcessContentsAsync(_context, rawContentsSaved, HttpContext.RequestAborted);
+
+        var entries = entriesData.Select((e, i) =>
         {
             var canManage = e.AuthorId == requestorId;
             return new EntryResponseDto
             {
                 Id = e.Id,
-                Content = e.Content,
+                Content = processedSaved[i].Content,
                 Upvotes = e.Upvotes,
                 Downvotes = e.Downvotes,
                 TopicId = e.TopicId,
@@ -842,7 +853,8 @@ public class UsersController : ControllerBase
                 CanManage = canManage,
                 SaveCount = saveCounts.TryGetValue(e.Id, out var sc) ? sc : 0,
                 IsSavedByCurrentUser = true,
-                UserVoteType = userVotes.TryGetValue(e.Id, out var vt) ? vt : 0
+                UserVoteType = userVotes.TryGetValue(e.Id, out var vt) ? vt : 0,
+                ValidBkzs = processedSaved[i].ValidBkzs,
             };
         }).ToList();
 

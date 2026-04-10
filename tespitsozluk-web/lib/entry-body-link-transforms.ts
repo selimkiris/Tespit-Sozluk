@@ -25,12 +25,19 @@ export function applyMentionLinks(html: string): string {
 
 /**
  * (bkz: terim) — yayın görünümünde arama; sunucu işlenmiş içerikte topic linki gelir.
+ * Geçersiz / boş terim: link yok (yeşil & href="/" oluşmaz).
  */
 export function applyBkzLinks(html: string): string {
-  return html.replace(/\(bkz:\s*([^)]+)\)/gi, (full, kelime: string) => {
+  return html.replace(/\(bkz:\s*([^)]+)\)/gi, (_full, kelime: string) => {
     const t = kelime.trim()
-    if (!t) return full
+    if (!t) {
+      return escapeHtmlText(`(bkz: ${kelime})`)
+    }
+    const href = hrefForBkzTerm(t)
+    if (href === "/") {
+      return escapeHtmlText(`(bkz: ${kelime.trim()})`)
+    }
     const safe = escapeHtmlText(t)
-    return `<a href="${hrefForBkzTerm(t)}" class="${EMERALD_LINK_CLASS}">(bkz: ${safe})</a>`
+    return `<a href="${href}" class="${EMERALD_LINK_CLASS}">(bkz: ${safe})</a>`
   })
 }
