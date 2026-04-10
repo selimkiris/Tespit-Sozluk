@@ -36,7 +36,7 @@ Ve tabii ki okuldaki hocanız, çalıştığınız iş yeri, yaşadığınız ma
 
 Ya da sadece başkalarını okuyabilirsiniz; bu da tamamen geçerli bir kullanım biçimi.
 
-Kısacası Tespit Sözlük'ün sınırını kategoriler değil, içeriğin ruhu belirler.
+Kısacası Tespit Sözlük'ün sınırını kategoriler değil, içeriğin ruhu belirler. 
 `,
     },
     kurallar: {
