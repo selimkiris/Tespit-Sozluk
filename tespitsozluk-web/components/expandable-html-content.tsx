@@ -11,6 +11,8 @@ interface ExpandableHtmlContentProps {
   className?: string
   rendererClassName?: string
   maxChars?: number
+  /** Entry gövdesi arama vurgusu (HtmlRenderer). */
+  searchHighlightQuery?: string
 }
 
 export function ExpandableHtmlContent({
@@ -18,6 +20,7 @@ export function ExpandableHtmlContent({
   className,
   rendererClassName,
   maxChars = 750,
+  searchHighlightQuery,
 }: ExpandableHtmlContentProps) {
   const [expanded, setExpanded] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -49,7 +52,11 @@ export function ExpandableHtmlContent({
           !expanded && needsReadMore && mounted && "relative"
         )}
       >
-        <HtmlRenderer html={showHtml} className={rendererClassName} />
+        <HtmlRenderer
+          html={showHtml}
+          className={rendererClassName}
+          searchHighlightQuery={searchHighlightQuery}
+        />
       </div>
       {needsReadMore && mounted && (
         <div className="mt-2">

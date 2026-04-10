@@ -41,6 +41,10 @@ import { DangerConfirmModal } from "@/components/admin/danger-confirm-modal"
 import { EntryLikersModal } from "@/components/entry-likers-modal"
 import { ENTRY_BODY_RENDERER_CLASSNAME } from "@/lib/entry-body-renderer-classes"
 import { FEED_COLUMN_MAX_WIDTH_CLASS } from "@/lib/feed-layout"
+import {
+  ENTRY_SEARCH_HIGHLIGHT_MARK_CLASS,
+  shouldApplyEntrySearchHighlight,
+} from "@/lib/search-highlight-html"
 import { formatTurkeyDateTime } from "@/lib/turkey-datetime"
 
 interface Entry {
@@ -82,10 +86,11 @@ interface EntryCardProps {
   onEntryChange?: () => void
 }
 
-/** Aranan kelimeyi case-insensitive regex ile vurgular. (bkz:) yapısını bozmaz. */
+/** Düz metinde aranan kelimeyi vurgular (yazar adı); entry gövdesi HtmlRenderer ile aynı eşik ve sınıflar. */
 function highlightText(text: string, searchTerm: string): React.ReactNode[] {
-  if (!searchTerm.trim()) return [text]
-  const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  if (!shouldApplyEntrySearchHighlight(searchTerm)) return [text]
+  const q = searchTerm.trim()
+  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
   const regex = new RegExp(`(${escaped})`, "gi")
   const parts: React.ReactNode[] = []
   let lastIndex = 0
@@ -96,7 +101,7 @@ function highlightText(text: string, searchTerm: string): React.ReactNode[] {
       parts.push(text.slice(lastIndex, m.index))
     }
     parts.push(
-      <mark key={key++} className="bg-yellow-400/50 text-inherit rounded px-1">
+      <mark key={key++} className={ENTRY_SEARCH_HIGHLIGHT_MARK_CLASS}>
         {m[1]}
       </mark>
     )
@@ -354,6 +359,7 @@ export function EntryCard({
         <ExpandableHtmlContent
           html={content}
           rendererClassName={ENTRY_BODY_RENDERER_CLASSNAME}
+          searchHighlightQuery={searchTerm}
         />
       </div>
 
@@ -451,8 +457,8 @@ export function EntryCard({
           {/* Author name */}
           {isAnonymousEntry ? (
             <span className="text-sm font-normal text-slate-200 max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap inline-block">
-              {searchTerm?.trim()
-                ? highlightText(entry.author?.nickname ?? "Anonim", searchTerm)
+              {shouldApplyEntrySearchHighlight(searchTerm)
+                ? highlightText(entry.author?.nickname ?? "Anonim", searchTerm!)
                 : (entry.author?.nickname ?? "Anonim")}
             </span>
           ) : (
@@ -460,8 +466,8 @@ export function EntryCard({
               href={`/user/${entry.author.id}`}
               className="inline-flex items-center gap-0.5 text-sm font-normal text-slate-200 hover:text-[#c2c6cf] transition-colors max-w-[220px] overflow-hidden"
             >
-              {searchTerm?.trim()
-                ? highlightText(entry.author.nickname, searchTerm)
+              {shouldApplyEntrySearchHighlight(searchTerm)
+                ? highlightText(entry.author.nickname, searchTerm!)
                 : entry.author.nickname}
               {entry.author.role === "Admin" && (
                 <BadgeCheck className="w-3.5 h-3.5 text-blue-500 fill-blue-500/20 ml-0.5 shrink-0" />

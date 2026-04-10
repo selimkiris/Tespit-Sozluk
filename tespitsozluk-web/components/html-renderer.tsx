@@ -1,37 +1,57 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import DOMPurify from "isomorphic-dompurify"
 import { cn } from "@/lib/utils"
 import { applyBkzLinks, applyMentionLinks } from "@/lib/entry-body-link-transforms"
+import {
+  highlightSearchInEntryHtml,
+  shouldApplyEntrySearchHighlight,
+} from "@/lib/search-highlight-html"
 
 interface HtmlRendererProps {
   html: string
   className?: string
+  /** Başlık içi arama vb.: yalnızca metin düğümlerinde vurgu (istemci mount sonrası). */
+  searchHighlightQuery?: string
 }
 
-export function HtmlRenderer({ html, className }: HtmlRendererProps) {
+export function HtmlRenderer({ html, className, searchHighlightQuery }: HtmlRendererProps) {
   const router = useRouter()
   const rootRef = useRef<HTMLDivElement>(null)
+  const [mounted, setMounted] = useState(false)
 
-  const withMentions = applyMentionLinks(html)
-  const withBkz = applyBkzLinks(withMentions)
-  const sanitized = DOMPurify.sanitize(withBkz, {
-    ALLOWED_TAGS: [
-      "p", "br", "strong", "em", "s", "u", "a",
-      "ul", "ol", "li", "blockquote",
-      "img", "span", "div",
-      "iframe",
-    ],
-    ALLOWED_ATTR: [
-      "href", "target", "rel", "class",
-      "src", "alt", "title", "width", "height",
-      "allowfullscreen", "frameborder", "allow",
-    ],
-    ADD_ATTR: ["data-profile-link"],
-    ALLOW_DATA_ATTR: false,
-  })
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const sanitized = useMemo(() => {
+    const withMentions = applyMentionLinks(html)
+    const withBkz = applyBkzLinks(withMentions)
+    return DOMPurify.sanitize(withBkz, {
+      ALLOWED_TAGS: [
+        "p", "br", "strong", "em", "s", "u", "a",
+        "ul", "ol", "li", "blockquote",
+        "img", "span", "div", "mark",
+        "iframe",
+      ],
+      ALLOWED_ATTR: [
+        "href", "target", "rel", "class",
+        "src", "alt", "title", "width", "height",
+        "allowfullscreen", "frameborder", "allow",
+      ],
+      ADD_ATTR: ["data-profile-link"],
+      ALLOW_DATA_ATTR: false,
+    })
+  }, [html])
+
+  const displayHtml = useMemo(() => {
+    if (!mounted || !shouldApplyEntrySearchHighlight(searchHighlightQuery)) {
+      return sanitized
+    }
+    return highlightSearchInEntryHtml(sanitized, searchHighlightQuery!.trim())
+  }, [mounted, sanitized, searchHighlightQuery])
 
   useEffect(() => {
     const root = rootRef.current
@@ -63,7 +83,7 @@ export function HtmlRenderer({ html, className }: HtmlRendererProps) {
       root.removeEventListener("click", onClick)
       root.removeEventListener("pointerenter", onPointerEnter, true)
     }
-  }, [sanitized, router])
+  }, [displayHtml, router])
 
   return (
     <div
@@ -75,7 +95,7 @@ export function HtmlRenderer({ html, className }: HtmlRendererProps) {
         "[&_p]:!my-0 [&_p]:!py-0 [&_strong]:text-inherit [&_b]:text-inherit",
         className
       )}
-      dangerouslySetInnerHTML={{ __html: sanitized }}
+      dangerouslySetInnerHTML={{ __html: displayHtml }}
     />
   )
 }

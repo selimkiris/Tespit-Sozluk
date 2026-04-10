@@ -343,7 +343,9 @@ export function HomePageContent() {
   // Topic handlers - URL ile senkron, sayfa geçişleri refreshTrigger'a muhtaç değil
   const handleTopicSelect = useCallback((topicId: string) => {
     setSelectedTopicId(topicId)
-    router.replace(`/?topic=${topicId}`, { scroll: false })
+    const params = new URLSearchParams()
+    params.set("topic", topicId)
+    router.replace(`/?${params.toString()}`, { scroll: false })
   }, [router])
 
   const handleTopicEntriesPageUrlChange = useCallback(
@@ -567,6 +569,7 @@ export function HomePageContent() {
         >
           {selectedTopic ? (
             <TopicDetail
+              key={selectedTopic.id}
               topic={selectedTopic}
               isLoggedIn={isLoggedIn}
               currentUser={currentUser}

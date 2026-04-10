@@ -267,7 +267,8 @@ export function TopicSidebar({
                       return (
                         <Link
                           key={topic.id}
-                          href={`/?topic=${topic.id}`}
+                          href={`/?${new URLSearchParams({ topic: topic.id }).toString()}`}
+                          scroll={false}
                           onClick={() => {
                             onTopicSelect(topic.id)
                             onClose()
