@@ -3,14 +3,14 @@ import { nicknameFieldSchema } from "@/lib/nickname.schema"
 
 /** Backend ile aynı metin — hata eşlemesi için */
 export const REGISTER_NICK_TAKEN_MESSAGE =
-  "Bu nick zaten seçilmiş, başka bir tane bul"
+  "Bu mahlas zaten seçilmiş, başka bir tane bul"
 
 export const REGISTER_EMAIL_TAKEN_MESSAGE =
   "Bu e-posta adresi başka bir kullanıcı tarafından alınmış, senin haberin yok muydu?"
 
 /** Backend ReservedUsernames.ReservedMessage ile aynı */
 export const REGISTER_RESERVED_USERNAME_MESSAGE =
-  "Bu kullanıcı adı sistem tarafından rezerve edilmiştir ve alınamaz."
+  "Bu mahlas sistem tarafından rezerve edilmiştir ve alınamaz."
 
 const passwordField = z
   .string()

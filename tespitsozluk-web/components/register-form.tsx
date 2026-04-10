@@ -179,7 +179,7 @@ export function RegisterForm({ onRegistered: _onRegistered, onClose: _onClose, o
 
         <div className="space-y-2">
           <Label htmlFor="nickname" className="text-sm text-foreground">
-            Nickname
+            Mahlas
           </Label>
           <Input
             id="nickname"

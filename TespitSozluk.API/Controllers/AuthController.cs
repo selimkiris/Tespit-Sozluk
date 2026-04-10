@@ -111,10 +111,10 @@ public class AuthController : ControllerBase
             : dto.Username.Trim();
 
         if (string.IsNullOrEmpty(nick))
-            return BadRequest(new { message = "Nickname gerekli." });
+            return BadRequest(new { message = "Mahlas gerekli." });
 
         if (!IsValidUsername(nick))
-            return BadRequest(new { message = "Kullanıcı adı en fazla 20 karakter olabilir; boşluk ve < > karakterleri içeremez." });
+            return BadRequest(new { message = "Mahlas en fazla 20 karakter olabilir; boşluk ve < > karakterleri içeremez." });
 
         if (ReservedUsernames.IsReserved(nick))
             return BadRequest(new { message = ReservedUsernames.ReservedMessage });
@@ -122,7 +122,7 @@ public class AuthController : ControllerBase
         var nickNormalized = nick.ToLowerInvariant();
         var usernameTaken = await _context.Users.AnyAsync(u => u.Username.ToLower() == nickNormalized);
         if (usernameTaken)
-            return BadRequest(new { message = "Bu nick zaten seçilmiş, başka bir tane bul" });
+            return BadRequest(new { message = "Bu mahlas zaten seçilmiş, başka bir tane bul" });
 
         var isTurnstileValid = await _turnstileService.VerifyAsync(dto.TurnstileToken);
         if (!isTurnstileValid)

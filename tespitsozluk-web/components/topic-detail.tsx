@@ -599,7 +599,7 @@ export function TopicDetail({
             )}
           </div>
 
-          {/* Sağ: soldan sağa — Nick+Avatar | Tarih | Paylaş | (Admin) | Üç nokta (en sağ) */}
+          {/* Sağ: soldan sağa — Mahlas+Avatar | Tarih | Paylaş | (Admin) | Üç nokta (en sağ) */}
           <div className="flex flex-wrap items-center justify-end gap-x-1.5 gap-y-1 min-w-0">
             {(mergedTopic.authorId || mergedTopic.isAnonymous) && (
               <span className="flex items-center gap-1.5 min-w-0 max-w-[320px]">

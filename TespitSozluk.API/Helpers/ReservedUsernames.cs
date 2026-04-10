@@ -9,7 +9,7 @@ namespace TespitSozluk.API.Helpers;
 public static class ReservedUsernames
 {
     public const string ReservedMessage =
-        "Bu kullanıcı adı sistem tarafından rezerve edilmiştir ve alınamaz.";
+        "Bu mahlas sistem tarafından rezerve edilmiştir ve alınamaz.";
 
     /// <summary>
     /// Kısa token yalnızca tam eşleşmede yasak ("modern" gibi yanlış pozitifleri önlemek için alt dize aranmaz).

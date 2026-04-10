@@ -5,13 +5,13 @@ import { isReservedNickname } from "@/lib/reserved-usernames"
 export const nicknameFieldSchema = z
   .string()
   .trim()
-  .min(3, "Nickname en az 3 karakter olmalıdır.")
-  .max(20, "Nickname en fazla 20 karakter olabilir.")
-  .regex(/^\S+$/, "Nickname içinde boşluk bırakılamaz.")
+  .min(3, "Mahlas en az 3 karakter olmalıdır.")
+  .max(20, "Mahlas en fazla 20 karakter olabilir.")
+  .regex(/^\S+$/, "Mahlas içinde boşluk bırakılamaz.")
   .refine((s) => !isReservedNickname(s), { message: "Bu isim kullanılamaz" })
 
 export function validateNicknameTrimmed(trimmed: string): string | null {
   const r = nicknameFieldSchema.safeParse(trimmed)
-  if (!r.success) return r.error.issues[0]?.message ?? "Geçersiz nickname."
+  if (!r.success) return r.error.issues[0]?.message ?? "Geçersiz mahlas."
   return null
 }

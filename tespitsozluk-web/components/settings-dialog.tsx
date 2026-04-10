@@ -85,13 +85,13 @@ export function SettingsDialog({
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        throw new Error(data?.message ?? "Kullanıcı adı güncellenemedi.")
+        throw new Error(data?.message ?? "Mahlas güncellenemedi.")
       }
       onUserUpdate?.({ name: data.nickname ?? trimmed, nickname: data.nickname ?? trimmed })
-      toast.success("Kullanıcı adı güncellendi.")
+      toast.success("Mahlasınız güncellendi.")
       setUsername("")
     } catch (err) {
-      setUsernameError(err instanceof Error ? err.message : "Kullanıcı adı güncellenemedi.")
+      setUsernameError(err instanceof Error ? err.message : "Mahlas güncellenemedi.")
     } finally {
       setUsernameSaving(false)
     }
@@ -160,7 +160,7 @@ export function SettingsDialog({
 
           <TabsContent value="account" className="mt-4 space-y-4">
             <p className="text-sm text-muted-foreground">
-              Nicknamenizi değiştirin
+              Mahlasınızı değiştirin
             </p>
             {hasChangedUsername ? (
               <div className="space-y-2">
@@ -177,7 +177,7 @@ export function SettingsDialog({
             ) : (
               <form onSubmit={handleUsernameSubmit} className="space-y-3">
                 <div className="space-y-2">
-                  <Label htmlFor="new-username">Yeni Nickname</Label>
+                  <Label htmlFor="new-username">Yeni Mahlas</Label>
                   <Input
                     id="new-username"
                     value={username}
@@ -187,7 +187,7 @@ export function SettingsDialog({
                     disabled={usernameSaving}
                   />
                   <p className="text-sm font-semibold text-red-600 dark:text-red-400">
-                    Kullanıcı adını sadece 1 defa değiştirebilirsin. İyi düşünün :)
+                    Mahlasını sadece 1 defa değiştirebilirsin. İyi düşünün :)
                   </p>
                 </div>
                 {(usernameReservedBlocked || usernameError) && (
@@ -206,7 +206,7 @@ export function SettingsDialog({
                   }
                   className="w-full sm:w-auto"
                 >
-                  {usernameSaving ? "Kaydediliyor..." : "Kullanıcı Adını Güncelle"}
+                  {usernameSaving ? "Kaydediliyor..." : "Mahlası Güncelle"}
                 </Button>
               </form>
             )}

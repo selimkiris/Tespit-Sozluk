@@ -6,34 +6,34 @@ import type { MouseEvent as ReactMouseEvent, ReactNode } from "react"
 import type { NotificationItem } from "@/lib/notification-types"
 
 const LIKE_MESSAGES = [
-  "♥️ Nick_name bu entry'ne kalbini bıraktı. Kaliteyi nerede görse tanıyor kerata",
-  "♥️ Nick_name entry'ne kalbini bıraktı. Yazdıkların adamın sol tarafını sızlatmış",
-  "♥️ Nick_name entry'ne bir kalp kondurdu. Ağzının tadını biliyor",
-  "♥️ Nick_name entry'ne kalp attı. Algısı açık bir birey tespit edildi",
-  "♥️ Nick_name entry'ni kalplemiş. Kültür seviyesi +1 arttı",
-  "♥️ Nick_name entry'ne kalp attı. Annen görse gözleri dolardı",
-  "♥️ Nick_name entry'ne kalp bıraktı. Artık internet biraz daha yaşanabilir",
-  "♥️ Nick_name entry'ne kalp attı. Edebiyat kazandı",
-  "♥️ Nick_name entry'ne vuruldu",
-  "♥️ Nick_name kalbini entry'nin altına gömdü",
-  "♥️ Nick_name entry'nle aşk yaşadı",
-  "♥️ Nick_name entry'ne aşık oldu",
-  "♥️ Nick_name entry'nle derin bir bağ kurdu",
-  "♥️ Nick_name entry'ne sevdalandı",
-  "♥️ Nick_name her gece yatmadan senin entry'ni okuyor",
-  "♥️ Nick_name entry'ne kalp bıraktı. Duygularının tercümanı olmuşsun",
-  "♥️ Nick_name entry'ni okuyunca mutluluktan gözyaşlarına boğuldu",
-  "♥️ Nick_name entry'ne kalp attı. Ya nolacağdı",
-  "♥️ Nick_name entry'ne kalp attı, sonra da ayakta alkışladı",
-  "♥️ Nick_name entry'ni okurken kendinden geçti",
-  "♥️ Nick_name entry'ne kendi kalbini bıraktı, sonra da öldü",
-  "♥️ Nick_name entry'ni okuduktan sonra eliyle kalp yaptı ama çok da beceremedi",
-  "♥️ Nick_name entry'ni takdir ediyor",
-  "♥️ Nick_name entry'ni okurken sevinçten pırtlatıverdi",
-  "♥️ Nick_name entry'ne kalp bıraktı. Değer puanın +1 arttı",
-  "♥️ Nick_name entry'ne kalp bıraktı. Saygı puanın +1 arttı",
-  "♥️ Nick_name entry'ne kalp bıraktı. Tespit Sözlük hisseleri yükselişte",
-  "♥️ Nick_name entry'ne kalp bıraktı. Cidden seviliyorsun kız",
+  "♥️ Mahlas_name bu entry'ne kalbini bıraktı. Kaliteyi nerede görse tanıyor kerata",
+  "♥️ Mahlas_name entry'ne kalbini bıraktı. Yazdıkların adamın sol tarafını sızlatmış",
+  "♥️ Mahlas_name entry'ne bir kalp kondurdu. Ağzının tadını biliyor",
+  "♥️ Mahlas_name entry'ne kalp attı. Algısı açık bir birey tespit edildi",
+  "♥️ Mahlas_name entry'ni kalplemiş. Kültür seviyesi +1 arttı",
+  "♥️ Mahlas_name entry'ne kalp attı. Annen görse gözleri dolardı",
+  "♥️ Mahlas_name entry'ne kalp bıraktı. Artık internet biraz daha yaşanabilir",
+  "♥️ Mahlas_name entry'ne kalp attı. Edebiyat kazandı",
+  "♥️ Mahlas_name entry'ne vuruldu",
+  "♥️ Mahlas_name kalbini entry'nin altına gömdü",
+  "♥️ Mahlas_name entry'nle aşk yaşadı",
+  "♥️ Mahlas_name entry'ne aşık oldu",
+  "♥️ Mahlas_name entry'nle derin bir bağ kurdu",
+  "♥️ Mahlas_name entry'ne sevdalandı",
+  "♥️ Mahlas_name her gece yatmadan senin entry'ni okuyor",
+  "♥️ Mahlas_name entry'ne kalp bıraktı. Duygularının tercümanı olmuşsun",
+  "♥️ Mahlas_name entry'ni okuyunca mutluluktan gözyaşlarına boğuldu",
+  "♥️ Mahlas_name entry'ne kalp attı. Ya nolacağdı",
+  "♥️ Mahlas_name entry'ne kalp attı, sonra da ayakta alkışladı",
+  "♥️ Mahlas_name entry'ni okurken kendinden geçti",
+  "♥️ Mahlas_name entry'ne kendi kalbini bıraktı, sonra da öldü",
+  "♥️ Mahlas_name entry'ni okuduktan sonra eliyle kalp yaptı ama çok da beceremedi",
+  "♥️ Mahlas_name entry'ni takdir ediyor",
+  "♥️ Mahlas_name entry'ni okurken sevinçten pırtlatıverdi",
+  "♥️ Mahlas_name entry'ne kalp bıraktı. Değer puanın +1 arttı",
+  "♥️ Mahlas_name entry'ne kalp bıraktı. Saygı puanın +1 arttı",
+  "♥️ Mahlas_name entry'ne kalp bıraktı. Tespit Sözlük hisseleri yükselişte",
+  "♥️ Mahlas_name entry'ne kalp bıraktı. Cidden seviliyorsun kız",
 ] as const
 
 const DISLIKE_MESSAGES = [
@@ -72,35 +72,35 @@ const SAVE_MESSAGES = [
 ] as const
 
 const FOLLOW_MESSAGES = [
-  "🕵️‍♂️ Nick_name artık ensende! Seni takip etmeye başladı",
-  "🕵️‍♂️ Nick_name peşine takıldı. Dikkatli ol",
-  "🕵️‍♂️ Nick_name hayran kulübüne katıldı",
-  "🕵️‍♂️ Nick_name seni radarına aldı, ayağını denk al",
-  "🕵️‍♂️ Birileri seni takip ediyor… Nick_name mesela",
-  "🕵️‍♂️ Nick_name seni takibe aldı. Ün yavaş yavaş geliyor",
-  "🕵️‍♂️ Nick_name seni takip ediyor. Şöhretin başlangıcı olabilir",
-  "🕵️‍♂️ Nick_name peşine düştü! Adımlarını dikkatli at, artık bir gölgen var.",
-  "🕵️‍♂️ Hayırlı olsun, Nick_name artık senin müridin",
-  "🕵️‍♂️ Nick_name senin takipçin oldu, \"parti kur oy verelim\" dedi",
-  "🕵️‍♂️ Nick_name senin fan'ın olduğunu kabul etti",
-  "🕵️‍♂️ Nick_name seni takip etti ama gt atmazsan küsecek",
-  "🕵️‍♂️ Nick_name ekibine katıldı",
+  "🕵️‍♂️ Mahlas_name artık ensende! Seni takip etmeye başladı",
+  "🕵️‍♂️ Mahlas_name peşine takıldı. Dikkatli ol",
+  "🕵️‍♂️ Mahlas_name hayran kulübüne katıldı",
+  "🕵️‍♂️ Mahlas_name seni radarına aldı, ayağını denk al",
+  "🕵️‍♂️ Birileri seni takip ediyor… Mahlas_name mesela",
+  "🕵️‍♂️ Mahlas_name seni takibe aldı. Ün yavaş yavaş geliyor",
+  "🕵️‍♂️ Mahlas_name seni takip ediyor. Şöhretin başlangıcı olabilir",
+  "🕵️‍♂️ Mahlas_name peşine düştü! Adımlarını dikkatli at, artık bir gölgen var.",
+  "🕵️‍♂️ Hayırlı olsun, Mahlas_name artık senin müridin",
+  "🕵️‍♂️ Mahlas_name senin takipçin oldu, \"parti kur oy verelim\" dedi",
+  "🕵️‍♂️ Mahlas_name senin fan'ın olduğunu kabul etti",
+  "🕵️‍♂️ Mahlas_name seni takip etti ama gt atmazsan küsecek",
+  "🕵️‍♂️ Mahlas_name ekibine katıldı",
 ] as const
 
 const MENTION_MESSAGES = [
-  "📣 Nick_name seni bir entry'de andı. Git bi bak derim",
-  "📣 Nick_name bir entry'de adını andı. Kulakların çınlıyorsa sebebi belli",
-  "📣 Adın geçti: Nick_name seni entry'de yazmış. Olay çıkabilir",
-  "📣 Nick_name bir entry'de seni anmış. Gir bak, kavga çıkabilir",
-  "📣 Nick_name bir entry'ye seni etiketledi. Kaos kokusu var",
-  "📣 Nick_name bir entry'de senden bahsetmiş. İyi mi kötü mü Allah bilir",
-  "📣 Bir entry'de adın var. Nick_name seni gündeme taşımış",
-  "📣 Nick_name bir entry'de ismini zikretti",
-  "📣 Nick_name seni etiketledi! Ya büyük bir tespitte parmağın var ya da fena patladın",
-  "📣 Nick_name bir entry'de arkandan konuştu",
-  "📣 Nick_name bir entry'de sana dümdüz kaydı, git bi bak derim",
-  "📣 Nick_name bir entry'de sana döşendi, git bi bak derim",
-  "📣 Nick_name bir entry'de adını dağlara yazdı",
+  "📣 Mahlas_name seni bir entry'de andı. Git bi bak derim",
+  "📣 Mahlas_name bir entry'de adını andı. Kulakların çınlıyorsa sebebi belli",
+  "📣 Adın geçti: Mahlas_name seni entry'de yazmış. Olay çıkabilir",
+  "📣 Mahlas_name bir entry'de seni anmış. Gir bak, kavga çıkabilir",
+  "📣 Mahlas_name bir entry'ye seni etiketledi. Kaos kokusu var",
+  "📣 Mahlas_name bir entry'de senden bahsetmiş. İyi mi kötü mü Allah bilir",
+  "📣 Bir entry'de adın var. Mahlas_name seni gündeme taşımış",
+  "📣 Mahlas_name bir entry'de ismini zikretti",
+  "📣 Mahlas_name seni etiketledi! Ya büyük bir tespitte parmağın var ya da fena patladın",
+  "📣 Mahlas_name bir entry'de arkandan konuştu",
+  "📣 Mahlas_name bir entry'de sana dümdüz kaydı, git bi bak derim",
+  "📣 Mahlas_name bir entry'de sana döşendi, git bi bak derim",
+  "📣 Mahlas_name bir entry'de adını dağlara yazdı",
 ] as const
 
 /** entry / enrty + isteğe bağlı Türkçe ek (kesme ve harfler) */
@@ -154,11 +154,11 @@ function buildNodesFromTemplate(
   inlineEntryLinkClass: string,
   onLinkClick: LinkClick,
 ): ReactNode[] {
-  const nickParts = template.split("Nick_name")
+  const mahlasParts = template.split("Mahlas_name")
   const nodes: ReactNode[] = []
-  nickParts.forEach((chunk, i) => {
+  mahlasParts.forEach((chunk, i) => {
     nodes.push(...renderChunkWithEntryLinks(chunk, entryId, inlineEntryLinkClass, onLinkClick, `c${i}`))
-    if (i < nickParts.length - 1) {
+    if (i < mahlasParts.length - 1) {
       if (authorProfileId) {
         nodes.push(
           <Link key={`n-${i}`} href={`/user/${authorProfileId}`} className={userLinkClass} onClick={onLinkClick}>
@@ -272,7 +272,7 @@ export type NotificationCopyProps = {
 
 /**
  * Şablonlu bildirim metnini yalnızca istemci mount olduktan sonra gösterir; SSR ile ilk hidrasyon çakışmasını önler.
- * İçerik/link/Nick_name/entry mantığı `renderNotificationCopy` ile aynıdır.
+ * İçerik, link, Mahlas_name yer tutucusu ve entry mantığı `renderNotificationCopy` ile aynıdır.
  */
 export function NotificationCopy(props: NotificationCopyProps) {
   const [mounted, setMounted] = useState(false)

@@ -387,12 +387,12 @@ public class UsersController : ControllerBase
         var newUsername = request?.NewUsername?.Trim();
         if (string.IsNullOrEmpty(newUsername))
         {
-            return BadRequest(new { message = "Yeni kullanıcı adı gereklidir." });
+            return BadRequest(new { message = "Yeni mahlas gereklidir." });
         }
 
         if (!IsValidUsername(newUsername))
         {
-            return BadRequest(new { message = "Kullanıcı adı en fazla 20 karakter olabilir; boşluk ve < > karakterleri içeremez." });
+            return BadRequest(new { message = "Mahlas en fazla 20 karakter olabilir; boşluk ve < > karakterleri içeremez." });
         }
 
         if (ReservedUsernames.IsReserved(newUsername))
@@ -407,12 +407,12 @@ public class UsersController : ControllerBase
         // Keskin Kural 2: HasChangedUsername kontrolü - veritabanına herhangi bir Write yapılmadan EN BAŞTA
         if (user.HasChangedUsername)
         {
-            return BadRequest(new { message = "Kullanıcı adınızı yalnızca 1 defa değiştirebilirsiniz." });
+            return BadRequest(new { message = "Mahlasınızı yalnızca 1 defa değiştirebilirsiniz." });
         }
 
         if (string.Equals(user.Username, newUsername, StringComparison.OrdinalIgnoreCase))
         {
-            return BadRequest(new { message = "Yeni kullanıcı adı mevcut adınızdan farklı olmalıdır." });
+            return BadRequest(new { message = "Yeni mahlasınız mevcut mahlasınızdan farklı olmalıdır." });
         }
 
         // Keskin Kural 1: Benzersizlik kontrolü SADECE Username (Nickname) sütunu üzerinde
@@ -421,7 +421,7 @@ public class UsersController : ControllerBase
             .AnyAsync(u => u.Username.ToLower() == newUsername.ToLower());
         if (usernameExists)
         {
-            return BadRequest(new { message = "Bu kullanıcı adı zaten kullanılıyor." });
+            return BadRequest(new { message = "Bu mahlas zaten kullanılıyor." });
         }
 
         user.Username = newUsername;
@@ -429,7 +429,7 @@ public class UsersController : ControllerBase
         user.LastName = string.Empty;
         user.HasChangedUsername = true;
         await _context.SaveChangesAsync();
-        return Ok(new { nickname = newUsername, message = "Kullanıcı adı güncellendi." });
+        return Ok(new { nickname = newUsername, message = "Mahlasınız güncellendi." });
     }
 
     [Authorize]
