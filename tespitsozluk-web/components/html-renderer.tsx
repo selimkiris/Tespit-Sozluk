@@ -71,7 +71,7 @@ export function HtmlRenderer({ html, className }: HtmlRendererProps) {
       className={cn(
         "prose prose-sm sm:prose-base dark:prose-invert dark:text-gray-100 max-w-none min-w-0 text-foreground",
         "break-words whitespace-pre-wrap overflow-x-hidden w-full max-w-full",
-        "prose-p:break-words prose-a:text-emerald-500 prose-a:font-medium prose-a:no-underline hover:prose-a:underline",
+        "prose-p:break-words prose-a:text-emerald-500 prose-a:font-medium prose-a:no-underline prose-a:underline-offset-2 prose-a:hover:underline",
         "[&_strong]:text-inherit [&_b]:text-inherit",
         className
       )}

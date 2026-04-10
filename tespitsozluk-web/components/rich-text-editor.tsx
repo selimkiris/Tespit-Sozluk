@@ -174,7 +174,7 @@ export function RichTextEditor({
           "focus:outline-none max-w-none min-w-0 w-full max-w-full break-words whitespace-pre-wrap overflow-x-hidden",
           ENTRY_BODY_TIPTAP_ROOT_CLASS,
           "[&_p]:!my-0",
-          "prose-a:text-emerald-500 prose-a:font-medium prose-a:no-underline hover:prose-a:underline",
+          "prose-a:text-emerald-500 prose-a:font-medium prose-a:no-underline prose-a:underline-offset-2 prose-a:hover:underline",
           ENTRY_BODY_RENDERER_CLASSNAME,
           contentMinHeightClass
         ),
