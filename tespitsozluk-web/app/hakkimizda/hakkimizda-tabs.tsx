@@ -2,9 +2,8 @@
 
 import type { ReactNode } from "react"
 import Link from "next/link"
-import { Info, Instagram, Mail, Scale, Sparkles, Twitter } from "lucide-react"
+import { Info, Instagram, Mail, Scale, Twitter } from "lucide-react"
 import { aboutConfig } from "@/lib/about.config"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
@@ -16,13 +15,16 @@ export function HakkimizdaTabs() {
           <Info className="h-4 w-4 shrink-0" />
           Hakkımızda
         </TabsTrigger>
-        <TabsTrigger value="kurallar" className="gap-2 py-2.5 sm:py-2">
+        <TabsTrigger
+          value="anayasa"
+          className="gap-2 py-2.5 text-center text-xs leading-tight sm:py-2 sm:text-sm"
+        >
           <Scale className="h-4 w-4 shrink-0" />
-          Kurallar & İletişim
+          Tespit Sözlük Anayasası
         </TabsTrigger>
-        <TabsTrigger value="guncellemeler" className="gap-2 py-2.5 sm:py-2">
-          <Sparkles className="h-4 w-4 shrink-0" />
-          Güncelleme Notları
+        <TabsTrigger value="iletisim" className="gap-2 py-2.5 sm:py-2">
+          <Mail className="h-4 w-4 shrink-0" />
+          İletişim
         </TabsTrigger>
       </TabsList>
 
@@ -53,25 +55,118 @@ export function HakkimizdaTabs() {
         </article>
       </TabsContent>
 
-      <TabsContent value="kurallar" className="mt-0">
-        <div className="prose prose-neutral dark:prose-invert max-w-none prose-headings:scroll-mt-24">
-          <h2>Sözlük kuralları</h2>
-          <ul className="not-prose list-none space-y-3 pl-0">
-            {aboutConfig.kurallar.map((rule, i) => (
-              <li
-                key={i}
-                className="flex gap-3 rounded-lg border border-border/60 bg-muted/30 px-4 py-3 text-sm leading-relaxed text-foreground"
-              >
-                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                  {i + 1}
-                </span>
-                <span style={{ whiteSpace: "pre-line" }}>{rule}</span>
-              </li>
-            ))}
+      <TabsContent value="anayasa" className="mt-0">
+        <article className="max-w-none scroll-mt-24">
+          <h1 className="mb-4 text-3xl font-bold tracking-tight text-foreground">
+            Tespit Sözlük Anayasası
+          </h1>
+          <p className="mb-8 text-base leading-relaxed text-muted-foreground">
+            {`Tespit Sözlük\u2019ün kuralları aslında senin kuralların. Biz burayı olgun insanların kendi iç disiplinleriyle var olacağı bir alan olarak hayal ettik. Sen kendi sınırlarını bilirsen burası dünyanın en keyifli platformu olur. Yine de bazı şeyleri netleştirmekte fayda var:`}
+          </p>
+
+          <h2 className="mt-10 mb-4 border-b border-border pb-2 text-2xl font-semibold text-foreground">
+            1. Ruh ve Format Meselesi
+          </h2>
+          <ul className="mt-4 list-none space-y-4 pl-0">
+            <li className="leading-relaxed">
+              <span className="font-bold text-foreground">Katı Kurallara Elveda: </span>
+              <span className="text-foreground/90">
+                Bildiğin o eski, bürokratik sözlük formatları burada yok. Burası yeni nesil bir
+                sözlük, Zihnin Kayda Geçtiği Yer, yani zihninden ne geçiyorsa o.
+              </span>
+            </li>
+            <li className="leading-relaxed">
+              <span className="font-bold text-foreground">Başlık Şıklığı: </span>
+              <span className="text-foreground/90">
+                Başlıklarımızın daha şık görünmesi için yeni bir başlık açarken imla kurallarına
+                uymanı ve anlatım için eğer elzem değilse tamamı büyük harflerden oluşan başlıklar
+                açmamanı bekliyoruz.
+              </span>
+            </li>
+            <li className="leading-relaxed">
+              <span className="font-bold text-foreground">Özgünlük Esastır: </span>
+              <span className="text-foreground/90">
+                Biz senin gözlemlerini, senin tespitlerini, senin fikirlerini merak ediyoruz. Başka
+                yerden kopyala-yapıştır yapılan içerikler ruhumuza aykırıdır. Tabii bazen bir yerden
+                bilgi aktarmak durumunda kalabilirsin, böyle zamanlarda da kaynak göstermek elzemdir.
+              </span>
+            </li>
           </ul>
 
-          <Separator className="my-10" />
+          <h2 className="mt-10 mb-4 border-b border-border pb-2 text-2xl font-semibold text-foreground">
+            2. Saygı ve Üslup
+          </h2>
+          <ul className="mt-4 list-none space-y-4 pl-0">
+            <li className="leading-relaxed">
+              <span className="font-bold text-foreground">Küfür Meselesi: </span>
+              <span className="text-foreground/90">
+                Argo ve küfür bizim için lisanın birer parçasıdır. Ama duracağın yeri bilmelisin:
+                Dini, milli, kutsal değerlere ve doğrudan bir yazara saldırmak, aşağılamak,
+                ağır/sinkaflı küfürler etmek yasaktır.
+              </span>
+            </li>
+            <li className="leading-relaxed">
+              <span className="font-bold text-foreground">Gizlilik Kutsaldır: </span>
+              <span className="text-foreground/90">
+                Yazarların gerçek kimliklerini ifşa etmek (doxxing) kesinlikle yasaktır.
+              </span>
+            </li>
+          </ul>
 
+          <h2 className="mt-10 mb-4 border-b border-border pb-2 text-2xl font-semibold text-foreground">
+            3. Düzen ve İçerik Kalitesi
+          </h2>
+          <ul className="mt-4 list-none space-y-4 pl-0">
+            <li className="leading-relaxed">
+              <span className="font-bold text-foreground">Arama Yapmadan Geçme: </span>
+              <span className="text-foreground/90">
+                Bilgi kirliliği zihin yorar. Yeni bir başlık açmadan önce mutlaka arama yapmalısın.
+                Aynı şeyi birebir anlatan başka başlıklar açmamalısın.
+              </span>
+            </li>
+            <li className="leading-relaxed">
+              <span className="font-bold text-foreground">{`İçi boş entry\u2019ler: `}</span>
+              <span className="text-foreground/90">
+                {`Sadece "+1", "rez", "aynen" gibi hiçbir beyin kullanımı içermeyen entry\u2019ler silinebilir.`}
+              </span>
+            </li>
+            <li className="leading-relaxed">
+              <span className="font-bold text-foreground">+18 İçerikler: </span>
+              <span className="text-foreground/90">
+                {`Şiddet, korku, vahşet, kan, cinsellik içeren paylaşımlarda "+18 (Sebebi)" şeklinde ibare koymak zorunludur. Kimseyi hazırlıksız yakalamayalım.`}
+              </span>
+            </li>
+          </ul>
+
+          <h2 className="mt-10 mb-4 border-b border-border pb-2 text-2xl font-semibold text-foreground">
+            4. Etik ve Güvenlik
+          </h2>
+          <ul className="mt-4 list-none space-y-4 pl-0">
+            <li className="leading-relaxed">
+              <span className="font-bold text-foreground">Hukuki Sorumluluk: </span>
+              <span className="text-foreground/90">
+                Paylaşılan her türlü içeriğin Türkiye Cumhuriyeti yasalarına uygun olması gerekir.
+                Hukuki sorumluluk tamamen yazarlara aittir.
+              </span>
+            </li>
+            <li className="leading-relaxed">
+              <span className="font-bold text-foreground">Manipülasyona Hayır: </span>
+              <span className="text-foreground/90">
+                {`Bir yazarın birden fazla hesapla gündem oluşturmaya çalışması, kendi entry\u2019lerini parlatması veya topluluğu yalan haberlerle (fake news) galeyana getirmeye çalışması yasaktır.`}
+              </span>
+            </li>
+            <li className="leading-relaxed">
+              <span className="font-bold text-foreground">Yaş Sınırı: </span>
+              <span className="text-foreground/90">
+                Tespit Sözlük, içeriği itibarıyla 18 yaşından küçük dostlarımız için uygun değildir.
+              </span>
+            </li>
+          </ul>
+        </article>
+      </TabsContent>
+
+      <TabsContent value="iletisim" className="mt-0">
+        <div className="prose prose-neutral dark:prose-invert max-w-none prose-headings:scroll-mt-24">
           <h2>İletişim</h2>
           <p className="text-muted-foreground">
             Genel sorularınız, önerileriniz, şikayetleriniz, teknik sorunlarınız ve iş birliği için
@@ -122,38 +217,6 @@ export function HakkimizdaTabs() {
             )
           })()}
         </div>
-      </TabsContent>
-
-      <TabsContent value="guncellemeler" className="mt-0">
-        <div className="prose prose-neutral dark:prose-invert max-w-none">
-          <h2>Güncelleme notları</h2>
-        </div>
-        <ol className="mt-6 space-y-4">
-          {aboutConfig.guncellemeNotlari.map((release) => (
-            <li key={release.versiyon}>
-              <Card className="border-border/80 shadow-sm">
-                <CardHeader className="pb-3">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <CardTitle className="text-lg">Sürüm {release.versiyon}</CardTitle>
-                    <time
-                      dateTime={release.tarih}
-                      className="text-xs tabular-nums text-muted-foreground"
-                    >
-                      {release.tarih}
-                    </time>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <ul className="list-disc space-y-1.5 pl-5 text-sm text-foreground">
-                    {release.notlar.map((line, idx) => (
-                      <li key={idx}>{line}</li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            </li>
-          ))}
-        </ol>
       </TabsContent>
     </Tabs>
   )

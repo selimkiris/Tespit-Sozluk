@@ -30,20 +30,6 @@ Ya da sadece başkalarını okuyabilirsiniz; bu da tamamen geçerli bir kullanı
 Kısacası Tespit Sözlük'ün sınırını kategoriler değil, içeriğin ruhu belirler.
 `,
   },
-  kurallar: [
-    `Tespit Sözlük'ün kuralları aslında senin kuralların; çünkü olgun insanlar kendi kurallarını zaten koymuş ve içselleştirmiş olur. Sen kendi kurallarına uyarsan burası dünyanın en güzel platformu olur.
-`,
-  ],
-  guncellemeNotlari: [
-    {
-      versiyon: "1.0.0",
-      tarih: "23.03.2026",
-      notlar: [
-        "Daha yeni açıldık, güncelleme yok :)",
-      ],
-    },
-    
-  ],
   iletisim: {
     email: "tespitsozluk@gmail.com",
   },
