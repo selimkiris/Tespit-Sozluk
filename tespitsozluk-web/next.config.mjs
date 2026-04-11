@@ -1,5 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    /**
+     * İstek gövdesinin proxy/buffer katmanında kesilmesini önler (Next 16+).
+     * Ham dosya + multipart için en az 10MB; biraz pay bırakıldı.
+     */
+    proxyClientMaxBodySize: '12mb',
+    serverActions: {
+      bodySizeLimit: '12mb',
+    },
+  },
   typescript: {
     ignoreBuildErrors: true,
   },

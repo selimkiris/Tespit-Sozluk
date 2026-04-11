@@ -5,6 +5,7 @@ import { useEditor, EditorContent } from "@tiptap/react"
 import type { Editor } from "@tiptap/core"
 import StarterKit from "@tiptap/starter-kit"
 import HardBreak from "@tiptap/extension-hard-break"
+import Image from "@tiptap/extension-image"
 import Placeholder from "@tiptap/extension-placeholder"
 import {
   Bold,
@@ -15,7 +16,9 @@ import {
   Youtube as YoutubeIcon,
   Smile,
   EyeOff,
+  Loader2,
 } from "lucide-react"
+import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import {
   ENTRY_BODY_RENDERER_CLASSNAME,
@@ -44,6 +47,11 @@ import Picker from "@emoji-mart/react"
 import { escapeHtmlText } from "@/lib/entry-body-link-transforms"
 import { EditorLink } from "@/components/tiptap-extensions/editor-link"
 import { useEntryPatternExistsValidation } from "@/hooks/use-entry-pattern-exists-validation"
+import {
+  editorImageHtmlToMarkdownText,
+  entryBodyCharCount,
+  storedHtmlToEditorImageHtml,
+} from "@/lib/tiptap-entry-image-markdown"
 
 /** Enter = Shift+Enter: yeni paragraf değil, satır sonu (<br>). Mention açıkken Enter seçim için handleKeyDown’da ayrılır. */
 const EntryBodyHardBreak = HardBreak.extend({
@@ -102,6 +110,14 @@ function ensureHtml(value: string): string {
   return `<p>${value.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`
 }
 
+const EDITOR_INLINE_IMAGE_CLASS =
+  "!inline w-[1.2em] h-[1.2em] max-h-[1em] object-cover rounded-sm align-middle mx-1 border border-muted-foreground/10 hover:opacity-80 transition-opacity !m-0"
+
+function toTipTapEditorHtml(raw: string): string {
+  const h = ensureHtml(raw)
+  return storedHtmlToEditorImageHtml(editorImageHtmlToMarkdownText(h), EDITOR_INLINE_IMAGE_CLASS)
+}
+
 export function RichTextEditor({
   value,
   onChange,
@@ -115,6 +131,9 @@ export function RichTextEditor({
   const [emojiOpen, setEmojiOpen] = useState(false)
   const [linkModalOpen, setLinkModalOpen] = useState(false)
   const [mediaModal, setMediaModal] = useState<{ type: "image" | "video" } | null>(null)
+  const [imageUploading, setImageUploading] = useState(false)
+  const [imageUploadBatchTotal, setImageUploadBatchTotal] = useState(0)
+  const imageFileInputRef = useRef<HTMLInputElement>(null)
   const [linkData, setLinkData] = useState({ text: "", url: "" })
   const [charCount, setCharCount] = useState(0)
   const charCountRef = useRef(0)
@@ -183,9 +202,16 @@ export function RichTextEditor({
       Placeholder.configure({
         placeholder: placeholder ?? "düşüncelerinizi yazın...",
       }),
+      Image.configure({
+        inline: true,
+        allowBase64: false,
+        HTMLAttributes: {
+          class: EDITOR_INLINE_IMAGE_CLASS,
+        },
+      }),
       SpoilerMark,
     ],
-    content: ensureHtml(value),
+    content: toTipTapEditorHtml(value),
     editorProps: {
       attributes: {
         class: cn(
@@ -194,6 +220,7 @@ export function RichTextEditor({
           "prose-a:text-emerald-500 prose-a:font-medium prose-a:no-underline prose-a:underline-offset-2 prose-a:hover:underline",
           ENTRY_BODY_RENDERER_CLASSNAME,
           "[&_p]:!text-foreground [&_li]:!text-foreground [&_blockquote]:!text-foreground",
+          "[&_.ProseMirror-selectednode]:ring-2 [&_.ProseMirror-selectednode]:ring-ring [&_.ProseMirror-selectednode]:ring-offset-2 [&_.ProseMirror-selectednode]:ring-offset-background [&_.ProseMirror-selectednode]:rounded-sm",
           contentMinHeightClass
         ),
       },
@@ -256,11 +283,11 @@ export function RichTextEditor({
       },
     },
     onCreate: ({ editor }) => {
-      updateCharCount(editor.getText().length)
+      updateCharCount(entryBodyCharCount(editor))
     },
     onUpdate: ({ editor }) => {
-      updateCharCount(editor.getText().length)
-      onChange(editor.getHTML())
+      updateCharCount(entryBodyCharCount(editor))
+      onChange(editorImageHtmlToMarkdownText(editor.getHTML()))
     },
   })
 
@@ -358,12 +385,12 @@ export function RichTextEditor({
 
   useEffect(() => {
     if (!editor) return
-    const target = ensureHtml(value)
-    const current = editor.getHTML()
-    if (target !== current) {
-      editor.commands.setContent(target, { emitUpdate: false })
-    }
-  }, [value, editor])
+    const persisted = editorImageHtmlToMarkdownText(ensureHtml(value))
+    const fromEditor = editorImageHtmlToMarkdownText(editor.getHTML())
+    if (persisted === fromEditor) return
+    editor.commands.setContent(toTipTapEditorHtml(value), { emitUpdate: false })
+    updateCharCount(entryBodyCharCount(editor))
+  }, [value, editor, updateCharCount])
 
   const openLinkModal = useCallback(() => {
     setLinkData({ text: "", url: "" })
@@ -381,8 +408,105 @@ export function RichTextEditor({
     setLinkData({ text: "", url: "" })
   }, [editor, linkData])
 
-  const openImageGuide = useCallback(() => setMediaModal({ type: "image" }), [])
-  const openVideoGuide = useCallback(() => setMediaModal({ type: "video" }), [])
+  const openImageGuide = useCallback(() => {
+    setImageUploading(false)
+    setImageUploadBatchTotal(0)
+    setMediaModal({ type: "image" })
+  }, [])
+  const openVideoGuide = useCallback(() => {
+    setImageUploading(false)
+    setImageUploadBatchTotal(0)
+    setMediaModal({ type: "video" })
+  }, [])
+
+  const closeMediaModal = useCallback(() => {
+    setMediaModal(null)
+    setImageUploading(false)
+    setImageUploadBatchTotal(0)
+  }, [])
+
+  const handleImageFilesSelected = useCallback(
+    async (files: File[]) => {
+      if (!editor) return
+      const imageFiles = files.filter((f) => f.type.startsWith("image/"))
+      if (imageFiles.length === 0) {
+        toast.error("Lütfen en az bir görsel dosyası seçin.")
+        return
+      }
+      setImageUploading(true)
+      setImageUploadBatchTotal(imageFiles.length)
+      try {
+        const urls = (
+          await Promise.all(
+            imageFiles.map(async (file) => {
+              try {
+                const fd = new FormData()
+                fd.append("image", file)
+                const res = await fetch("/api/upload-imgbb", {
+                  method: "POST",
+                  body: fd,
+                })
+                const data: unknown = await res.json().catch(() => ({}))
+                if (!res.ok) {
+                  return null
+                }
+                const url =
+                  typeof data === "object" && data !== null && "url" in data
+                    ? (data as { url?: unknown }).url
+                    : undefined
+                if (typeof url !== "string" || !url.trim()) return null
+                return url.trim()
+              } catch {
+                return null
+              }
+            }),
+          )
+        ).filter((u): u is string => u != null)
+
+        if (urls.length === 0) {
+          toast.error("Görseller yüklenemedi.")
+          return
+        }
+        if (urls.length < imageFiles.length) {
+          toast.warning("Bazı görseller yüklenemedi.")
+        }
+        const markdown = urls.map((u) => `![Görsel](${u})`).join(" ")
+        const html = storedHtmlToEditorImageHtml(markdown, EDITOR_INLINE_IMAGE_CLASS)
+        editor.chain().focus().insertContent(html).run()
+        closeMediaModal()
+      } catch {
+        toast.error("Görsel yüklenemedi.")
+      } finally {
+        setImageUploading(false)
+        setImageUploadBatchTotal(0)
+      }
+    },
+    [editor, closeMediaModal],
+  )
+
+  const onImageFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const rawFiles = e.target.files
+      if (!rawFiles) return
+      const filesArray = Array.from(rawFiles)
+      e.target.value = ""
+      void handleImageFilesSelected(filesArray)
+    },
+    [handleImageFilesSelected],
+  )
+
+  const onImageDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (imageUploading) return
+      const rawFiles = e.dataTransfer.files
+      if (!rawFiles) return
+      const filesArray = Array.from(rawFiles)
+      void handleImageFilesSelected(filesArray)
+    },
+    [handleImageFilesSelected, imageUploading],
+  )
 
   const insertEmoji = useCallback(
     (emoji: { native?: string }) => {
@@ -462,7 +586,7 @@ export function RichTextEditor({
         <ToolbarButton onClick={openLinkModal} title="Link Ekle">
           <LinkIcon className="h-4 w-4" />
         </ToolbarButton>
-        <ToolbarButton onClick={openImageGuide} title="Fotoğraf Rehberi">
+        <ToolbarButton onClick={openImageGuide} title="Fotoğraf Ekle">
           <ImageIcon className="h-4 w-4" />
         </ToolbarButton>
         <ToolbarButton onClick={openVideoGuide} title="Video Rehberi">
@@ -629,63 +753,151 @@ export function RichTextEditor({
       </Dialog>
 
       {/* Fotoğraf/Video Rehberi Modalı */}
-      <Dialog open={!!mediaModal} onOpenChange={(open) => !open && setMediaModal(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {mediaModal?.type === "image" ? "🖼️ Fotoğraf Yükleme Rehberi" : "🎬 Video Yükleme Rehberi"}
+      <Dialog
+        open={!!mediaModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            if (mediaModal?.type === "image" && imageUploading) return
+            closeMediaModal()
+          }
+        }}
+      >
+        <DialogContent
+          className={cn(
+            mediaModal?.type === "image" ? "sm:max-w-sm gap-3 p-4" : "sm:max-w-md",
+          )}
+          showCloseButton={!(mediaModal?.type === "image" && imageUploading)}
+          onPointerDownOutside={(e) => {
+            if (mediaModal?.type === "image" && imageUploading) e.preventDefault()
+          }}
+          onEscapeKeyDown={(e) => {
+            if (mediaModal?.type === "image" && imageUploading) e.preventDefault()
+          }}
+        >
+          <DialogHeader className={mediaModal?.type === "image" ? "space-y-0 pb-0" : undefined}>
+            <DialogTitle className={mediaModal?.type === "image" ? "text-base" : undefined}>
+              {mediaModal?.type === "image" ? "🖼️ Fotoğraf Ekle" : "🎬 Video Yükleme Rehberi"}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className={cn(mediaModal?.type === "image" ? "py-0" : "space-y-4 py-2")}>
             {mediaModal?.type === "image" ? (
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Sunucu hızımızı korumak için doğrudan fotoğraf yüklemeyi kapattık. Lütfen fotoğrafınızı{" "}
-                <a
-                  href="https://imgbb.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-500 hover:underline"
+              <div className="space-y-2">
+                <input
+                  ref={imageFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="sr-only"
+                  tabIndex={-1}
+                  disabled={imageUploading}
+                  onChange={onImageFileInputChange}
+                />
+                <div
+                  role="presentation"
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }}
+                  onDrop={onImageDrop}
+                  className={cn(
+                    "rounded-md border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground transition-colors",
+                    imageUploading && "pointer-events-none opacity-70",
+                  )}
                 >
-                  imgbb.com
-                </a>{" "}
-                adresine yükleyin (&quot;Gömme kodları&quot; seçeneğinden &quot;Görüntüleyici bağlantıları&quot; kısmını
-                seçiniz) daha sonra aldığınız linki &quot;Link Ekle&quot; aracıyla entry&apos;nize ekleyin.
-              </p>
+                  {imageUploading ? (
+                    <p className="flex items-center justify-center gap-2 text-sm">
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                      {imageUploadBatchTotal > 1
+                        ? `${imageUploadBatchTotal} fotoğraf yükleniyor…`
+                        : "Yükleniyor…"}
+                    </p>
+                  ) : (
+                    <>
+                      <p className="mb-2 leading-snug">
+                        Görselleri buraya sürükleyip bırakın veya birden fazla dosya seçin.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8"
+                        disabled={imageUploading}
+                        onClick={() => imageFileInputRef.current?.click()}
+                      >
+                        Cihazdan seç
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
             ) : (
-              <div className="text-sm text-muted-foreground leading-relaxed">
+              <div className="text-sm text-muted-foreground leading-relaxed space-y-4">
                 <p>
-                  Videonuzun boyutuna ve süresine göre aşağıdaki servislerden birine yükleme yapıp, aldığınız linki
-                  &quot;Link Ekle&quot; aracıyla entry&apos;nize ekleyebilirsiniz.
+                  Sunucu hızımızı korumak için doğrudan video yüklemeyi kapattık.
                 </p>
-                <br />
                 <p>
-                  200 MB Altı Videolar İçin (Kalıcı yükleme) —{" "}
-                  <a
-                    href="https://catbox.moe"
-                    target="_blank"
-                    className="text-blue-500 hover:underline"
-                    rel="noopener noreferrer"
-                  >
-                    catbox.moe
-                  </a>
+                  Videonuzun boyutuna ve süresine göre aşağıdaki servislerden birine yükleme yapıp, aldığınız linki{" "}
+                  <strong className="font-semibold text-foreground">&quot;Link Ekle&quot;</strong> aracıyla
+                  entry&apos;nize ekleyebilirsiniz.
                 </p>
-                <br />
-                <p>
-                  MB Sınırı yok, 10 Dakika altındaki Videolar için (90 Gün Sonra Silinir) —{" "}
-                  <a
-                    href="https://streamable.com"
-                    target="_blank"
-                    className="text-blue-500 hover:underline"
-                    rel="noopener noreferrer"
-                  >
-                    streamable.com
-                  </a>
-                </p>
+                <ul className="list-disc space-y-3 pl-5 marker:text-muted-foreground">
+                  <li className="pl-1">
+                    <strong className="font-semibold text-foreground">200 MB Altı Videolar İçin</strong>{" "}
+                    <span className="font-normal text-muted-foreground text-sm">(Kalıcı yükleme)</span>
+                    {" — "}
+                    <a
+                      href="https://catbox.moe"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:underline"
+                    >
+                      catbox.moe
+                    </a>
+                  </li>
+                  <li className="pl-1">
+                    <strong className="font-semibold text-foreground">
+                      MB Sınırı yok, 10 Dakika altındaki Videolar için
+                    </strong>{" "}
+                    <span className="font-normal text-muted-foreground text-sm">(90 Gün Sonra Silinir)</span>
+                    {" — "}
+                    <a
+                      href="https://streamable.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:underline"
+                    >
+                      streamable.com
+                    </a>
+                  </li>
+                  <li className="pl-1">
+                    <strong className="font-semibold text-foreground">Sınırsız</strong>{" "}
+                    <span className="font-normal text-muted-foreground text-sm">
+                      (Videonuzu &quot;Liste dışı&quot; olarak yüklerseniz sadece linke tıklayanlar erişebilir. Kanal
+                      isminizin görünür olacağını unutmayın)
+                    </span>
+                    {" — "}
+                    <a
+                      href="https://www.youtube.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:underline"
+                    >
+                      youtube.com
+                    </a>
+                  </li>
+                </ul>
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button onClick={() => setMediaModal(null)}>Kapat</Button>
+          <DialogFooter className={mediaModal?.type === "image" ? "mt-2 gap-2 sm:mt-2" : undefined}>
+            <Button
+              variant="outline"
+              size={mediaModal?.type === "image" ? "sm" : "default"}
+              disabled={imageUploading}
+              onClick={closeMediaModal}
+            >
+              Kapat
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

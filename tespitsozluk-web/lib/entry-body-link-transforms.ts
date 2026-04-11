@@ -8,6 +8,32 @@ export function escapeHtmlText(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 }
 
+export function escapeHtmlAttr(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/\r|\n/g, " ")
+}
+
+/**
+ * TipTap’ta eklenen `![alt](https://...)` görsellerini küçük kare önizleme + tıklanınca lightbox (HtmlRenderer).
+ */
+export function applyMarkdownImages(html: string): string {
+  const thumbImgClass =
+    "!inline w-[1.2em] h-[1.2em] max-h-[1em] object-cover rounded-sm align-middle mx-1 border border-muted-foreground/10 hover:opacity-80 transition-opacity !m-0"
+  const thumbLinkClass = "!inline !m-0 align-middle"
+  return html.replace(
+    /!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/gi,
+    (_full, altRaw: string, srcRaw: string) => {
+      const alt = escapeHtmlAttr((altRaw ?? "").trim() || "Görsel")
+      const href = escapeHtmlAttr(srcRaw.trim())
+      const img = `<img src="${href}" alt="${alt}" class="${thumbImgClass}" loading="lazy" referrerpolicy="no-referrer" />`
+      return `<a href="${href}" data-entry-image-lightbox="1" rel="noopener noreferrer" class="${thumbLinkClass}">${img}</a>`
+    },
+  )
+}
+
 const EMERALD_LINK_CLASS = "text-emerald-500 font-medium hover:underline"
 
 /**
