@@ -630,12 +630,12 @@ export function TopicDetail({
                   )}
                 </span>
                 {mergedTopic.isAnonymous ? (
-                  <span className="font-bold text-foreground max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap inline-block">Anonim</span>
+                  <span className="text-sm font-normal text-foreground max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap inline-block leading-tight">Anonim</span>
                 ) : mergedTopic.authorId ? (
                   <button
                     type="button"
                     onClick={() => router.push(`/user/${mergedTopic.authorId}`)}
-                    className="font-bold text-foreground hover:underline underline-offset-2 max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap inline-block min-w-0 text-left"
+                    className="text-sm font-normal text-foreground hover:underline underline-offset-2 max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap inline-block min-w-0 text-left leading-tight"
                   >
                     {topicAuthorDisplay}
                   </button>
