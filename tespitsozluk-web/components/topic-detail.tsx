@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, Bell, BellOff, Search, Flag, ShieldAlert, FolderOutput, User } from "lucide-react"
-import { ShareMenu } from "@/components/share-menu"
+import { ShareMenuSub } from "@/components/share-menu"
 import { getApiUrl, apiFetch, getSiteUrl } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { EntryCard } from "@/components/entry-card"
@@ -599,7 +599,7 @@ export function TopicDetail({
             )}
           </div>
 
-          {/* Sağ: soldan sağa — Mahlas+Avatar | Tarih | Paylaş | (Admin) | Üç nokta (en sağ) */}
+          {/* Sağ: soldan sağa — Mahlas+Avatar | Tarih | (Admin) | Üç nokta (Paylaş dahil, en sağ) */}
           <div className="flex flex-wrap items-center justify-end gap-x-1.5 gap-y-1 min-w-0">
             {(mergedTopic.authorId || mergedTopic.isAnonymous) && (
               <span className="flex items-center gap-1.5 min-w-0 max-w-[320px]">
@@ -648,11 +648,6 @@ export function TopicDetail({
                 {topicOpenedLabel}
               </span>
             )}
-
-            <ShareMenu
-              url={`${getSiteUrl()}/?topic=${topic.id}`}
-              title={`${mergedTopic.title} | Tespit Sözlük`}
-            />
 
             {/* Admin menüsü — üç noktanın solunda */}
             {isAdmin && (
@@ -708,8 +703,12 @@ export function TopicDetail({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <ShareMenuSub
+                  url={`${getSiteUrl()}/?topic=${topic.id}`}
+                  title={`${mergedTopic.title} | Tespit Sözlük`}
+                />
                 <DropdownMenuItem
-                  className="cursor-pointer"
+                  className="cursor-pointer font-normal"
                   onClick={() => setIsReportOpen(true)}
                 >
                   <Flag className="h-4 w-4" />

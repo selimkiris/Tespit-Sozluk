@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Heart, MoreHorizontal, Pencil, Trash2, User, Users, Flag, ShieldX, BadgeCheck } from "lucide-react"
-import { ShareMenu } from "@/components/share-menu"
+import { ShareMenuSub } from "@/components/share-menu"
 import { getApiUrl, apiFetch, getSiteUrl } from "@/lib/api"
 import { CiviIcon } from "@/components/icons/CiviIcon"
 import { AyakIcon } from "@/components/icons/AyakIcon"
@@ -489,15 +489,7 @@ export function EntryCard({
             )}
           </div>
 
-          {/* Share */}
-          <ShareMenu
-            url={`${getSiteUrl()}/entry/${entry.id}`}
-            title={`${entry.topicTitle} - ${entry.author?.nickname ?? "Anonim"} | Tespit Sözlük`}
-            className="text-[#7c8190] text-[13px] hover:text-[#c2c6cf] px-1.5 py-1 rounded-lg hover:bg-muted/60 transition-colors"
-            tooltipTitle="Paylaş"
-          />
-
-          {/* Options: tek menü — sahibiyse yönetim + herkese şikayet + admin sil */}
+          {/* Options: tek menü — Paylaş + sahibiyse yönetim + şikayet + admin sil */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -528,6 +520,10 @@ export function EntryCard({
                   <DropdownMenuSeparator />
                 </>
               )}
+              <ShareMenuSub
+                url={`${getSiteUrl()}/entry/${entry.id}`}
+                title={`${entry.topicTitle} - ${entry.author?.nickname ?? "Anonim"} | Tespit Sözlük`}
+              />
               <DropdownMenuItem onClick={() => setIsReportOpen(true)}>
                 <Flag className="h-4 w-4" />
                 Şikayet Et

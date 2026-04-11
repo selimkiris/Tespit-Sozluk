@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { Copy, Share2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 
@@ -43,25 +42,15 @@ function WhatsAppIcon({ className }: { className?: string }) {
   )
 }
 
-interface ShareMenuProps {
+interface ShareMenuSubProps {
   url: string
   title: string
-  /** Ek sınıf (örn. ikon boyutu) */
-  className?: string
-  variant?: "default" | "ghost"
-  size?: "default" | "sm" | "icon"
-  /** Tarayıcı yerleşik tooltip için title attribute */
-  tooltipTitle?: string
 }
 
-export function ShareMenu({
-  url,
-  title,
-  className,
-  variant = "ghost",
-  size = "icon",
-  tooltipTitle,
-}: ShareMenuProps) {
+/**
+ * Üst bir DropdownMenu içine yerleştirin: "Paylaş" alt menüsü (kopyala, X, WhatsApp, yerel paylaşım).
+ */
+export function ShareMenuSub({ url, title }: ShareMenuSubProps) {
   const [copied, setCopied] = useState(false)
   const [canNativeShare, setCanNativeShare] = useState(false)
   useEffect(() => {
@@ -74,7 +63,6 @@ export function ShareMenu({
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      // fallback: execCommand
       const ta = document.createElement("textarea")
       ta.value = url
       document.body.appendChild(ta)
@@ -109,38 +97,60 @@ export function ShareMenu({
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant={variant}
-          size={size}
-          className={`text-muted-foreground hover:text-foreground ${className ?? ""}`}
-          aria-label="Paylaş"
-          title={tooltipTitle}
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger className="cursor-pointer font-normal text-sm">
+        <Share2 className="mr-2 h-4 w-4" />
+        <span>Paylaş</span>
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent
+        className="z-[100] min-w-[8rem] overflow-hidden"
+        sideOffset={4}
+        alignOffset={0}
+      >
+        <DropdownMenuItem
+          className="cursor-pointer font-normal text-sm"
+          onSelect={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            void handleCopyLink()
+          }}
         >
-          <Share2 className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={handleCopyLink} className="cursor-pointer">
           <Copy className="size-4 text-muted-foreground" aria-hidden />
-          <span>{copied ? "Kopyalandı ✓" : "Bağlantıyı Kopyala"}</span>
+          <span>{copied ? "Kopyalandı \u2713" : "Bağlantıyı Kopyala"}</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleTwitter} className="cursor-pointer">
+        <DropdownMenuItem
+          className="cursor-pointer font-normal text-sm"
+          onSelect={(e) => {
+            e.stopPropagation()
+            handleTwitter()
+          }}
+        >
           <XLogoIcon className="text-foreground" />
           <span>X&apos;te (Twitter) Paylaş</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleWhatsApp} className="cursor-pointer">
+        <DropdownMenuItem
+          className="cursor-pointer font-normal text-sm"
+          onSelect={(e) => {
+            e.stopPropagation()
+            handleWhatsApp()
+          }}
+        >
           <WhatsAppIcon className="text-[#25D366]" />
           <span>WhatsApp&apos;ta Paylaş</span>
         </DropdownMenuItem>
         {canNativeShare && (
-          <DropdownMenuItem onClick={handleNativeShare} className="cursor-pointer">
+          <DropdownMenuItem
+            className="cursor-pointer font-normal text-sm"
+            onSelect={(e) => {
+              e.stopPropagation()
+              void handleNativeShare()
+            }}
+          >
             <Share2 className="size-4 text-muted-foreground" aria-hidden />
             <span>Diğer Uygulamalar</span>
           </DropdownMenuItem>
         )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
   )
 }
