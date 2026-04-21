@@ -8,6 +8,8 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export function HakkimizdaTabs() {
+  const m = aboutConfig.manifesto
+
   return (
     <Tabs defaultValue="hakkimizda" className="w-full gap-6">
       <TabsList className="grid h-auto w-full grid-cols-1 gap-2 bg-muted/60 p-1 sm:grid-cols-3 sm:gap-1">
@@ -29,29 +31,75 @@ export function HakkimizdaTabs() {
       </TabsList>
 
       <TabsContent value="hakkimizda" className="mt-0">
-        <article className="prose prose-neutral dark:prose-invert max-w-none prose-headings:scroll-mt-24 prose-p:leading-relaxed">
-          <h2>{aboutConfig.nedir.baslik}</h2>
-          <p style={{ whiteSpace: "pre-line" }}>{aboutConfig.nedir.paragraf}</p>
-          <Separator className="my-8" />
-          <h2>{aboutConfig.nedenKuruldu.baslik}</h2>
-          <p style={{ whiteSpace: "pre-line" }}>{aboutConfig.nedenKuruldu.paragraf}</p>
-          <div className="not-prose">
-            <h3 className="mt-10 mb-4 text-xl font-bold text-foreground">
-              Tespit Sözlük Ne Yapmak, Nereye Varmak İstemektedir!
-            </h3>
-            <p className="leading-relaxed">
-              Tespit Sözlük, o büyük ve çok kalabalık sözlüklere rakip veya ileride rakip olmayı
-              hedefleyerek çıkmış bir platform değil; aksine bu sözlüklerin ilk zamanlarını hasretle
-              anan, o küçük ama kaliteli kitleyi özleyen ve şu an hâlâ böyle bir kitlenin var
-              olduğuna inanan bir platform.
+        <article className="prose prose-neutral dark:prose-invert max-w-none prose-headings:scroll-mt-24 prose-p:mb-4 prose-p:mt-0 prose-p:leading-relaxed">
+          <h2 className="!mb-4 text-2xl font-bold tracking-tight text-foreground">
+            {m.nedir.baslik}
+          </h2>
+          <p className="text-foreground/95 text-[17px] leading-8">
+            {m.nedir.giris}
+          </p>
+          {m.nedir.burasi.map((paragraf, i) => (
+            <p
+              key={i}
+              className={
+                i === m.nedir.burasi.length - 1
+                  ? "text-foreground text-[17px] leading-8 font-bold"
+                  : "text-foreground/95 text-[17px] leading-8"
+              }
+            >
+              {paragraf}
             </p>
-            <p className="mt-4 leading-relaxed">
-              Bu sebepledir ki amacımız hiçbir zaman çok büyük kitlelere ulaşmak ve parayı kırmak
-              değil; bizim amacımız bizim gibi düşünen, üretmeyi, faydalı olmayı, paylaşmayı seven,
-              mizahı anlayan, hayata farklı bir yerden bakmaya cesaret edebilen insanlarla birlikte bu
-              platformda birleşmek ve bu çizgide büyümek.
+          ))}
+
+          <Separator className="my-10" />
+
+          <h2 className="!mb-5 !mt-12 text-2xl font-bold tracking-tight text-foreground">
+            {m.nelerYapilir.baslik}
+          </h2>
+          {m.nelerYapilir.giris.map((g, i) => {
+            const vurgu = "Öncelikle ne yapmak istersen onu yaparsın."
+            const devam =
+              g.startsWith(vurgu) ? g.slice(vurgu.length).trim() : g
+            return (
+              <p key={i} className="text-foreground/95 text-[17px] leading-8">
+                {g.startsWith(vurgu) ? (
+                  <>
+                    <strong className="font-semibold text-foreground">{vurgu}</strong>{" "}
+                    {devam}
+                  </>
+                ) : (
+                  g
+                )}
+              </p>
+            )
+          })}
+
+          <ul className="not-prose my-8 list-disc space-y-4 pl-6 text-[17px] leading-8 text-foreground/95 marker:text-foreground">
+            {m.nelerYapilir.maddeler.map((text, i) => (
+              <li key={i} className="pl-1">
+                {text}
+              </li>
+            ))}
+          </ul>
+
+          <p className="text-foreground/95 text-[17px] leading-8">
+            {m.nelerYapilir.ozet}
+          </p>
+
+          <h2 className="!mb-5 !mt-14 text-2xl font-bold tracking-tight text-foreground">
+            {m.amac.baslik}
+          </h2>
+          {m.amac.paragraflar.map((p, i) => (
+            <p key={i} className="text-foreground/95 text-[17px] leading-8">
+              {p}
             </p>
-          </div>
+          ))}
+          <p className="text-foreground/95 text-[17px] leading-8">
+            {m.amac.kapanisGiris}
+          </p>
+          <p className="text-foreground/95 text-[17px] leading-8">
+            {m.amac.kapanisVurgu}
+          </p>
         </article>
       </TabsContent>
 

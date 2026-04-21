@@ -114,6 +114,7 @@ export function WelcomeModal() {
   }
 
   const { content, title } = welcomeConfig
+  const m = content
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -127,49 +128,44 @@ export function WelcomeModal() {
           </DialogTitle>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-          <div className="space-y-6 text-sm leading-relaxed text-muted-foreground">
-            <section className="space-y-2">
-              <h3 className="text-foreground text-base font-semibold">
-                {content.nedir.heading}
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <div className="space-y-7 text-sm leading-relaxed text-muted-foreground">
+            <section className="space-y-3">
+              <h3 className="text-foreground text-base font-semibold tracking-tight">
+                {m.nedir.baslik}
               </h3>
-              {content.nedir.body.split('\n\n').map((p, i) => (
-                <p key={`nedir-${i}`} style={{ whiteSpace: 'pre-line' }}>
-                  {p}
-                </p>
+              <p>{m.nedir.giris}</p>
+              {m.nedir.burasi.map((p, i) => (
+                <p key={`burasi-${i}`}>{p}</p>
               ))}
             </section>
-            <section className="space-y-2">
-              <h3 className="text-foreground text-base font-semibold">
-                {content.nedenKuruldu.heading}
+
+            <section className="space-y-3">
+              <h3 className="text-foreground text-base font-semibold tracking-tight">
+                {m.nelerYapilir.baslik}
               </h3>
-              {content.nedenKuruldu.body.split('\n\n').map((p, i) => (
-                <p key={`neden-${i}`} style={{ whiteSpace: 'pre-line' }}>
-                  {p}
-                </p>
+              {m.nelerYapilir.giris.map((p, i) => (
+                <p key={`ny-giris-${i}`}>{p}</p>
               ))}
+              <ul className="list-disc space-y-2.5 pl-5 text-sm leading-relaxed">
+                {m.nelerYapilir.maddeler.map((text, i) => (
+                  <li key={i} className="pl-0.5">
+                    {text}
+                  </li>
+                ))}
+              </ul>
+              <p>{m.nelerYapilir.ozet}</p>
             </section>
-            <section className="space-y-2">
-              <h3 className="text-foreground text-base font-semibold">
-                {content.kurallar.heading}
+
+            <section className="space-y-3">
+              <h3 className="text-foreground text-base font-semibold tracking-tight">
+                {m.amac.baslik}
               </h3>
-              <p style={{ whiteSpace: 'pre-line' }}>{content.kurallar.body}</p>
-            </section>
-            <section className="space-y-2">
-              <h3 className="text-foreground text-base font-semibold">
-                {content.guncellemeler.heading}
-              </h3>
-              <p style={{ whiteSpace: 'pre-line' }}>{content.guncellemeler.body}</p>
-            </section>
-            <section className="space-y-2">
-              <h3 className="text-foreground text-base font-semibold">
-                {content.iletisim.heading}
-              </h3>
-              {content.iletisim.body.split('\n\n').map((p, i) => (
-                <p key={`iletisim-${i}`} style={{ whiteSpace: 'pre-line' }}>
-                  {p}
-                </p>
+              {m.amac.paragraflar.map((p, i) => (
+                <p key={`amac-${i}`}>{p}</p>
               ))}
+              <p>{m.amac.kapanisGiris}</p>
+              <p>{m.amac.kapanisVurgu}</p>
             </section>
           </div>
         </div>
