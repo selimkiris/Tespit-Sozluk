@@ -20,10 +20,24 @@ const passwordField = z
       "Parolanız en az 8 karakter olmalı, 1 büyük harf ve 1 rakam içermelidir.",
   })
 
+const registerAgeField = z
+  .number({
+    required_error: "Lütfen yaşınızı seçin",
+    invalid_type_error: "Lütfen yaşınızı seçin",
+  })
+  .int("Geçerli bir yaş seçin")
+  .min(13, "Yaş 13 ile 99 arasında olmalıdır")
+  .max(99, "Yaş 13 ile 99 arasında olmalıdır")
+  .refine((n) => n >= 18, {
+    message:
+      "Tespit Sözlük'e kayıt olabilmek için 18 yaş ve üzerinde olmalısınız.",
+  })
+
 export const registerFormSchema = z
   .object({
     nickname: nicknameFieldSchema,
     email: z.string().email("Geçerli bir e-posta adresi giriniz"),
+    age: registerAgeField,
     password: passwordField,
     confirmPassword: z.string().min(1, "Şifre tekrarı gerekli"),
   })

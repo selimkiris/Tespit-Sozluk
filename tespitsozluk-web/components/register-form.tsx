@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react"
 import Link from "next/link"
-import { useForm } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Eye, EyeOff } from "lucide-react"
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile"
@@ -22,6 +22,19 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
+const AGE_RANGE = { min: 13, max: 99 } as const
+const AGE_OPTIONS = Array.from(
+  { length: AGE_RANGE.max - AGE_RANGE.min + 1 },
+  (_, i) => AGE_RANGE.min + i,
+)
 
 function extractApiMessage(data: unknown): string {
   if (typeof data === "string" && data.trim()) return data.trim()
@@ -63,6 +76,7 @@ export function RegisterForm({ onRegistered: _onRegistered, onClose: _onClose, o
 
   const {
     register,
+    control,
     handleSubmit,
     setError,
     clearErrors,
@@ -73,6 +87,7 @@ export function RegisterForm({ onRegistered: _onRegistered, onClose: _onClose, o
     defaultValues: {
       nickname: "",
       email: "",
+      age: undefined,
       password: "",
       confirmPassword: "",
     },
@@ -223,6 +238,49 @@ export function RegisterForm({ onRegistered: _onRegistered, onClose: _onClose, o
           </p>
           {errors.email?.message && (
             <p className="text-sm text-destructive">{errors.email.message}</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="register-age" className="text-sm text-foreground">
+            Yaşınız
+          </Label>
+          <Controller
+            name="age"
+            control={control}
+            render={({ field }) => (
+              <Select
+                value={field.value != null ? String(field.value) : undefined}
+                onValueChange={(v) => {
+                  field.onChange(Number(v))
+                  clearErrors("age")
+                }}
+              >
+                <SelectTrigger
+                  id="register-age"
+                  className="h-10 w-full bg-secondary/50 border-border focus:border-ring"
+                  aria-invalid={errors.age ? true : undefined}
+                  onBlur={field.onBlur}
+                >
+                  <SelectValue placeholder="Yaşınızı seçin" />
+                </SelectTrigger>
+                <SelectContent position="popper" className="max-h-60">
+                  {AGE_OPTIONS.map((y) => (
+                    <SelectItem key={y} value={String(y)}>
+                      {y}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          <p className="text-xs text-muted-foreground">
+            Tespit Sözlük yalnızca 18 yaş ve üzeri kullanıcılara açıktır
+          </p>
+          {errors.age?.message && (
+            <p className="text-sm text-destructive" role="alert">
+              {errors.age.message}
+            </p>
           )}
         </div>
 
