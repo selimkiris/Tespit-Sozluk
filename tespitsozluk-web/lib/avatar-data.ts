@@ -1,30 +1,53 @@
 /**
- * Sistem avatar galerisi: 500 adet DiceBear 7.x SVG (yalnızca https://api.dicebear.com/7.x/...).
- * Stiller: notionists, bottts, lorelei.
+ * Sistem avatar galerisi: 250 adet DiceBear 7.x SVG (yalnızca https://api.dicebear.com/7.x/...).
+ * Stiller: notionists, bottts, fun-emoji, shapes, lorelei, avataaars, micah (karışık sıra, round-robin).
  */
 
-const DICEBEAR_STYLES = ["notionists", "bottts", "lorelei"] as const
-/** 167 + 167 + 166 = 500 */
-const PER_STYLE_COUNTS = [167, 167, 166] as const
+const TOTAL = 250
 
-function buildDicebearGalleryUrls(): string[] {
-  const urls: string[] = []
-  for (let s = 0; s < DICEBEAR_STYLES.length; s++) {
-    const style = DICEBEAR_STYLES[s]!
-    const n = PER_STYLE_COUNTS[s]!
-    for (let i = 0; i < n; i++) {
-      urls.push(`https://api.dicebear.com/7.x/${style}/svg?seed=${style}-${i}`)
+/** 36×5 + 35×2 = 250 */
+const DICEBEAR_STYLES = [
+  { style: "notionists" as const, count: 36 },
+  { style: "bottts" as const, count: 36 },
+  { style: "fun-emoji" as const, count: 36 },
+  { style: "shapes" as const, count: 36 },
+  { style: "lorelei" as const, count: 36 },
+  { style: "avataaars" as const, count: 35 },
+  { style: "micah" as const, count: 35 },
+] as const
+
+function dicebearSvgUrl(style: string, index: number): string {
+  const seed = `${style}-${index}`
+  return `https://api.dicebear.com/7.x/${style}/svg?seed=${seed}`
+}
+
+function buildPerStyleUrlLists(): string[][] {
+  return DICEBEAR_STYLES.map(({ style, count }) =>
+    Array.from({ length: count }, (_, i) => dicebearSvgUrl(style, i)),
+  )
+}
+
+function interleaveRoundRobin(lists: string[][]): string[] {
+  const out: string[] = []
+  const maxLen = Math.max(0, ...lists.map((a) => a.length))
+  for (let i = 0; i < maxLen; i++) {
+    for (const list of lists) {
+      if (i < list.length) out.push(list[i]!)
     }
   }
-  return urls
+  return out
+}
+
+function buildDicebearGalleryUrls(): string[] {
+  return interleaveRoundRobin(buildPerStyleUrlLists())
 }
 
 export const HYBRID_AVATAR_URLS: readonly string[] = (() => {
   const urls = buildDicebearGalleryUrls()
-  if (urls.length !== 500) {
-    throw new Error("Sistem avatar URL sayısı 500 olmalı.")
+  if (urls.length !== TOTAL) {
+    throw new Error(`Sistem avatar URL sayısı ${TOTAL} olmalı (gelen: ${urls.length}).`)
   }
   return urls
 })()
 
-export const HYBRID_AVATAR_COUNT = 500
+export const HYBRID_AVATAR_COUNT = TOTAL

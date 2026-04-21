@@ -77,7 +77,7 @@ const PRESET_URLS = new Set(SYSTEM_AVATARS.map((a) => a.url))
 
 /** Önceki sürümde kullanılan adventurer + tüm hibrit galeri stilleri (kayıtlı profil URL'leri için). */
 const DICEBEAR_PATH_RE =
-  /^\/7\.x\/(?:adventurer|bottts|lorelei|fun-emoji|shapes|notionists|icons)\/svg$/i
+  /^\/7\.x\/(?:adventurer|avataaars|bottts|fun-emoji|icons|lorelei|micah|notionists|shapes)\/svg$/i
 
 export function isDicebearSystemAvatarUrl(url: string | null | undefined): boolean {
   const u = url?.trim()
