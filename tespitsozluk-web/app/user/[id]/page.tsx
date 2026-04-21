@@ -46,6 +46,7 @@ import { getApiUrl, apiFetch } from "@/lib/api"
 import { ENTRY_BODY_RENDERER_CLASSNAME } from "@/lib/entry-body-renderer-classes"
 import { getAuth, clearAuth, updateAuthUser, type AuthData } from "@/lib/auth"
 import { cn } from "@/lib/utils"
+import { formatTurkeyDateTime } from "@/lib/turkey-datetime"
 import { DangerConfirmModal } from "@/components/admin/danger-confirm-modal"
 import { HtmlRenderer } from "@/components/html-renderer"
 import { ExpandableHtmlContent } from "@/components/expandable-html-content"
@@ -163,6 +164,19 @@ function normalizeProfileTabFromQuery(
   if (t === "entries" || t === "liked") return t
   if (isOwnProfile && (t === "saved" || t === "drafts")) return t
   return "entries"
+}
+
+/** entry-card ile aynı: `updatedAt > createdAt` ise Edit satırı. */
+function getDraftDateLines(createdAt: string, updatedAt: string) {
+  const createdLine = formatTurkeyDateTime(createdAt)
+  const createdMs = new Date(createdAt).getTime()
+  const updatedMs = new Date(updatedAt).getTime()
+  const showEdit =
+    !Number.isNaN(updatedMs) && !Number.isNaN(createdMs) && updatedMs > createdMs
+  return {
+    createdLine,
+    editLine: showEdit ? formatTurkeyDateTime(updatedAt) : "",
+  }
 }
 
 function mapEntry(e: ApiEntry) {
@@ -1441,7 +1455,12 @@ export default function UserProfilePage() {
                   ) : (
                   <>
                     <div className="space-y-4 min-w-0 w-full max-w-full">
-                      {drafts.map((draft) => (
+                      {drafts.map((draft) => {
+                        const { createdLine, editLine } = getDraftDateLines(
+                          draft.createdAt,
+                          draft.updatedAt,
+                        )
+                        return (
                         <article
                           key={draft.id}
                           className={cn(
@@ -1462,6 +1481,16 @@ export default function UserProfilePage() {
                               html={draft.content || ""}
                               rendererClassName={ENTRY_BODY_RENDERER_CLASSNAME}
                             />
+                          </div>
+                          <div className="mb-3 flex min-w-0 w-full max-w-full flex-col gap-0.5">
+                            <span className="text-[#7c8190] text-[13px] leading-tight tabular-nums">
+                              {createdLine}
+                            </span>
+                            {editLine !== "" && (
+                              <span className="text-[#7c8190] text-[13px] italic leading-tight break-words max-w-[min(100%,14rem)] sm:max-w-none">
+                                Edit: {editLine}
+                              </span>
+                            )}
                           </div>
                           <div className="relative z-10 flex min-w-0 w-full flex-wrap items-center gap-2 border-t border-border/50 pt-3">
                             <Button
@@ -1503,7 +1532,8 @@ export default function UserProfilePage() {
                             </span>
                           )}
                         </article>
-                      ))}
+                        )
+                      })}
                     </div>
                     {(draftsPage > 1 || draftsPage < draftsTotalPages) && (
                       <div className="flex items-center justify-center gap-3 mt-8 pb-8">
