@@ -17,7 +17,9 @@ import {
 } from "@/lib/auth.schema"
 import { isReservedNickname } from "@/lib/reserved-usernames"
 import type { AuthResponse } from "@/lib/auth-types"
+import { RegisterLegalModals } from "@/components/register-legal-documents"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
@@ -45,6 +47,8 @@ export function RegisterForm({ onRegistered: _onRegistered, onClose: _onClose, o
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
+  const [legalModal, setLegalModal] = useState<"privacy" | "terms" | null>(null)
+  const [policiesAccepted, setPoliciesAccepted] = useState(false)
   const turnstileTokenRef = useRef("")
   const turnstileRef = useRef<TurnstileInstance>(null)
 
@@ -84,6 +88,10 @@ export function RegisterForm({ onRegistered: _onRegistered, onClose: _onClose, o
 
   const onSubmit = async (values: RegisterFormValues) => {
     clearErrors("root")
+    if (!policiesAccepted) {
+      toast.error("Lütfen sözleşmeleri onaylayın")
+      return
+    }
     const turnstileToken = turnstileTokenRef.current
     if (!turnstileToken) {
       setError("root", { message: "Lütfen güvenlik doğrulamasını bekleyin." })
@@ -282,6 +290,35 @@ export function RegisterForm({ onRegistered: _onRegistered, onClose: _onClose, o
           onError={() => setTurnstileToken("")}
         />
 
+        <div className="flex items-start gap-3 rounded-md border border-border/60 bg-secondary/20 p-3">
+          <Checkbox
+            id="register-policies-accept"
+            checked={policiesAccepted}
+            onCheckedChange={(v) => setPoliciesAccepted(v === true)}
+            className="mt-0.5"
+            aria-describedby="register-policies-label"
+          />
+          <p id="register-policies-label" className="min-w-0 text-sm leading-relaxed text-muted-foreground">
+            Kayıt olarak{" "}
+            <button
+              type="button"
+              onClick={() => setLegalModal("privacy")}
+              className="text-primary hover:underline cursor-pointer font-medium"
+            >
+              Gizlilik Politikası
+            </button>{" "}
+            ve{" "}
+            <button
+              type="button"
+              onClick={() => setLegalModal("terms")}
+              className="text-primary hover:underline cursor-pointer font-medium"
+            >
+              Kullanım Koşulları
+            </button>
+            &apos;nı okuduğumu ve kabul ettiğimi onaylıyorum.
+          </p>
+        </div>
+
         <Button
           type="submit"
           disabled={isLoading || isReservedNick}
@@ -303,6 +340,8 @@ export function RegisterForm({ onRegistered: _onRegistered, onClose: _onClose, o
           </button>
         </p>
       </div>
+
+      <RegisterLegalModals open={legalModal} onOpenChange={setLegalModal} />
     </>
   )
 }

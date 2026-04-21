@@ -37,7 +37,7 @@ export function CreateDraftModal({
   onOpenChange,
   onSuccess,
 }: CreateDraftModalProps) {
-  const [mode, setMode] = useState<"existing" | "new">("existing")
+  const [mode, setMode] = useState<"existing" | "new">("new")
   const [topicSearch, setTopicSearch] = useState("")
   const [topicResults, setTopicResults] = useState<TopicSearchResult[]>([])
   const [selectedTopic, setSelectedTopic] = useState<TopicSearchResult | null>(null)
@@ -72,7 +72,7 @@ export function CreateDraftModal({
   }, [topicSearch, searchTopics])
 
   const resetForm = useCallback(() => {
-    setMode("existing")
+    setMode("new")
     setTopicSearch("")
     setTopicResults([])
     setSelectedTopic(null)
@@ -182,12 +182,12 @@ export function CreateDraftModal({
               className="flex flex-wrap items-center gap-x-6 gap-y-3"
             >
               <div className="flex items-center gap-2">
-                <RadioGroupItem value="existing" id="mode-existing" />
-                <Label htmlFor="mode-existing">Mevcut Başlık</Label>
-              </div>
-              <div className="flex items-center gap-2">
                 <RadioGroupItem value="new" id="mode-new" />
                 <Label htmlFor="mode-new">Yeni Başlık</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="existing" id="mode-existing" />
+                <Label htmlFor="mode-existing">Mevcut Başlık</Label>
               </div>
             </RadioGroup>
 
