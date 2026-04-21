@@ -1463,7 +1463,7 @@ export default function UserProfilePage() {
                               rendererClassName={ENTRY_BODY_RENDERER_CLASSNAME}
                             />
                           </div>
-                          <div className="flex min-w-0 w-full flex-wrap items-center gap-2 border-t border-border/50 pt-3">
+                          <div className="relative z-10 flex min-w-0 w-full flex-wrap items-center gap-2 border-t border-border/50 pt-3">
                             <Button
                               variant="outline"
                               size="sm"
@@ -1494,6 +1494,14 @@ export default function UserProfilePage() {
                               Sil
                             </Button>
                           </div>
+                          {draft.isAnonymous === true && (
+                            <span
+                              className="pointer-events-none absolute bottom-3 right-4 z-0 max-w-[45%] text-right text-sm italic text-muted-foreground opacity-70 select-none"
+                              aria-label="Tam anonim taslak"
+                            >
+                              Tam Anonim
+                            </span>
+                          )}
                         </article>
                       ))}
                     </div>
