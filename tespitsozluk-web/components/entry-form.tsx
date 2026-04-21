@@ -1,18 +1,21 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { RichTextEditor } from "@/components/rich-text-editor"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { getApiUrl, apiFetch } from "@/lib/api"
+import { hasMeaningfulComposerHtml, trimComposerHtml } from "@/lib/composer-guard"
+import { UnsavedChangesAlertDialog } from "@/components/unsaved-changes-alert-dialog"
+import { useBeforeunloadWarning } from "@/hooks/use-beforeunload-warning"
+import { useInternalNavigationGuard } from "@/hooks/use-internal-navigation-guard"
 
 function trimHtmlContent(html: string): string {
-  if (!html) return ''
-  let result = html
-    .replace(/^(<p>\s*<\/p>|<p><br\s*\/?><\/p>|<br\s*\/?>|\s)+/gi, '')
-  result = result
-    .replace(/(<p>\s*<\/p>|<p><br\s*\/?><\/p>|<br\s*\/?>|\s)+$/gi, '')
+  if (!html) return ""
+  let result = html.replace(/^(<p>\s*<\/p>|<p><br\s*\/?><\/p>|<br\s*\/?>|\s)+/gi, "")
+  result = result.replace(/(<p>\s*<\/p>|<p><br\s*\/?><\/p>|<br\s*\/?>|\s)+$/gi, "")
   return result.trim()
 }
 
@@ -25,37 +28,70 @@ interface EntryFormProps {
 }
 
 export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: EntryFormProps) {
+  const router = useRouter()
   const [content, setContent] = useState("")
   const [isAnonymous, setIsAnonymous] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSavingDraft, setIsSavingDraft] = useState(false)
   const [error, setError] = useState("")
   const [charCount, setCharCount] = useState(0)
+  const [unsavedOpen, setUnsavedOpen] = useState(false)
+  const [pendingNav, setPendingNav] = useState<string | null>(null)
+
+  const baselineRef = useRef({ content: "", anon: false })
 
   const hasContent = !!content.replace(/<[^>]*>/g, "").trim()
   const isOverLimit = charCount >= 100_000
 
-  const handleSubmit = async () => {
-    const finalContent = trimHtmlContent(
-      (content ?? '').replace(/^[\s\n\r\u00a0\u200b]+/, '').replace(/[\s\n\r\u00a0\u200b]+$/, '')
-    )
+  useEffect(() => {
+    setContent("")
+    setIsAnonymous(false)
+    baselineRef.current = { content: "", anon: false }
+    setError("")
+  }, [topicId])
 
-    if (!finalContent) return
+  const isDirty =
+    trimComposerHtml(content) !== trimComposerHtml(baselineRef.current.content) ||
+    isAnonymous !== baselineRef.current.anon
+
+  const guardActive =
+    isLoggedIn &&
+    isDirty &&
+    (hasMeaningfulComposerHtml(content) || hasMeaningfulComposerHtml(baselineRef.current.content))
+
+  useBeforeunloadWarning(guardActive)
+  useInternalNavigationGuard(guardActive, (path) => {
+    setPendingNav(path)
+    setUnsavedOpen(true)
+  })
+
+  const performSubmit = async (): Promise<boolean> => {
+    const finalContent = trimHtmlContent(
+      (content ?? "").replace(/^[\s\n\r\u00a0\u200b]+/, "").replace(/[\s\n\r\u00a0\u200b]+$/, ""),
+    )
+    if (!finalContent) return false
 
     setIsSubmitting(true)
     setError("")
     try {
       await onSubmit(finalContent, isAnonymous, () => setIsSubmitting(false))
       setContent("")
+      baselineRef.current = { content: "", anon: isAnonymous }
+      return true
     } catch (err) {
       setError(err instanceof Error ? err.message : "Entry eklenemedi")
       setIsSubmitting(false)
+      return false
     }
   }
 
-  const handleSaveDraft = async () => {
-    if (!hasContent) return
-    if (isSavingDraft) return
+  const handleSubmit = async () => {
+    await performSubmit()
+  }
+
+  const performSaveDraft = async (): Promise<boolean> => {
+    if (!hasContent) return false
+    if (isSavingDraft) return false
 
     const validTopicId =
       topicId &&
@@ -63,23 +99,22 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
       topicId.trim() !== ""
     if (!validTopicId) {
       setError("Geçerli bir başlık seçili değil.")
-      return
+      return false
     }
 
     setIsSavingDraft(true)
     setError("")
     try {
       const cleanContent = content
-        .replace(/^\s+/, '')
-        .replace(/\s+$/, '')
-        .replace(/^\n+/, '')
-        .replace(/\n+$/, '')
+        .replace(/^\s+/, "")
+        .replace(/\s+$/, "")
+        .replace(/^\n+/, "")
+        .replace(/\n+$/, "")
       const body: { topicId: string; content: string; isAnonymous?: boolean } = {
         topicId,
-        content: cleanContent.replace(/^[\s\n\r]+|[\s\n\r]+$/g, ''),
+        content: cleanContent.replace(/^[\s\n\r]+|[\s\n\r]+$/g, ""),
         isAnonymous,
       }
-      // Mevcut başlık sayfasındayız - newTopicTitle kesinlikle gönderilmez
       const res = await apiFetch(getApiUrl("api/Drafts"), {
         method: "POST",
         body: JSON.stringify(body),
@@ -90,15 +125,36 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
         throw new Error(msg)
       }
       if (res.status === 200 || res.status === 201) {
-        alert("Taslak başarıyla oluşturuldu")
         setContent("")
+        baselineRef.current = { content: "", anon: isAnonymous }
+        return true
       }
+      return false
     } catch (err) {
       console.error(err)
       setError(err instanceof Error ? err.message : "Taslak kaydedilemedi")
+      return false
     } finally {
       setIsSavingDraft(false)
     }
+  }
+
+  const handleSaveDraft = () => void performSaveDraft()
+
+  const publishFromGuard = async () => {
+    const nav = pendingNav
+    setPendingNav(null)
+    const ok = await performSubmit()
+    setUnsavedOpen(false)
+    if (ok && nav) router.push(nav)
+  }
+
+  const draftFromGuard = async () => {
+    const nav = pendingNav
+    setPendingNav(null)
+    const ok = await performSaveDraft()
+    setUnsavedOpen(false)
+    if (ok && nav) router.push(nav)
   }
 
   if (!isLoggedIn) {
@@ -118,63 +174,86 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
   }
 
   return (
-    <div className="bg-card border border-border rounded-lg p-5 min-w-0 w-full max-w-full">
-      <RichTextEditor
-        value={content}
-        onChange={setContent}
-        placeholder="düşüncelerinizi yazın..."
-        onCharCountChange={setCharCount}
-        contentMinHeightClass="min-h-[180px]"
-      />
-      <div className="mt-3 space-y-1">
-        <RadioGroup
-          value={isAnonymous ? "anonymous" : "account"}
-          onValueChange={(v) => setIsAnonymous(v === "anonymous")}
-          className="flex gap-4"
-        >
-          <div className="flex items-center gap-2">
-            <RadioGroupItem value="account" id="entry-account" />
-            <Label htmlFor="entry-account" className="text-sm font-normal cursor-pointer">
-              Kendi hesabınla paylaş
-            </Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <RadioGroupItem value="anonymous" id="entry-anonymous" />
-            <Label htmlFor="entry-anonymous" className="text-sm font-normal cursor-pointer">
-              Tam anonim paylaş
-            </Label>
-          </div>
-        </RadioGroup>
-        {isAnonymous && (
-          <p className="text-xs text-muted-foreground">
-            Tam Anonim modda paylaşılan entrylerde Kullanıcı adı görünmez, profile erişilemez. Kullanıcı adı kısmında sadece Anonim yazar ve profil fotoğrafı gösterilmez. Sadece tarih bilgisi yer alır.
+    <>
+      <div className="bg-card border border-border rounded-lg p-5 min-w-0 w-full max-w-full">
+        <RichTextEditor
+          value={content}
+          onChange={setContent}
+          placeholder="düşüncelerinizi yazın..."
+          onCharCountChange={setCharCount}
+          contentMinHeightClass="min-h-[180px]"
+        />
+        <div className="mt-3 space-y-1">
+          <RadioGroup
+            value={isAnonymous ? "anonymous" : "account"}
+            onValueChange={(v) => setIsAnonymous(v === "anonymous")}
+            className="flex gap-4"
+          >
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="account" id="entry-account" />
+              <Label htmlFor="entry-account" className="text-sm font-normal cursor-pointer">
+                Kendi hesabınla paylaş
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <RadioGroupItem value="anonymous" id="entry-anonymous" />
+              <Label htmlFor="entry-anonymous" className="text-sm font-normal cursor-pointer">
+                Tam anonim paylaş
+              </Label>
+            </div>
+          </RadioGroup>
+          {isAnonymous && (
+            <p className="text-xs text-muted-foreground">
+              Tam Anonim modda paylaşılan entrylerde Kullanıcı adı görünmez, profile erişilemez. Kullanıcı adı kısmında sadece Anonim yazar ve profil fotoğrafı gösterilmez. Sadece tarih bilgisi yer alır.
+            </p>
+          )}
+        </div>
+        {isOverLimit && (
+          <p className="text-sm text-red-500 font-medium mt-2">
+            Entry maksimum 100.000 karakter olabilir. Lütfen içeriği kısaltın.
           </p>
         )}
+        {!isOverLimit && error && <p className="text-sm text-destructive mt-2">{error}</p>}
+        <div className="flex justify-end items-center gap-2 pt-3 border-t border-border/50 mt-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSaveDraft}
+            disabled={!hasContent || isSavingDraft || isOverLimit}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            {isSavingDraft ? "Kaydediliyor..." : "Taslak Olarak Kaydet"}
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!hasContent || isSubmitting || isOverLimit}
+            className="bg-foreground text-background hover:bg-foreground/90 disabled:opacity-50"
+          >
+            {isSubmitting ? "Gönderiliyor..." : "Gönder"}
+          </Button>
+        </div>
       </div>
-      {isOverLimit && (
-        <p className="text-sm text-red-500 font-medium mt-2">
-          Entry maksimum 100.000 karakter olabilir. Lütfen içeriği kısaltın.
-        </p>
-      )}
-      {!isOverLimit && error && <p className="text-sm text-destructive mt-2">{error}</p>}
-      <div className="flex justify-end items-center gap-2 pt-3 border-t border-border/50 mt-3">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleSaveDraft}
-          disabled={!hasContent || isSavingDraft || isOverLimit}
-          className="text-muted-foreground hover:text-foreground"
-        >
-          {isSavingDraft ? "Kaydediliyor..." : "Taslak Olarak Kaydet"}
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          disabled={!hasContent || isSubmitting || isOverLimit}
-          className="bg-foreground text-background hover:bg-foreground/90 disabled:opacity-50"
-        >
-          {isSubmitting ? "Gönderiliyor..." : "Gönder"}
-        </Button>
-      </div>
-    </div>
+
+      <UnsavedChangesAlertDialog
+        mode="compose-publish"
+        open={unsavedOpen}
+        onOpenChange={setUnsavedOpen}
+        isPublishing={isSubmitting}
+        isSavingDraft={isSavingDraft}
+        publishDisabled={!hasContent || isOverLimit || isSavingDraft}
+        saveDraftDisabled={!hasContent || isOverLimit || isSubmitting}
+        onPublish={publishFromGuard}
+        onSaveDraft={draftFromGuard}
+        onDiscard={() => {
+          const nav = pendingNav
+          setPendingNav(null)
+          setContent("")
+          setIsAnonymous(false)
+          baselineRef.current = { content: "", anon: false }
+          setUnsavedOpen(false)
+          if (nav) router.push(nav)
+        }}
+      />
+    </>
   )
 }

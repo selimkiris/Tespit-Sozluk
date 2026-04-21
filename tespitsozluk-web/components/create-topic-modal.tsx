@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useLayoutEffect } from "react"
+import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -12,13 +13,17 @@ import { TOPIC_TITLE_MAX_LENGTH, topicTitleSchema } from "@/lib/topic.schema"
 import { clampTopicTitleRaw, normalizeTopicTitleForApi } from "@/lib/topic-title-input"
 import { FEED_COLUMN_MAX_WIDTH_CLASS } from "@/lib/feed-layout"
 import { ENTRY_BODY_EDITOR_INNER_INSET_MODAL_NEW_TOPIC } from "@/lib/entry-body-renderer-classes"
+import { getApiUrl, apiFetch } from "@/lib/api"
+import { trimComposerHtml } from "@/lib/composer-guard"
+import { UnsavedChangesAlertDialog } from "@/components/unsaved-changes-alert-dialog"
+import { useBeforeunloadWarning } from "@/hooks/use-beforeunload-warning"
+import { useInternalNavigationGuard } from "@/hooks/use-internal-navigation-guard"
 
 function trimHtmlContent(html: string): string {
-  if (!html) return ''
+  if (!html) return ""
   let result = html
-    .replace(/^(<p>\s*<\/p>|<p><br\s*\/?><\/p>|<br\s*\/?>|\s)+/gi, '')
-  result = result
-    .replace(/(<p>\s*<\/p>|<p><br\s*\/?><\/p>|<br\s*\/?>|\s)+$/gi, '')
+    .replace(/^(<p>\s*<\/p>|<p><br\s*\/?><\/p>|<br\s*\/?>|\s)+/gi, "")
+  result = result.replace(/(<p>\s*<\/p>|<p><br\s*\/?><\/p>|<br\s*\/?>|\s)+$/gi, "")
   return result.trim()
 }
 
@@ -37,38 +42,104 @@ export function CreateTopicModal({
   isLoggedIn,
   onLoginClick,
 }: CreateTopicModalProps) {
+  const router = useRouter()
   const [title, setTitle] = useState("")
   const [firstEntry, setFirstEntry] = useState("")
   const [isAnonymous, setIsAnonymous] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isSavingDraft, setIsSavingDraft] = useState(false)
   const [error, setError] = useState("")
   const [charCount, setCharCount] = useState(0)
+  const [unsavedOpen, setUnsavedOpen] = useState(false)
+  const [pendingNav, setPendingNav] = useState<string | null>(null)
+
+  const snapshotRef = useRef({ title: "", entry: "", anon: false })
+  const prevIsOpenRef = useRef(false)
 
   const hasContent = !!firstEntry.replace(/<[^>]*>/g, "").trim()
   const isOverLimit = charCount >= 100_000
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!hasContent || isOverLimit) return
-    const titleParsed = topicTitleSchema.safeParse(normalizeTopicTitleForApi(title))
-    if (!titleParsed.success) {
-      setError(titleParsed.error.issues[0]?.message ?? "Geçersiz başlık")
+  useLayoutEffect(() => {
+    if (isOpen && !prevIsOpenRef.current && isLoggedIn) {
+      snapshotRef.current = {
+        title: normalizeTopicTitleForApi(title),
+        entry: firstEntry,
+        anon: isAnonymous,
+      }
+    }
+    prevIsOpenRef.current = isOpen
+  }, [isOpen, isLoggedIn, title, firstEntry, isAnonymous])
+
+  const snap = snapshotRef.current
+  const isDirty =
+    isLoggedIn &&
+    (normalizeTopicTitleForApi(title) !== snap.title ||
+      trimComposerHtml(firstEntry) !== trimComposerHtml(snap.entry) ||
+      isAnonymous !== snap.anon)
+
+  const guardActive = isOpen && isLoggedIn && isDirty
+  useBeforeunloadWarning(guardActive)
+  useInternalNavigationGuard(guardActive, (path) => {
+    setPendingNav(path)
+    setUnsavedOpen(true)
+  })
+
+  const resetLocal = () => {
+    setTitle("")
+    setFirstEntry("")
+    setCharCount(0)
+    setError("")
+    setIsAnonymous(false)
+  }
+
+  const finalizeClose = () => {
+    resetLocal()
+    setPendingNav(null)
+    onClose()
+  }
+
+  const requestClose = () => {
+    if (!isLoggedIn) {
+      onClose()
       return
     }
+    if (isDirty) {
+      setPendingNav(null)
+      setUnsavedOpen(true)
+      return
+    }
+    finalizeClose()
+  }
 
+  const validateAndBuild = () => {
+    if (!hasContent || isOverLimit) {
+      throw new Error(
+        isOverLimit
+          ? "Entry çok uzun."
+          : "Önce entry yazın.",
+      )
+    }
+    const titleParsed = topicTitleSchema.safeParse(normalizeTopicTitleForApi(title))
+    if (!titleParsed.success) {
+      throw new Error(titleParsed.error.issues[0]?.message ?? "Geçersiz başlık")
+    }
     const finalContent = trimHtmlContent(
-      (firstEntry ?? '').replace(/^[\s\n\r\u00a0\u200b]+/, '').replace(/[\s\n\r\u00a0\u200b]+$/, '')
+      (firstEntry ?? "").replace(/^[\s\n\r\u00a0\u200b]+/, "").replace(/[\s\n\r\u00a0\u200b]+$/, ""),
     )
+    if (!finalContent) {
+      throw new Error("İçerik boş olamaz.")
+    }
+    return { titleData: titleParsed.data, finalContent }
+  }
 
-    if (!finalContent) return
-
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
     setIsLoading(true)
     setError("")
     try {
-      await onCreate(titleParsed.data, finalContent, isAnonymous)
-      setTitle("")
-      setFirstEntry("")
-      setCharCount(0)
+      const { titleData, finalContent } = validateAndBuild()
+      await onCreate(titleData, finalContent, isAnonymous)
+      resetLocal()
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Bir hata oluştu")
@@ -77,135 +148,235 @@ export function CreateTopicModal({
     }
   }
 
+  const publishFromGuard = async () => {
+    setIsLoading(true)
+    setError("")
+    try {
+      const { titleData, finalContent } = validateAndBuild()
+      const nav = pendingNav
+      await onCreate(titleData, finalContent, isAnonymous)
+      setUnsavedOpen(false)
+      setPendingNav(null)
+      resetLocal()
+      onClose()
+      if (nav) router.push(nav)
+    } catch (err) {
+      setUnsavedOpen(false)
+      setError(err instanceof Error ? err.message : "Bir hata oluştu")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const saveDraftFromGuard = async () => {
+    setIsSavingDraft(true)
+    setError("")
+    try {
+      if (isOverLimit) {
+        throw new Error("Entry çok uzun.")
+      }
+      const titleParsed = topicTitleSchema.safeParse(normalizeTopicTitleForApi(title))
+      if (!titleParsed.success) {
+        throw new Error(titleParsed.error.issues[0]?.message ?? "Geçersiz başlık")
+      }
+      const finalContent = trimHtmlContent(
+        (firstEntry ?? "").replace(/^[\s\n\r\u00a0\u200b]+/, "").replace(/[\s\n\r\u00a0\u200b]+$/, ""),
+      )
+      if (!finalContent) {
+        throw new Error("Önce entry yazın.")
+      }
+      const nav = pendingNav
+      const res = await apiFetch(getApiUrl("api/Drafts"), {
+        method: "POST",
+        body: JSON.stringify({
+          content: finalContent,
+          newTopicTitle: titleParsed.data,
+          isAnonymous,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        const msg = typeof data === "string" ? data : data.message ?? data.title ?? "Taslak kaydedilemedi"
+        throw new Error(msg)
+      }
+      setUnsavedOpen(false)
+      setPendingNav(null)
+      resetLocal()
+      onClose()
+      if (nav) router.push(nav)
+    } catch (err) {
+      setUnsavedOpen(false)
+      setError(err instanceof Error ? err.message : "Taslak kaydedilemedi")
+    } finally {
+      setIsSavingDraft(false)
+    }
+  }
+
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" onClick={onClose} />
-      <div
-        className={cn(
-          "relative z-50 flex w-full min-h-[50vh] max-h-[min(92vh,900px)] min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-lg",
-          FEED_COLUMN_MAX_WIDTH_CLASS
-        )}
-      >
-        {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-border px-6 pb-3 pt-4">
-          <h2 className="text-xl font-semibold text-foreground">Yeni Başlık</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm"
+          onClick={requestClose}
+        />
+        <div
+          className={cn(
+            "relative z-50 flex w-full min-h-[50vh] max-h-[min(92vh,900px)] min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-lg",
+            FEED_COLUMN_MAX_WIDTH_CLASS,
+          )}
+        >
+          {/* Header */}
+          <div className="flex shrink-0 items-center justify-between border-b border-border px-6 pb-3 pt-4">
+            <h2 className="text-xl font-semibold text-foreground">Yeni Başlık</h2>
+            <button
+              type="button"
+              onClick={requestClose}
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
 
-        <div className="min-h-0 flex-1 min-w-0 max-w-full overflow-x-hidden overflow-y-auto box-border px-6 pb-5 pt-6">
-          {!isLoggedIn ? (
-            <div className="pb-6 pt-0 text-center">
-              <p className="mb-4 text-muted-foreground">
-                Yeni başlık oluşturmak için giriş yapmalısınız.
-              </p>
-              <Button
-                onClick={() => {
-                  onClose()
-                  onLoginClick()
-                }}
-                className="bg-foreground text-background hover:bg-foreground/90"
-              >
-                Giriş Yap
-              </Button>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="flex w-full min-w-0 max-w-full flex-col gap-0 [&>*+*]:mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="topic-title" className="text-sm text-foreground">
-                  Başlık
-                </Label>
-                <Textarea
-                  id="topic-title"
-                  placeholder="başlık adı"
-                  value={title}
-                  onChange={(e) => setTitle(clampTopicTitleRaw(e.target.value))}
-                  required
-                  rows={2}
-                  className="w-full min-w-0 max-w-[30ch] overflow-x-hidden whitespace-pre-wrap break-words hyphens-auto resize-none min-h-10 border-border bg-secondary/50 py-2 text-base md:text-base focus:border-ring field-sizing-content"
-                />
-                <div className="flex items-center justify-between">
-                  <span
-                    className={`text-xs ${normalizeTopicTitleForApi(title).length > TOPIC_TITLE_MAX_LENGTH ? "font-medium text-destructive" : "text-muted-foreground"}`}
-                  >
-                    {normalizeTopicTitleForApi(title).length > TOPIC_TITLE_MAX_LENGTH
-                      ? "Başlık en fazla 60 karakter olabilir."
-                      : `${normalizeTopicTitleForApi(title).length}/${TOPIC_TITLE_MAX_LENGTH}`}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex w-full min-w-0 max-w-full flex-col space-y-0">
-                <Label className="mb-2 text-sm text-foreground">İlk Entry</Label>
-                <div className="m-0 w-full min-w-0 max-w-full p-0">
-                  <RichTextEditor
-                    value={firstEntry}
-                    onChange={setFirstEntry}
-                    placeholder="düşüncelerinizi yazın..."
-                    onCharCountChange={setCharCount}
-                    innerContentPaddingClassName={ENTRY_BODY_EDITOR_INNER_INSET_MODAL_NEW_TOPIC}
-                    toolbarStickyTopClass="top-0"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <RadioGroup
-                  value={isAnonymous ? "anonymous" : "account"}
-                  onValueChange={(v) => setIsAnonymous(v === "anonymous")}
-                  className="flex flex-wrap items-center gap-x-6 gap-y-3"
+          <div className="min-h-0 flex-1 min-w-0 max-w-full overflow-x-hidden overflow-y-auto box-border px-6 pb-5 pt-6">
+            {!isLoggedIn ? (
+              <div className="pb-6 pt-0 text-center">
+                <p className="mb-4 text-muted-foreground">
+                  Yeni başlık oluşturmak için giriş yapmalısınız.
+                </p>
+                <Button
+                  onClick={() => {
+                    onClose()
+                    onLoginClick()
+                  }}
+                  className="bg-foreground text-background hover:bg-foreground/90"
                 >
-                  <div className="flex items-center gap-2">
-                    <RadioGroupItem value="account" id="create-topic-account" />
-                    <Label htmlFor="create-topic-account" className="cursor-pointer text-sm font-normal">
-                      Kendi hesabınla paylaş
-                    </Label>
+                  Giriş Yap
+                </Button>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="flex w-full min-w-0 max-w-full flex-col gap-0 [&>*+*]:mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="topic-title" className="text-sm text-foreground">
+                    Başlık
+                  </Label>
+                  <Textarea
+                    id="topic-title"
+                    placeholder="başlık adı"
+                    value={title}
+                    onChange={(e) => setTitle(clampTopicTitleRaw(e.target.value))}
+                    required
+                    rows={2}
+                    className="w-full min-w-0 max-w-[30ch] overflow-x-hidden whitespace-pre-wrap break-words hyphens-auto resize-none min-h-10 border-border bg-secondary/50 py-2 text-base md:text-base focus:border-ring field-sizing-content"
+                  />
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`text-xs ${normalizeTopicTitleForApi(title).length > TOPIC_TITLE_MAX_LENGTH ? "font-medium text-destructive" : "text-muted-foreground"}`}
+                    >
+                      {normalizeTopicTitleForApi(title).length > TOPIC_TITLE_MAX_LENGTH
+                        ? "Başlık en fazla 60 karakter olabilir."
+                        : `${normalizeTopicTitleForApi(title).length}/${TOPIC_TITLE_MAX_LENGTH}`}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <RadioGroupItem value="anonymous" id="create-topic-anonymous" />
-                    <Label htmlFor="create-topic-anonymous" className="cursor-pointer text-sm font-normal">
-                      Tam anonim paylaş
-                    </Label>
+                </div>
+
+                <div className="flex w-full min-w-0 max-w-full flex-col space-y-0">
+                  <Label className="mb-2 text-sm text-foreground">İlk Entry</Label>
+                  <div className="m-0 w-full min-w-0 max-w-full p-0">
+                    <RichTextEditor
+                      value={firstEntry}
+                      onChange={setFirstEntry}
+                      placeholder="düşüncelerinizi yazın..."
+                      onCharCountChange={setCharCount}
+                      innerContentPaddingClassName={ENTRY_BODY_EDITOR_INNER_INSET_MODAL_NEW_TOPIC}
+                      toolbarStickyTopClass="top-0"
+                    />
                   </div>
-                </RadioGroup>
-                {isAnonymous && (
-                  <p className="text-xs text-muted-foreground">
-                    Tam Anonim modda paylaşılan entrylerde Kullanıcı adı görünmez, profile erişilemez. Kullanıcı adı
-                    kısmında sadece Anonim yazar ve profil fotoğrafı gösterilmez. Sadece tarih bilgisi yer alır.
+                </div>
+
+                <div className="space-y-1">
+                  <RadioGroup
+                    value={isAnonymous ? "anonymous" : "account"}
+                    onValueChange={(v) => setIsAnonymous(v === "anonymous")}
+                    className="flex flex-wrap items-center gap-x-6 gap-y-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="account" id="create-topic-account" />
+                      <Label htmlFor="create-topic-account" className="cursor-pointer text-sm font-normal">
+                        Kendi hesabınla paylaş
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="anonymous" id="create-topic-anonymous" />
+                      <Label htmlFor="create-topic-anonymous" className="cursor-pointer text-sm font-normal">
+                        Tam anonim paylaş
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                  {isAnonymous && (
+                    <p className="text-xs text-muted-foreground">
+                      Tam Anonim modda paylaşılan entrylerde Kullanıcı adı görünmez, profile erişilemez. Kullanıcı adı
+                      kısmında sadece Anonim yazar ve profil fotoğrafı gösterilmez. Sadece tarih bilgisi yer alır.
+                    </p>
+                  )}
+                </div>
+
+                {isOverLimit && (
+                  <p className="text-sm font-medium text-red-500">
+                    Entry maksimum 100.000 karakter olabilir. Lütfen içeriği kısaltın.
                   </p>
                 )}
-              </div>
-
-              {isOverLimit && (
-                <p className="text-sm font-medium text-red-500">
-                  Entry maksimum 100.000 karakter olabilir. Lütfen içeriği kısaltın.
-                </p>
-              )}
-              {!isOverLimit && error && <p className="text-sm text-destructive">{error}</p>}
-              <Button
-                type="submit"
-                disabled={
-                  !normalizeTopicTitleForApi(title) ||
-                  !hasContent ||
-                  normalizeTopicTitleForApi(title).length > TOPIC_TITLE_MAX_LENGTH ||
-                  isLoading ||
-                  isOverLimit
-                }
-                className="h-10 w-full shrink-0 bg-foreground text-background hover:bg-foreground/90"
-              >
-                {isLoading ? "Oluşturuluyor..." : "Başlık Oluştur"}
-              </Button>
-            </form>
-          )}
+                {!isOverLimit && error && <p className="text-sm text-destructive">{error}</p>}
+                <Button
+                  type="submit"
+                  disabled={
+                    !normalizeTopicTitleForApi(title) ||
+                    !hasContent ||
+                    normalizeTopicTitleForApi(title).length > TOPIC_TITLE_MAX_LENGTH ||
+                    isLoading ||
+                    isSavingDraft ||
+                    isOverLimit
+                  }
+                  className="h-10 w-full shrink-0 bg-foreground text-background hover:bg-foreground/90"
+                >
+                  {isLoading ? "Oluşturuluyor..." : "Başlık Oluştur"}
+                </Button>
+              </form>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+
+      <UnsavedChangesAlertDialog
+        mode="compose-publish"
+        open={unsavedOpen}
+        onOpenChange={setUnsavedOpen}
+        isPublishing={isLoading}
+        isSavingDraft={isSavingDraft}
+        publishDisabled={
+          !normalizeTopicTitleForApi(title) ||
+          !hasContent ||
+          normalizeTopicTitleForApi(title).length > TOPIC_TITLE_MAX_LENGTH ||
+          isOverLimit ||
+          isSavingDraft
+        }
+        saveDraftDisabled={
+          !normalizeTopicTitleForApi(title) ||
+          !hasContent ||
+          normalizeTopicTitleForApi(title).length > TOPIC_TITLE_MAX_LENGTH ||
+          isOverLimit ||
+          isLoading
+        }
+        onPublish={publishFromGuard}
+        onSaveDraft={saveDraftFromGuard}
+        onDiscard={() => {
+          const nav = pendingNav
+          setPendingNav(null)
+          finalizeClose()
+          if (nav) router.push(nav)
+        }}
+      />
+    </>
   )
 }

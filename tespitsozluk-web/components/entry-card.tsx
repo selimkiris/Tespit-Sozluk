@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Heart, MoreHorizontal, Pencil, Trash2, User, Users, Flag, ShieldX, BadgeCheck } from "lucide-react"
 import { ShareMenuSub } from "@/components/share-menu"
 import { getApiUrl, apiFetch, getSiteUrl } from "@/lib/api"
@@ -41,6 +42,10 @@ import { DangerConfirmModal } from "@/components/admin/danger-confirm-modal"
 import { EntryLikersModal } from "@/components/entry-likers-modal"
 import { ENTRY_BODY_RENDERER_CLASSNAME } from "@/lib/entry-body-renderer-classes"
 import { FEED_COLUMN_MAX_WIDTH_CLASS } from "@/lib/feed-layout"
+import { trimComposerHtml } from "@/lib/composer-guard"
+import { UnsavedChangesAlertDialog } from "@/components/unsaved-changes-alert-dialog"
+import { useBeforeunloadWarning } from "@/hooks/use-beforeunload-warning"
+import { useInternalNavigationGuard } from "@/hooks/use-internal-navigation-guard"
 import {
   ENTRY_SEARCH_HIGHLIGHT_MARK_CLASS,
   shouldApplyEntrySearchHighlight,
@@ -123,6 +128,7 @@ export function EntryCard({
   currentUser,
   onEntryChange,
 }: EntryCardProps) {
+  const router = useRouter()
   const [userVote, setUserVote] = useState<"up" | "down" | null>(entry.userVote ?? null)
   const [upvotes, setUpvotes] = useState(entry.upvotes)
   const [downvotes, setDownvotes] = useState(entry.downvotes)
@@ -142,6 +148,9 @@ export function EntryCard({
   const [isAdminDeleteOpen, setIsAdminDeleteOpen] = useState(false)
   const [isAdminDeleting, setIsAdminDeleting] = useState(false)
   const [isLikersOpen, setIsLikersOpen] = useState(false)
+  const [editBaseline, setEditBaseline] = useState("")
+  const [editLeaveOpen, setEditLeaveOpen] = useState(false)
+  const [editPendingNav, setEditPendingNav] = useState<string | null>(null)
 
   /** Backend + istemci: entry sahibi (anonim entry'de AuthorId maskeli olsa da canManage doğru gelir). */
   const canManage = entry.canManage ?? (!!currentUser && currentUser.id === entry.author.id)
@@ -158,12 +167,35 @@ export function EntryCard({
     setLocalUpdatedAt(entry.updatedAt ?? null)
   }, [entry.id, entry.userVote, entry.upvotes, entry.downvotes, entry.content, entry.saveCount, entry.isSavedByCurrentUser, entry.updatedAt])
 
-  const handleEdit = async () => {
+  const isEditDirty =
+    isEditOpen && trimComposerHtml(content) !== trimComposerHtml(editBaseline)
+
+  useBeforeunloadWarning(isEditDirty)
+  useInternalNavigationGuard(isEditDirty, (path) => {
+    setEditPendingNav(path)
+    setEditLeaveOpen(true)
+  })
+
+  const closeEditDialog = () => {
+    setIsEditOpen(false)
+    setEditError(null)
+  }
+
+  const requestCloseEdit = () => {
+    if (isEditDirty) {
+      setEditPendingNav(null)
+      setEditLeaveOpen(true)
+      return
+    }
+    closeEditDialog()
+  }
+
+  const performEditSave = async (): Promise<boolean> => {
     const trimmedContent = content.trim()
     const plainText = trimmedContent.replace(/<[^>]*>/g, "").trim()
     if (!plainText) {
       setEditError("İçerik boş olamaz.")
-      return
+      return false
     }
     setIsEditSaving(true)
     setEditError(null)
@@ -177,16 +209,31 @@ export function EntryCard({
       if (!res.ok) {
         throw new Error(typeof data === "string" ? data : (data.message ?? data.title ?? "Düzenleme başarısız"))
       }
-      // Sayfa yenilenmeden anlık güncelleme — sadece bu kartın local state'i değişir
       setContent(data.content ?? savedContent)
       setLocalUpdatedAt(data.updatedAt ?? new Date().toISOString())
       setIsEditOpen(false)
+      return true
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Bir hata oluştu")
+      return false
     } finally {
       setIsEditSaving(false)
     }
   }
+
+  const saveEditFromGuard = async () => {
+    const nav = editPendingNav
+    setEditPendingNav(null)
+    const ok = await performEditSave()
+    if (ok) {
+      setEditLeaveOpen(false)
+      if (nav) router.push(nav)
+    } else {
+      setEditLeaveOpen(false)
+    }
+  }
+
+  const handleEdit = () => void performEditSave()
 
   const handleDelete = async () => {
     setIsDeleting(true)
@@ -506,7 +553,13 @@ export function EntryCard({
                     <Users className="h-4 w-4" />
                     Kalp atanları gör
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => { setIsEditOpen(true); setEditError(null) }}>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setEditBaseline(entry.content)
+                      setIsEditOpen(true)
+                      setEditError(null)
+                    }}
+                  >
                     <Pencil className="h-4 w-4" />
                     Düzenle
                   </DropdownMenuItem>
@@ -550,7 +603,21 @@ export function EntryCard({
       />
 
       {/* Edit Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) setEditError(null) }}>
+      <Dialog
+        open={isEditOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setIsEditOpen(true)
+            return
+          }
+          if (isEditDirty) {
+            setEditPendingNav(null)
+            setEditLeaveOpen(true)
+            return
+          }
+          closeEditDialog()
+        }}
+      >
         <DialogContent
           className={cn(
             "w-full max-w-[calc(100%-2rem)] min-w-0 overflow-x-hidden p-5 gap-0",
@@ -572,13 +639,32 @@ export function EntryCard({
             {editError && <p className="mt-2 text-sm text-destructive">{editError}</p>}
           </div>
           <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setIsEditOpen(false)}>İptal</Button>
+            <Button variant="outline" onClick={requestCloseEdit}>
+              İptal
+            </Button>
             <Button onClick={handleEdit} disabled={isEditSaving}>
               {isEditSaving ? "Kaydediliyor..." : "Kaydet"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <UnsavedChangesAlertDialog
+        mode="entry-edit"
+        open={editLeaveOpen}
+        onOpenChange={setEditLeaveOpen}
+        isPublishing={isEditSaving}
+        publishDisabled={!content.trim().replace(/<[^>]*>/g, "").trim()}
+        onPublish={saveEditFromGuard}
+        onDiscard={() => {
+          const nav = editPendingNav
+          setEditPendingNav(null)
+          setContent(editBaseline)
+          setEditLeaveOpen(false)
+          closeEditDialog()
+          if (nav) router.push(nav)
+        }}
+      />
 
       {/* Delete Confirmation */}
       <AlertDialog open={isDeleteOpen} onOpenChange={(open) => { setIsDeleteOpen(open); if (!open) setDeleteError(null) }}>
