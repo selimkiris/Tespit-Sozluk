@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
 using TespitSozluk.API.Data;
+using TespitSozluk.API.Middleware;
 using TespitSozluk.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -44,6 +45,7 @@ builder.Services.AddScoped<IEntryDeletionService, EntryDeletionService>();
 builder.Services.AddScoped<IEntryInteractionNotificationService, EntryInteractionNotificationService>();
 builder.Services.AddScoped<IEntryLikesService, EntryLikesService>();
 builder.Services.AddScoped<IEntryMentionService, EntryMentionService>();
+builder.Services.AddHostedService<LogCleanupBackgroundService>();
 
 builder.Services.AddControllers()
     .AddJsonOptions(x =>
@@ -113,6 +115,9 @@ app.UseCors();
 app.UseRateLimiter();       // CORS'tan sonra, Auth'tan önce
 app.UseAuthentication();
 app.UseAuthorization();
+
+// 5651 Sayılı Kanun — trafik loglama (auth'tan sonra, kullanıcı bilgisi mevcut)
+app.UseMiddleware<TrafficLoggingMiddleware>();
 
 app.MapControllers();
 

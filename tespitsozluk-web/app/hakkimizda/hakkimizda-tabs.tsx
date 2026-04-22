@@ -235,6 +235,29 @@ export function HakkimizdaTabs() {
             </div>
           </div>
 
+          <div className="not-prose mt-5 rounded-lg border border-border bg-muted/30 p-5">
+            <h3 className="mb-3 text-sm font-semibold text-foreground">Künye</h3>
+            <ul className="m-0 list-none space-y-2.5 p-0 text-sm text-muted-foreground">
+              <li>
+                <span className="text-foreground/90">Kurucu & Yönetici: </span>
+                Selim Kırış
+              </li>
+              <li>
+                <span className="text-foreground/90">Adres: </span>
+                Aktepe Mahallesi, Keçiören / Ankara
+              </li>
+              <li>
+                <span className="text-foreground/90">E-posta: </span>
+                <a
+                  href={`mailto:${aboutConfig.iletisim.email}`}
+                  className="text-foreground underline-offset-4 hover:underline"
+                >
+                  {aboutConfig.iletisim.email}
+                </a>
+              </li>
+            </ul>
+          </div>
+
           {(() => {
             const aboutConfigSafe = aboutConfig as typeof aboutConfig & {
               sosyalMedya?: { instagram?: string; twitter?: string }

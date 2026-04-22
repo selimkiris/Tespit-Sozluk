@@ -12,71 +12,92 @@ export interface RegisterLegalModalsProps {
 function PrivacyPolicyBody() {
   return (
     <div className="space-y-4 text-left">
-      <h2 className="text-xl font-bold mb-4">TESPİT SÖZLÜK GİZLİLİK POLİTİKASI</h2>
+      <h2 className="text-xl font-bold mb-4">
+        TESPİT SÖZLÜK GİZLİLİK POLİTİKASI VE KVKK AYDINLATMA METNİ
+      </h2>
       <p className="leading-relaxed text-sm text-muted-foreground">Son Güncelleme Tarihi: 23 Nisan 2026</p>
       <p className="leading-relaxed text-sm text-muted-foreground">
-        Tespit Sözlük olarak gizliliğinize ve kişisel verilerinizin güvenliğine büyük önem veriyoruz. Bu Gizlilik
-        Politikası, Tespit Sözlük mobil uygulamasını (&quot;Tespit Sözlük&quot;) ve web platformumuzu (bilgisayar veya
-        mobil tarayıcı üzerinden tüm kullanımlar dahil) kullanırken hangi bilgilerinizi topladığımızı, bu bilgileri
+        Tespit Sözlük olarak gizliliğinize ve kişisel verilerinizin güvenliğine büyük önem veriyoruz. İşbu Gizlilik
+        Politikası ve Aydınlatma Metni, 6698 sayılı Kişisel Verilerin Korunması Kanunu (&quot;KVKK&quot;) uyarınca,
+        &quot;Veri Sorumlusu&quot; sıfatıyla Tespit Sözlük mobil uygulamasını (&quot;Tespit Sözlük&quot;) ve web
+        platformumuzu kullanırken hangi kişisel verilerinizi topladığımızı, bu bilgileri hangi hukuki sebeplere dayanarak
         nasıl kullandığımızı ve koruduğumuzu açıklamaktadır. Platformumuzu kullanarak bu politikada belirtilen
         uygulamaları kabul etmiş olursunuz.
       </p>
 
-      <h3 className="font-semibold text-primary mt-6 mb-2">1. Topladığımız Veriler</h3>
+      <h3 className="font-semibold text-primary mt-6 mb-2">1. Topladığımız Veriler ve Toplama Yöntemi</h3>
       <p className="leading-relaxed text-sm text-muted-foreground">
-        Hizmetlerimizi sunabilmek ve platform bütünlüğünü sağlamak amacıyla aşağıdaki verileri toplamaktayız:
+        Hizmetlerimizi sunabilmek ve platform bütünlüğünü sağlamak amacıyla, platformumuzu kullanımınız sırasında
+        tamamen veya kısmen otomatik yollarla (web sitesi/uygulama arayüzü, çerezler ve arka plan log kayıtları)
+        aşağıdaki verileri toplamaktayız:
       </p>
       <p className="leading-relaxed text-sm text-muted-foreground">
-        Kayıt Bilgileri: Platforma kayıt olurken verdiğiniz e-posta adresi, kullanıcı adı ve şifreniz (şifreniz
-        sistemlerimizde kriptolu olarak saklanır).
+        <span className="font-medium text-foreground">Kayıt Bilgileri (Kimlik ve İletişim):</span> Platforma kayıt
+        olurken verdiğiniz e-posta adresi, kullanıcı adı ve şifreniz (şifreniz sistemlerimizde geri döndürülemez şekilde
+        kriptolu olarak saklanır).
       </p>
       <p className="leading-relaxed text-sm text-muted-foreground">
-        Kullanıcı Tarafından Oluşturulan İçerikler: Platform içerisinde açtığınız başlıklar, yazdığınız entry&apos;ler
-        ve diğer kullanıcılarla olan tüm etkileşimleriniz.
+        <span className="font-medium text-foreground">Kullanıcı Tarafından Oluşturulan İçerikler (İşlem Güvenliği ve İçerik):</span>{" "}
+        Platform içerisinde açtığınız başlıklar, yazdığınız entry&apos;ler ve diğer kullanıcılarla olan tüm
+        etkileşimleriniz.
       </p>
       <p className="leading-relaxed text-sm text-muted-foreground">
-        Cihaz ve Bağlantı Bilgileri: Yasal yükümlülüklerimizi yerine getirmek ve platform işleyişini sağlamak
-        amacıyla; IP adresiniz, cihaz/tarayıcı bilgileriniz ve kullanım tarih/saat log kayıtlarınız.
+        <span className="font-medium text-foreground">Cihaz ve Bağlantı Bilgileri (Trafik Bilgileri):</span> Yasal
+        yükümlülüklerimizi yerine getirmek amacıyla; kaynak IP adresiniz, bağlantı portunuz, cihaz/tarayıcı
+        bilgileriniz ve kullanım tarih/saat log kayıtlarınız.
       </p>
 
-      <h3 className="font-semibold text-primary mt-6 mb-2">2. Verilerin Kullanım Amacı</h3>
-      <p className="leading-relaxed text-sm text-muted-foreground">Topladığımız kişisel verileri şu amaçlarla kullanmaktayız:</p>
+      <h3 className="font-semibold text-primary mt-6 mb-2">
+        2. Verilerin Kullanım Amacı ve İşlenmesinin Hukuki Sebepleri
+      </h3>
+      <p className="leading-relaxed text-sm text-muted-foreground">
+        Topladığımız kişisel veriler, KVKK&apos;nın 5. maddesinde belirtilen; &quot;Bir sözleşmenin kurulması veya ifasıyla
+        doğrudan doğruya ilgili olması&quot;, &quot;Veri sorumlusunun hukuki yükümlülüğünü yerine getirebilmesi için
+        zorunlu olması&quot;, &quot;İlgili kişinin temel hak ve özgürlüklerine zarar vermemek kaydıyla, veri
+        sorumlusunun meşru menfaatleri için veri işlenmesinin zorunlu olması&quot; ve &quot;Kanunlarda açıkça
+        öngörülmesi&quot; hukuki sebeplerine dayanılarak şu amaçlarla kullanılmaktadır:
+      </p>
       <ul className="list-disc space-y-2 pl-5 leading-relaxed text-sm text-muted-foreground">
         <li>Platformun temel işlevlerini (hesap oluşturma, giriş yapma, içerik paylaşma) yerine getirmek.</li>
-        <li>Kullanıcılar arası güvenli bir ortam sağlamak ve platform kurallarına aykırı durumları tespit edip engellemek.</li>
         <li>
-          Yasal mevzuattan doğan yükümlülüklerimizi yerine getirmek ve yetkili resmi makamlardan gelebilecek yasal ve
+          Kullanıcılar arası güvenli bir ortam sağlamak ve platform kurallarına aykırı durumları tespit edip engellemek.
+        </li>
+        <li>
+          5651 Sayılı İnternet Ortamında Yapılan Yayınların Düzenlenmesi Kanunu başta olmak üzere, mevzuattan doğan
+          yükümlülüklerimizi (yer sağlayıcı loglarının tutulması) yerine getirmek ve yetkili resmi makamlardan gelebilecek
           usulüne uygun taleplere yanıt vermek.
         </li>
         <li>Teknik hataları gidermek, kullanıcı deneyimini iyileştirmek ve platformu geliştirmek.</li>
         <li>
-          Kullanıcılar tarafından platformda oluşturulan içerikleri (entry&apos;ler), platformun tanıtımını yapmak ve
-          erişimini artırmak amacıyla ayrıca bir onay alınmaksızın Tespit Sözlük&apos;e ait resmi sosyal medya
-          hesaplarında (Instagram, X (Twitter), TikTok, YouTube vb.) paylaşmak.
+          Kullanıcılar tarafından platformda oluşturulan içerikleri (entry&apos;ler), platformun tanıtımını yapmak
+          amacıyla ayrıca bir onay alınmaksızın Tespit Sözlük&apos;e ait resmi sosyal medya hesaplarında
+          anonimleştirilerek veya kullanıcı adıyla paylaşmak.
         </li>
       </ul>
 
-      <h3 className="font-semibold text-primary mt-6 mb-2">3. Verilerin Paylaşımı ve Üçüncü Taraflar</h3>
+      <h3 className="font-semibold text-primary mt-6 mb-2">3. Verilerin Paylaşımı, Üçüncü Taraflar ve Yurtdışına Aktarım</h3>
       <p className="leading-relaxed text-sm text-muted-foreground">
-        Tespit Sözlük, kişisel verilerinizi kesinlikle satmaz veya reklam amacıyla üçüncü taraflarla paylaşmaz. Verileriniz
-        yalnızca şu durumlarda paylaşılabilir:
+        Tespit Sözlük, kişisel verilerinizi kesinlikle satmaz veya ticari reklam amacıyla üçüncü taraflarla paylaşmaz.
+        Verileriniz yalnızca şu durumlarda aktarılabilir:
       </p>
       <p className="leading-relaxed text-sm text-muted-foreground">
-        Yasal Zorunluluklar: Mahkeme kararı veya yetkili mercilerin resmi talebi doğrultusunda, yasal
-        yükümlülüklerimizi yerine getirmek amacıyla.
+        <span className="font-medium text-foreground">Yasal Zorunluluklar:</span> Mahkeme kararı, savcılık veya yetkili
+        mercilerin resmi talebi doğrultusunda, yasal yükümlülüklerimizi yerine getirmek amacıyla.
       </p>
       <p className="leading-relaxed text-sm text-muted-foreground">
-        Hizmet Sağlayıcılar: Veritabanı barındırma ve sunucu altyapımızı sağlayan güvenilir iş ortaklarımızla
-        (verileriniz standartlara uygun ve güvenli sunucularda tutulmaktadır).
+        <span className="font-medium text-foreground">Hizmet Sağlayıcılar ve Yurtdışına Aktarım (KVKK Madde 9):</span>{" "}
+        Platformumuz, modern ve güvenli bulut mimarisi (örn. Vercel, Render, Cloudflare, Neon.tech vb.) üzerinde
+        çalışmaktadır. Bu doğrultuda verileriniz, hizmetin doğası gereği platformun barındırılması ve veritabanı
+        altyapısının sağlanması amacıyla, KVKK&apos;nın 9. maddesindeki şartlara (yeterli korumanın bulunması veya
+        taahhütname/standart sözleşme maddeleri) uygun olarak yurtdışında bulunan güvenli sunuculara aktarılmakta ve orada
+        muhafaza edilmektedir.
       </p>
 
       <h3 className="font-semibold text-primary mt-6 mb-2">4. Kullanıcı İçeriklerinin Denetimi</h3>
       <p className="leading-relaxed text-sm text-muted-foreground">
-        Tespit Sözlük, platform kurallarının (Tespit Sözlük Anayasası) ihlal edilmemesi adına içerik moderasyonu yapma
-        hakkını saklı tutar. Platform kurallarına aykırı içerikler tespit edildiğinde veya şikayet edildiğinde, bu
-        içerikler kaldırılabilir ve ilgili kullanıcının hesabı askıya alınabilir veya silinebilir. Kullanıcılar, kural
-        ihlali yaptığını düşündükleri içerikleri uygulama ve web sitesi içerisindeki bildirim araçları ile
-        raporlayabilirler.
+        Tespit Sözlük, platform kurallarının ihlal edilmemesi adına içerik moderasyonu yapma hakkını saklı tutar.
+        Platform kurallarına aykırı içerikler tespit edildiğinde veya şikayet edildiğinde, bu içerikler kaldırılabilir ve
+        ilgili kullanıcının hesabı askıya alınabilir veya silinebilir.
       </p>
 
       <h3 className="font-semibold text-primary mt-6 mb-2">5. Veri Saklama, Hesap ve Veri Silme İşlemleri</h3>
@@ -84,37 +105,49 @@ function PrivacyPolicyBody() {
         Kullanıcılarımız, kendi verileri ve içerikleri üzerinde tam kontrole sahiptir.
       </p>
       <p className="leading-relaxed text-sm text-muted-foreground">
-        Hesap Silme İşlemi: İstediğiniz zaman platform içindeki Ayarlar &gt; Hesabımı Sil menüsünden veya
-        tespitsozluk@gmail.com adresine talebinizi ileterek hesabınızı kalıcı olarak silebilirsiniz.
+        <span className="font-medium text-foreground">Hesap Silme İşlemi:</span> İstediğiniz zaman platform içindeki
+        Ayarlar &gt; Hesabımı Sil menüsünden veya tespitsozluk@gmail.com adresine talebinizi ileterek hesabınızı
+        silebilirsiniz.
       </p>
       <p className="leading-relaxed text-sm text-muted-foreground">
-        Verilerin Yok Edilmesi: Hesap silme işlemi yapıldığında tüm profil bilgileriniz, yazdığınız bütün
-        entry&apos;ler, açtığınız bütün başlıklar ve tüm etkileşimleriniz sistemlerimizden eksiksiz ve kalıcı olarak
+        <span className="font-medium text-foreground">Verilerin Yok Edilmesi:</span> Hesap silme işlemi yapıldığında tüm
+        profil bilgileriniz, yazdığınız bütün entry&apos;ler ve etkileşimleriniz sistemlerimizden eksiksiz ve kalıcı olarak
         silinir.
       </p>
       <p className="leading-relaxed text-sm text-muted-foreground">
-        İstisnai Durum (Başlık Bütünlüğü): Eğer platformda açmış olduğunuz bir başlığa, sizden başka kullanıcılar da
-        entry girmişse; platformun işleyişi ve diğer kullanıcıların içerik bütünlüğünü korumak adına söz konusu başlık
-        silinmez. Ancak, başlığı açan kişi kısmındaki kullanıcı bilginiz tamamen anonim hale getirilerek profilinizle
-        olan tüm bağı kalıcı olarak koparılır.
+        <span className="font-medium text-foreground">İstisnai Durum (Başlık Bütünlüğü):</span> Eğer platformda açmış
+        olduğunuz bir başlığa, sizden başka kullanıcılar da entry girmişse; platformun işleyişi ve diğer kullanıcıların içerik
+        bütünlüğünü korumak adına söz konusu başlık silinmez. Ancak başlığı açan kişi bilginiz tamamen anonim hale
+        getirilerek profilinizle olan bağı koparılır.
       </p>
       <p className="leading-relaxed text-sm text-muted-foreground">
-        Yasal mevzuat gereği saklamakla yükümlü olduğumuz dijital iz (IP) kayıtları, ilgili yasal sürenin bitiminde
-        otomatik olarak imha edilir.
+        <span className="font-medium text-foreground">Yasal Log Saklama Süresi:</span> 5651 sayılı kanun gereği (Yer
+        Sağlayıcı yükümlülükleri) saklamakla yükümlü olduğumuz dijital iz ve trafik (IP, Port, Zaman) kayıtları,
+        hesabınız silinse dahi kanuni süre boyunca (en az 1, en fazla 2 yıl) güvenle saklanır ve bu yasal sürenin
+        bitiminde otomatik olarak kalıcı şekilde imha edilir.
       </p>
 
       <h3 className="font-semibold text-primary mt-6 mb-2">6. Veri Güvenliği</h3>
       <p className="leading-relaxed text-sm text-muted-foreground">
         Kullanıcı verilerinin yetkisiz erişime, değiştirilmeye veya ifşa edilmesine karşı korunması için güncel güvenlik
-        önlemleri (şifreleme, güvenli veritabanı mimarisi) uygulanmaktadır. İnternet üzerinden yapılan hiçbir veri
-        aktarımının mutlak güvenli garantisi olmasa da, verilerinizi korumak için azami özeni göstermekteyiz.
+        önlemleri uygulanmaktadır. İnternet üzerinden yapılan hiçbir veri aktarımının mutlak güvenli garantisi olmasa da,
+        verilerinizi korumak için azami özeni göstermekteyiz.
       </p>
 
-      <h3 className="font-semibold text-primary mt-6 mb-2">7. Değişiklikler ve İletişim</h3>
+      <h3 className="font-semibold text-primary mt-6 mb-2">7. KVKK Kapsamında İlgili Kişi Haklarınız (Madde 11)</h3>
       <p className="leading-relaxed text-sm text-muted-foreground">
-        Bu gizlilik politikasında zaman zaman platformun ihtiyaçlarına veya yasal düzenlemelere göre güncellemeler
-        yapabiliriz. Gizlilik politikamız, verilerinizin kullanımı veya hesap silme işlemleriyle ilgili her türlü soru,
-        talep ve şikayetiniz için aşağıdaki adres üzerinden bizimle iletişime geçebilirsiniz:
+        KVKK&apos;nın 11. maddesi uyarınca Tespit Sözlük&apos;e başvurarak; kişisel verilerinizin işlenip işlenmediğini
+        öğrenme, işlenmişse bilgi talep etme, işlenme amacını ve amacına uygun kullanılıp kullanılmadığını öğrenme, yurt
+        içinde veya yurt dışında aktarıldığı üçüncü kişileri bilme, eksik veya yanlış işlenmişse düzeltilmesini isteme,
+        kanunda öngörülen şartlar çerçevesinde silinmesini veya yok edilmesini isteme ve zarara uğramanız halinde zararın
+        giderilmesini talep etme haklarına sahipsiniz.
+      </p>
+
+      <h3 className="font-semibold text-primary mt-6 mb-2">8. Değişiklikler ve İletişim</h3>
+      <p className="leading-relaxed text-sm text-muted-foreground">
+        Bu gizlilik politikası ve aydınlatma metninde zaman zaman platformun ihtiyaçlarına veya yasal düzenlemelere göre
+        güncellemeler yapabiliriz. Haklarınızla veya verilerinizin kullanımıyla ilgili her türlü soru, talep ve şikayetiniz
+        için aşağıdaki adres üzerinden bizimle iletişime geçebilirsiniz:
       </p>
       <p className="leading-relaxed text-sm text-muted-foreground">E-posta: tespitsozluk@gmail.com</p>
     </div>
@@ -124,7 +157,7 @@ function PrivacyPolicyBody() {
 function TermsOfServiceBody() {
   return (
     <div className="space-y-4 text-left">
-      <h2 className="text-xl font-bold mb-4">TESPİT SÖZLÜK KULLANIM KOŞULLARI</h2>
+      <h2 className="text-xl font-bold mb-4">TESPİT SÖZLÜK KULLANICI SÖZLEŞMESİ</h2>
       <p className="leading-relaxed text-sm text-muted-foreground">Son Güncelleme Tarihi: 23 Nisan 2026</p>
 
       <h3 className="font-semibold text-primary mt-6 mb-2">1. Kayıt ve Yaş Sınırı</h3>
@@ -228,7 +261,11 @@ export function RegisterLegalModals({ open, onOpenChange }: RegisterLegalModalsP
     >
       <DialogContent className="flex max-h-[min(90vh,880px)] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
         <DialogTitle className="sr-only">
-          {open === "privacy" ? "TESPİT SÖZLÜK GİZLİLİK POLİTİKASI" : open === "terms" ? "TESPİT SÖZLÜK KULLANIM KOŞULLARI" : "Yasal metin"}
+          {open === "privacy"
+            ? "TESPİT SÖZLÜK GİZLİLİK POLİTİKASI VE KVKK AYDINLATMA METNİ"
+            : open === "terms"
+              ? "TESPİT SÖZLÜK KULLANICI SÖZLEŞMESİ"
+              : "Yasal metin"}
         </DialogTitle>
         <div className="min-h-0 max-h-[70vh] overflow-y-auto px-6 pb-5 pl-6 pr-12 pt-3 sm:pt-4">
           {open === "privacy" ? <PrivacyPolicyBody /> : null}

@@ -357,23 +357,22 @@ export function RegisterForm({ onRegistered: _onRegistered, onClose: _onClose, o
             aria-describedby="register-policies-label"
           />
           <p id="register-policies-label" className="min-w-0 text-sm leading-relaxed text-muted-foreground">
-            Kayıt olarak{" "}
-            <button
-              type="button"
-              onClick={() => setLegalModal("privacy")}
-              className="text-primary hover:underline cursor-pointer font-medium"
-            >
-              Gizlilik Politikası
-            </button>{" "}
-            ve{" "}
             <button
               type="button"
               onClick={() => setLegalModal("terms")}
               className="text-primary hover:underline cursor-pointer font-medium"
             >
-              Kullanım Koşulları
-            </button>
-            &apos;nı okuduğumu ve kabul ettiğimi onaylıyorum.
+              Kullanıcı Sözleşmesi&apos;ni
+            </button>{" "}
+            ile{" "}
+            <button
+              type="button"
+              onClick={() => setLegalModal("privacy")}
+              className="text-primary hover:underline cursor-pointer font-medium"
+            >
+              Gizlilik Politikası ve KVKK Aydınlatma Metni&apos;ni
+            </button>{" "}
+            okudum, kabul ediyorum.
           </p>
         </div>
 

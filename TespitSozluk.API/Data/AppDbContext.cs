@@ -20,6 +20,7 @@ public class AppDbContext : DbContext
     public DbSet<UserTopicFollow> UserTopicFollows { get; set; }
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<Report> Reports { get; set; }
+    public DbSet<TrafficLog> TrafficLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -190,5 +191,20 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<Entry>()
             .HasIndex(e => e.CreatedAt);
+
+        // ── 5651 Sayılı Kanun — Trafik Logları ──────────────────────────────
+        // Kullanıcı silindiğinde loglar KESİNLİKLE silinmez; UserId null'a çekilir.
+        modelBuilder.Entity<TrafficLog>()
+            .HasOne(tl => tl.User)
+            .WithMany()
+            .HasForeignKey(tl => tl.UserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<TrafficLog>()
+            .HasIndex(tl => tl.TimestampUtc);
+
+        modelBuilder.Entity<TrafficLog>()
+            .HasIndex(tl => tl.IpAddress);
     }
 }
