@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Heart, MoreHorizontal, Pencil, Trash2, User, Users, Flag, ShieldX, BadgeCheck } from "lucide-react"
@@ -151,6 +151,45 @@ export function EntryCard({
   const [editBaseline, setEditBaseline] = useState("")
   const [editLeaveOpen, setEditLeaveOpen] = useState(false)
   const [editPendingNav, setEditPendingNav] = useState<string | null>(null)
+
+  // --- Mikro-animasyon geçici state'leri (yalnızca görsel; API/mantık etkilenmez) ---
+  const [heartAnim, setHeartAnim] = useState(false)
+  const [ayakAnim, setAyakAnim] = useState(false)
+  const [civiAnim, setCiviAnim] = useState(false)
+  const animTimers = useRef<{ heart?: ReturnType<typeof setTimeout>; ayak?: ReturnType<typeof setTimeout>; civi?: ReturnType<typeof setTimeout> }>({})
+
+  useEffect(() => {
+    return () => {
+      if (animTimers.current.heart) clearTimeout(animTimers.current.heart)
+      if (animTimers.current.ayak) clearTimeout(animTimers.current.ayak)
+      if (animTimers.current.civi) clearTimeout(animTimers.current.civi)
+    }
+  }, [])
+
+  const triggerHeartAnim = () => {
+    if (animTimers.current.heart) clearTimeout(animTimers.current.heart)
+    setHeartAnim(false)
+    requestAnimationFrame(() => {
+      setHeartAnim(true)
+      animTimers.current.heart = setTimeout(() => setHeartAnim(false), 600)
+    })
+  }
+  const triggerAyakAnim = () => {
+    if (animTimers.current.ayak) clearTimeout(animTimers.current.ayak)
+    setAyakAnim(false)
+    requestAnimationFrame(() => {
+      setAyakAnim(true)
+      animTimers.current.ayak = setTimeout(() => setAyakAnim(false), 750)
+    })
+  }
+  const triggerCiviAnim = () => {
+    if (animTimers.current.civi) clearTimeout(animTimers.current.civi)
+    setCiviAnim(false)
+    requestAnimationFrame(() => {
+      setCiviAnim(true)
+      animTimers.current.civi = setTimeout(() => setCiviAnim(false), 600)
+    })
+  }
 
   /** Backend + istemci: entry sahibi (anonim entry'de AuthorId maskeli olsa da canManage doğru gelir). */
   const canManage = entry.canManage ?? (!!currentUser && currentUser.id === entry.author.id)
@@ -417,56 +456,119 @@ export function EntryCard({
         <div className="flex items-center gap-1 shrink-0">
           {/* Upvote */}
           <button
-            onClick={() => handleVote("up")}
+            onClick={() => {
+              if (!isVoting) triggerHeartAnim()
+              handleVote("up")
+            }}
             disabled={isVoting}
             title="Kalp at"
             className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed",
+              "relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed",
               userVote === "up"
                 ? "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 ring-1 ring-rose-200 dark:ring-rose-800/40"
                 : "text-[#7c8190] hover:text-rose-500 hover:bg-rose-50/60 dark:hover:bg-rose-950/20"
             )}
             aria-label="Kalp at"
           >
-            <Heart className={cn("h-4 w-4 transition-transform duration-100", userVote === "up" ? "fill-current scale-110" : "")} />
+            <span className="relative inline-flex items-center justify-center">
+              <Heart
+                className={cn(
+                  "h-4 w-4 transition-transform duration-100",
+                  userVote === "up" && "fill-current scale-110",
+                  heartAnim && "animate-heart-pop fill-current"
+                )}
+              />
+              {heartAnim && (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 -m-1 rounded-full animate-heart-pop"
+                  style={{
+                    background:
+                      "radial-gradient(circle, rgba(244,63,94,0.35) 0%, rgba(244,63,94,0.12) 55%, transparent 75%)",
+                  }}
+                />
+              )}
+            </span>
             <span className={cn("tabular-nums text-[13px]", userVote === "up" && "font-semibold")}>
               {upvotes}
             </span>
           </button>
 
-          {/* Downvote (Butt icon) */}
+          {/* Downvote (Ayak icon) */}
           <button
-            onClick={() => handleVote("down")}
+            onClick={() => {
+              if (!isVoting) triggerAyakAnim()
+              handleVote("down")
+            }}
             disabled={isVoting}
             title="Ayak at"
             className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed",
+              "relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed",
               userVote === "down"
                 ? "text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 ring-1 ring-amber-200 dark:ring-amber-800/40"
                 : "text-[#7c8190] hover:text-amber-600 hover:bg-amber-50/60 dark:hover:bg-amber-950/20"
             )}
             aria-label="Ayak at"
           >
-            <AyakIcon filled={userVote === "down"} />
+            <span className="relative inline-flex items-center justify-center">
+              {ayakAnim && (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 -m-2 rounded-full animate-ayak-aura"
+                  style={{
+                    background:
+                      "radial-gradient(circle, rgba(132,204,22,0.55) 0%, rgba(132,204,22,0.25) 45%, transparent 72%)",
+                    boxShadow:
+                      "0 0 14px 4px rgba(132,204,22,0.35), 0 0 28px 6px rgba(101,163,13,0.25)",
+                  }}
+                />
+              )}
+              <AyakIcon
+                filled={userVote === "down"}
+                className={cn(ayakAnim && "animate-ayak-wobble")}
+              />
+            </span>
             <span className={cn("tabular-nums text-[13px]", userVote === "down" && "font-semibold")}>
               {downvotes}
             </span>
           </button>
 
-          {/* Save */}
+          {/* Save (Çivi) */}
           <button
-            onClick={handleSaveToggle}
+            onClick={() => {
+              if (!isSaving) triggerCiviAnim()
+              handleSaveToggle()
+            }}
             disabled={isSaving}
             title="Çivile"
             className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed",
+              "relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed",
               isSaved
                 ? "text-purple-500 dark:text-purple-400 bg-purple-500/10 dark:bg-purple-950/30 ring-1 ring-purple-500/30 dark:ring-purple-400/25"
                 : "text-[#7c8190] hover:text-purple-400 hover:bg-purple-500/10 dark:hover:bg-purple-950/20"
             )}
             aria-label="Çivile"
           >
-            <CiviIcon className={cn("transition-transform duration-100", isSaved ? "scale-110" : "")} />
+            <span className="relative inline-flex items-center justify-center">
+              <CiviIcon
+                className={cn(
+                  "transition-transform duration-100",
+                  isSaved && "scale-110",
+                  civiAnim && "animate-civi-slam"
+                )}
+              />
+              {civiAnim && (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-1/2 -bottom-1 h-[3px] w-5 rounded-full animate-civi-impact"
+                  style={{
+                    background:
+                      "radial-gradient(ellipse at center, rgba(168,85,247,0.85) 0%, rgba(168,85,247,0.35) 60%, transparent 100%)",
+                    boxShadow: "0 0 10px 2px rgba(168,85,247,0.45)",
+                  }}
+                />
+              )}
+            </span>
             <span className={cn("tabular-nums text-[13px]", isSaved && "font-semibold")}>{saveCount}</span>
           </button>
         </div>
