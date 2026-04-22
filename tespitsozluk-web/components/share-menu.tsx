@@ -47,10 +47,15 @@ interface ShareMenuSubProps {
   title: string
 }
 
+type ShareMenuItemsProps = {
+  url: string
+  title: string
+}
+
 /**
- * Üst bir DropdownMenu içine yerleştirin: "Paylaş" alt menüsü (kopyala, X, WhatsApp, yerel paylaşım).
+ * Aynı paylaşım eylemleri: doğrudan bir DropdownMenuContent içinde kullanın (ör. profil sayfası ikon tetikleyicili menü).
  */
-export function ShareMenuSub({ url, title }: ShareMenuSubProps) {
+export function ShareMenuItems({ url, title }: ShareMenuItemsProps) {
   const [copied, setCopied] = useState(false)
   const [canNativeShare, setCanNativeShare] = useState(false)
   useEffect(() => {
@@ -97,6 +102,59 @@ export function ShareMenuSub({ url, title }: ShareMenuSubProps) {
   }
 
   return (
+    <>
+      <DropdownMenuItem
+        className="cursor-pointer font-normal text-sm"
+        onSelect={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          void handleCopyLink()
+        }}
+      >
+        <Copy className="size-4 text-muted-foreground" aria-hidden />
+        <span>{copied ? "Kopyalandı \u2713" : "Bağlantıyı Kopyala"}</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        className="cursor-pointer font-normal text-sm"
+        onSelect={(e) => {
+          e.stopPropagation()
+          handleTwitter()
+        }}
+      >
+        <XLogoIcon className="text-foreground" />
+        <span>X&apos;te (Twitter) Paylaş</span>
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        className="cursor-pointer font-normal text-sm"
+        onSelect={(e) => {
+          e.stopPropagation()
+          handleWhatsApp()
+        }}
+      >
+        <WhatsAppIcon className="text-[#25D366]" />
+        <span>WhatsApp&apos;ta Paylaş</span>
+      </DropdownMenuItem>
+      {canNativeShare && (
+        <DropdownMenuItem
+          className="cursor-pointer font-normal text-sm"
+          onSelect={(e) => {
+            e.stopPropagation()
+            void handleNativeShare()
+          }}
+        >
+          <Share2 className="size-4 text-muted-foreground" aria-hidden />
+          <span>Diğer Uygulamalar</span>
+        </DropdownMenuItem>
+      )}
+    </>
+  )
+}
+
+/**
+ * Üst bir DropdownMenu içine yerleştirin: "Paylaş" alt menüsü (kopyala, X, WhatsApp, yerel paylaşım).
+ */
+export function ShareMenuSub({ url, title }: ShareMenuSubProps) {
+  return (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger className="cursor-pointer font-normal text-sm">
         <Share2 className="mr-2 h-4 w-4" />
@@ -107,49 +165,7 @@ export function ShareMenuSub({ url, title }: ShareMenuSubProps) {
         sideOffset={4}
         alignOffset={0}
       >
-        <DropdownMenuItem
-          className="cursor-pointer font-normal text-sm"
-          onSelect={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            void handleCopyLink()
-          }}
-        >
-          <Copy className="size-4 text-muted-foreground" aria-hidden />
-          <span>{copied ? "Kopyalandı \u2713" : "Bağlantıyı Kopyala"}</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className="cursor-pointer font-normal text-sm"
-          onSelect={(e) => {
-            e.stopPropagation()
-            handleTwitter()
-          }}
-        >
-          <XLogoIcon className="text-foreground" />
-          <span>X&apos;te (Twitter) Paylaş</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className="cursor-pointer font-normal text-sm"
-          onSelect={(e) => {
-            e.stopPropagation()
-            handleWhatsApp()
-          }}
-        >
-          <WhatsAppIcon className="text-[#25D366]" />
-          <span>WhatsApp&apos;ta Paylaş</span>
-        </DropdownMenuItem>
-        {canNativeShare && (
-          <DropdownMenuItem
-            className="cursor-pointer font-normal text-sm"
-            onSelect={(e) => {
-              e.stopPropagation()
-              void handleNativeShare()
-            }}
-          >
-            <Share2 className="size-4 text-muted-foreground" aria-hidden />
-            <span>Diğer Uygulamalar</span>
-          </DropdownMenuItem>
-        )}
+        <ShareMenuItems url={url} title={title} />
       </DropdownMenuSubContent>
     </DropdownMenuSub>
   )

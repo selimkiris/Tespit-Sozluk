@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useLayoutEffect, useCallback } from "react"
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, Lock, FileText, Pencil, Trash2, Send, Plus, User, UserPlus, UserMinus, CalendarDays, Heart, Save, PencilLine, ShieldX, CheckCircle2, Clock, AlertTriangle, RotateCcw, Flag, Trash, BadgeCheck, Mail, ShieldAlert, MessageCircle, FileEdit } from "lucide-react"
+import { ArrowLeft, Lock, FileText, Pencil, Trash2, Send, Plus, User, UserPlus, UserMinus, CalendarDays, Heart, Save, PencilLine, ShieldX, CheckCircle2, Clock, AlertTriangle, RotateCcw, Flag, Trash, BadgeCheck, Mail, ShieldAlert, MessageCircle, FileEdit, Share2 } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
 import { Navbar } from "@/components/navbar"
@@ -42,11 +42,17 @@ import { EditDraftModal } from "@/components/edit-draft-modal"
 import { FollowListModal } from "@/components/follow-list-modal"
 import { AyakIcon } from "@/components/icons/AyakIcon"
 import { CiviIcon } from "@/components/icons/CiviIcon"
-import { getApiUrl, apiFetch } from "@/lib/api"
+import { getApiUrl, apiFetch, getSiteUrl } from "@/lib/api"
 import { ENTRY_BODY_RENDERER_CLASSNAME } from "@/lib/entry-body-renderer-classes"
 import { getAuth, clearAuth, updateAuthUser, type AuthData } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 import { formatTurkeyDateTime } from "@/lib/turkey-datetime"
+import { ShareMenuItems } from "@/components/share-menu"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { DangerConfirmModal } from "@/components/admin/danger-confirm-modal"
 import { HtmlRenderer } from "@/components/html-renderer"
 import { ExpandableHtmlContent } from "@/components/expandable-html-content"
@@ -1082,6 +1088,25 @@ export default function UserProfilePage() {
                   )}
                 </Button>
               )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    aria-label="Profili paylaş"
+                  >
+                    <Share2 className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="z-[100] min-w-[8rem]">
+                  <ShareMenuItems
+                    url={`${getSiteUrl()}/user/${user.id}`}
+                    title={`Tespit Sözlük'te ${user.nickname} profilini incele`}
+                  />
+                </DropdownMenuContent>
+              </DropdownMenu>
               {isAdmin && !isOwnProfile && (
                 <>
                   <Button
