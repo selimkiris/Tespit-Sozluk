@@ -17,23 +17,27 @@ async function fetchTopicPage(
   page: number,
   pageSize: number
 ): Promise<{ items: TopicListItem[]; hasNextPage: boolean }> {
-  const res = await fetch(
-    getApiUrl(`api/Topics/${variant}?page=${page}&pageSize=${pageSize}`),
-    { next: { revalidate } }
-  )
-  if (!res.ok) {
+  try {
+    const res = await fetch(
+      getApiUrl(`api/Topics/${variant}?page=${page}&pageSize=${pageSize}`),
+      { next: { revalidate } }
+    )
+    if (!res.ok) {
+      return { items: [], hasNextPage: false }
+    }
+    const data: {
+      items?: Array<{ id?: string; createdAt?: string }>
+      hasNextPage?: boolean
+    } = await res.json()
+    const raw = data?.items ?? []
+    const items: TopicListItem[] = []
+    for (const t of raw) {
+      if (t?.id) items.push({ id: String(t.id), createdAt: t.createdAt })
+    }
+    return { items, hasNextPage: data?.hasNextPage ?? false }
+  } catch {
     return { items: [], hasNextPage: false }
   }
-  const data: {
-    items?: Array<{ id?: string; createdAt?: string }>
-    hasNextPage?: boolean
-  } = await res.json()
-  const raw = data?.items ?? []
-  const items: TopicListItem[] = []
-  for (const t of raw) {
-    if (t?.id) items.push({ id: String(t.id), createdAt: t.createdAt })
-  }
-  return { items, hasNextPage: data?.hasNextPage ?? false }
 }
 
 /** Tüm başlık ID'leri — alfabetik endpoint ile sayfalanır. */
@@ -78,6 +82,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: now,
       changeFrequency: "daily",
       priority: 1,
+    },
+    {
+      url: `${SITE_ORIGIN}/hakkimizda`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.85,
     },
     ...topicEntries,
   ]

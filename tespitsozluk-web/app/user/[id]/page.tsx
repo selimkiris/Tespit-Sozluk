@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect, useLayoutEffect, useCallback } from "react"
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo } from "react"
+import type { ReactNode } from "react"
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, Lock, FileText, Pencil, Trash2, Send, Plus, User, UserPlus, UserMinus, CalendarDays, Heart, Save, PencilLine, ShieldX, CheckCircle2, Clock, AlertTriangle, RotateCcw, Flag, Trash, BadgeCheck, Mail, ShieldAlert, MessageCircle, FileEdit, Share2 } from "lucide-react"
+import { ArrowLeft, Lock, FileText, Pencil, Trash2, Send, Plus, User, UserPlus, UserMinus, CalendarDays, Heart, Save, PencilLine, ShieldX, CheckCircle2, Clock, AlertTriangle, RotateCcw, Flag, Trash, BadgeCheck, Mail, ShieldAlert, MessageCircle, FileEdit, Share2, Search } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
 import { Navbar } from "@/components/navbar"
@@ -47,6 +48,10 @@ import { ENTRY_BODY_RENDERER_CLASSNAME } from "@/lib/entry-body-renderer-classes
 import { getAuth, clearAuth, updateAuthUser, type AuthData } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 import { formatTurkeyDateTime } from "@/lib/turkey-datetime"
+import {
+  ENTRY_SEARCH_HIGHLIGHT_MARK_CLASS,
+  shouldApplyEntrySearchHighlight,
+} from "@/lib/search-highlight-html"
 import { ShareMenuItems } from "@/components/share-menu"
 import {
   DropdownMenu,
@@ -192,6 +197,53 @@ function getDraftDateLines(createdAt: string, updatedAt: string) {
   }
 }
 
+function draftDisplayTitle(d: ApiDraft): string {
+  return d.topicTitle ?? d.newTopicTitle ?? "Başlıksız"
+}
+
+/** HTML’i parse ederek veya etiketleri sıyırarak düz metin; filtre büyük/küçük harf duyarsız. */
+function draftPlainTextForSearch(html: string): string {
+  if (!html?.trim()) return ""
+  let raw = ""
+  if (typeof document !== "undefined") {
+    try {
+      const el = document.createElement("div")
+      el.innerHTML = html
+      raw = el.textContent ?? ""
+    } catch {
+      raw = html.replace(/<[^>]*>/g, " ")
+    }
+  } else {
+    raw = html.replace(/<[^>]*>/g, " ")
+  }
+  return raw.replace(/\s+/g, " ").trim().toLowerCase()
+}
+
+/** Entry kartı / HtmlRenderer ile aynı eşik ve mark sınıfı (başlık düz metin). */
+function highlightDraftPlainText(text: string, rawQuery: string): ReactNode {
+  if (!shouldApplyEntrySearchHighlight(rawQuery)) return text
+  const q = rawQuery.trim()
+  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const regex = new RegExp(`(${escaped})`, "gi")
+  const parts: ReactNode[] = []
+  let lastIndex = 0
+  let key = 0
+  let m: RegExpExecArray | null
+  while ((m = regex.exec(text)) !== null) {
+    if (m.index > lastIndex) {
+      parts.push(text.slice(lastIndex, m.index))
+    }
+    parts.push(
+      <mark key={key++} className={ENTRY_SEARCH_HIGHLIGHT_MARK_CLASS}>
+        {m[1]}
+      </mark>,
+    )
+    lastIndex = regex.lastIndex
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex))
+  return parts.length > 0 ? <>{parts}</> : text
+}
+
 function mapEntry(e: ApiEntry) {
   const userVote: "up" | "down" | null =
     e.userVoteType === 1 ? "up" : e.userVoteType === -1 ? "down" : null
@@ -241,6 +293,8 @@ export default function UserProfilePage() {
   const [includeAnonymous, setIncludeAnonymous] = useState(false)
   const [deleteDraftId, setDeleteDraftId] = useState<string | null>(null)
   const [publishDraftId, setPublishDraftId] = useState<string | null>(null)
+  /** Taslaklar sekmesi arama metni (filtre + vurgu). */
+  const [draftsSearchQuery, setDraftsSearchQuery] = useState("")
   const [savedEntries, setSavedEntries] = useState<ReturnType<typeof mapEntry>[]>([])
   const [savedPage, setSavedPage] = useState(1)
   const [savedTotalPages, setSavedTotalPages] = useState(1)
@@ -408,6 +462,16 @@ export default function UserProfilePage() {
       setDraftsLoading(false)
     }
   }, [draftsPage])
+
+  const filteredDrafts = useMemo(() => {
+    const q = draftsSearchQuery.trim().toLowerCase()
+    if (!q) return drafts
+    return drafts.filter((d) => {
+      const title = draftDisplayTitle(d).toLowerCase()
+      const body = draftPlainTextForSearch(d.content || "")
+      return title.includes(q) || body.includes(q)
+    })
+  }, [drafts, draftsSearchQuery])
 
   const fetchLikedEntries = useCallback(async (userId: string, p: number) => {
     setLikedLoading(true)
@@ -1506,8 +1570,26 @@ export default function UserProfilePage() {
                     </div>
                   ) : (
                   <>
+                    <div className="flex flex-row items-center gap-3 mb-4 py-3 px-4 rounded-lg bg-muted/40 border border-border/60">
+                      <div className="relative flex-1 min-w-0">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground shrink-0 pointer-events-none" />
+                        <Input
+                          type="search"
+                          placeholder="Taslaklarda ara..."
+                          value={draftsSearchQuery}
+                          onChange={(e) => setDraftsSearchQuery(e.target.value)}
+                          className="pl-9 h-9 bg-background"
+                          aria-label="Taslaklarda ara"
+                        />
+                      </div>
+                    </div>
+                    {filteredDrafts.length === 0 ? (
+                      <div className="py-12 text-center text-muted-foreground">
+                        Aramanızla eşleşen taslak yok.
+                      </div>
+                    ) : (
                     <div className="space-y-4 min-w-0 w-full max-w-full">
-                      {drafts.map((draft) => {
+                      {filteredDrafts.map((draft) => {
                         const { createdLine, editLine } = getDraftDateLines(
                           draft.createdAt,
                           draft.updatedAt,
@@ -1525,13 +1607,14 @@ export default function UserProfilePage() {
                           </span>
                           <div className="mb-4 min-w-0 w-full max-w-full pr-20">
                             <span className="block w-full min-w-0 max-w-full whitespace-pre-wrap break-words text-left text-xl font-bold leading-[1.35] tracking-[-0.01em] text-slate-200 dark:text-slate-300">
-                              {draft.topicTitle ?? draft.newTopicTitle ?? "Başlıksız"}
+                              {highlightDraftPlainText(draftDisplayTitle(draft), draftsSearchQuery)}
                             </span>
                           </div>
                           <div className="entry-content mb-4 min-w-0 w-full max-w-full">
                             <ExpandableHtmlContent
                               html={draft.content || ""}
                               rendererClassName={ENTRY_BODY_RENDERER_CLASSNAME}
+                              searchHighlightQuery={draftsSearchQuery}
                             />
                           </div>
                           <div className="mb-3 flex min-w-0 w-full max-w-full flex-col gap-0.5">
@@ -1587,6 +1670,7 @@ export default function UserProfilePage() {
                         )
                       })}
                     </div>
+                    )}
                     {(draftsPage > 1 || draftsPage < draftsTotalPages) && (
                       <div className="flex items-center justify-center gap-3 mt-8 pb-8">
                         <Button

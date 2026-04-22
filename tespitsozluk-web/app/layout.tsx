@@ -20,8 +20,13 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
   title: 'Tespit Sözlük',
-  description: 'Modern sözlük platformu - Tespit et, paylaş, keşfet',
-  generator: 'v0.app',
+  description: 'Modern sözlük platformu — başlıkları keşfet, entry yaz, topluluğa katıl.',
+  applicationName: 'Tespit Sözlük',
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true },
+  },
   icons: {
     icon: '/icon.svg',
     shortcut: '/icon.svg',
@@ -32,11 +37,13 @@ export const metadata: Metadata = {
     locale: 'tr_TR',
     siteName: 'Tespit Sözlük',
     title: 'Tespit Sözlük',
-    description: 'Modern sözlük platformu - Tespit et, paylaş, keşfet',
+    description: 'Modern sözlük platformu — başlıkları keşfet, entry yaz, topluluğa katıl.',
     url: '/',
     images: [
       {
         url: '/og-image.png',
+        width: 1200,
+        height: 630,
         alt: 'Tespit Sözlük',
       },
     ],
@@ -44,7 +51,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Tespit Sözlük',
-    description: 'Modern sözlük platformu - Tespit et, paylaş, keşfet',
+    description: 'Modern sözlük platformu — başlıkları keşfet, entry yaz, topluluğa katıl.',
     images: ['/og-image.png'],
   },
 }

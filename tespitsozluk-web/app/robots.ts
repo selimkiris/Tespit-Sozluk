@@ -6,6 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
     },
+    host: "https://tespitsozluk.com",
     sitemap: "https://tespitsozluk.com/sitemap.xml",
   }
 }

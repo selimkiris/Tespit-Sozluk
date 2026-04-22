@@ -25,36 +25,45 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   const params = await searchParams
   const topicId = params?.topic
 
+  const siteUrl = getSiteUrl()
+  const defaultDesc =
+    "Modern sözlük platformu — başlıkları keşfet, entry yaz, topluluğa katıl."
+  const ogImage = { url: "/og-image.png" as const, width: 1200, height: 630, alt: "Tespit Sözlük" as const }
+
   if (!topicId) {
     return {
       title: "Tespit Sözlük",
-      description: "Modern sözlük platformu - Tespit et, paylaş, keşfet",
+      description: defaultDesc,
+      alternates: { canonical: `${siteUrl}/` },
       openGraph: {
         title: "Tespit Sözlük",
-        description: "Modern sözlük platformu - Tespit et, paylaş, keşfet",
+        description: defaultDesc,
         siteName: "Tespit Sözlük",
         type: "website",
         locale: "tr_TR",
+        url: `${siteUrl}/`,
+        images: [ogImage],
       },
       twitter: {
         card: "summary_large_image",
         title: "Tespit Sözlük",
-        description: "Modern sözlük platformu - Tespit et, paylaş, keşfet",
+        description: defaultDesc,
+        images: ["/og-image.png"],
       },
     }
   }
 
   const topicTitle = await fetchTopicTitle(topicId)
-  const title = topicTitle ? `${topicTitle} | Tespit Sözlük` : "Tespit Sözlük"
+  const title = topicTitle ? `${topicTitle} - Tespit Sözlük` : "Tespit Sözlük"
   const description = topicTitle
-    ? `${topicTitle} başlığındaki entry'leri keşfet - Tespit Sözlük`
-    : "Modern sözlük platformu - Tespit et, paylaş, keşfet"
-  const siteUrl = getSiteUrl()
-  const topicUrl = `${siteUrl}/?topic=${topicId}`
+    ? `${topicTitle} başlığındaki entry'leri Tespit Sözlük'te oku ve yaz.`
+    : defaultDesc
+  const topicUrl = `${siteUrl}/?topic=${encodeURIComponent(topicId)}`
 
   return {
     title,
     description,
+    alternates: { canonical: topicUrl },
     openGraph: {
       title,
       description,
@@ -62,11 +71,13 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
       siteName: "Tespit Sözlük",
       type: "website",
       locale: "tr_TR",
+      images: [{ ...ogImage, alt: title }],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
+      images: ["/og-image.png"],
     },
   }
 }
