@@ -775,6 +775,9 @@ export function Navbar({
             </DropdownMenu>
           ) : (
             <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground h-8 px-3 text-sm">
+                <Link href="/hakkimizda">Hakkımızda</Link>
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
