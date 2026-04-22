@@ -8,13 +8,16 @@ import { Button } from "@/components/ui/button"
 interface Topic {
   id: string
   title: string
+  /** Opsiyonel SEO slug; varsa liste öğesinden slug rotasına gidilebilir. */
+  slug?: string
   entryCount: number
 }
 
-function mapApiTopic(t: { id: string; title: string; entryCount?: number }): Topic {
+function mapApiTopic(t: { id: string; title: string; slug?: string | null; entryCount?: number }): Topic {
   return {
     id: String(t.id),
     title: t.title ?? "",
+    slug: typeof t.slug === "string" && t.slug.length > 0 ? t.slug : undefined,
     entryCount: t.entryCount ?? 0,
   }
 }

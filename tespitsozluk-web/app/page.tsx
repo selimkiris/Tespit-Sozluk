@@ -1,5 +1,6 @@
 import { Suspense } from "react"
 import type { Metadata } from "next"
+import { permanentRedirect, RedirectType } from "next/navigation"
 import { HomePageContent } from "@/components/home-page-content"
 import { getApiUrl, getSiteUrl } from "@/lib/api"
 
@@ -7,18 +8,26 @@ type PageProps = {
   searchParams: Promise<{ topic?: string }>
 }
 
-async function fetchTopicTitle(topicId: string): Promise<string | null> {
+/** SEO taşıma için ID→Slug çözümleyicisi. Slug bulunursa kalıcı (301/308) olarak yeni rotaya taşınır. */
+async function fetchTopicTitleAndSlug(topicId: string): Promise<{ title: string | null; slug: string | null }> {
   try {
     const res = await fetch(getApiUrl(`api/Topics/${topicId}`), {
       cache: "no-store",
       headers: { "Content-Type": "application/json" },
     })
-    if (!res.ok) return null
+    if (!res.ok) return { title: null, slug: null }
     const data = await res.json()
-    return data?.title ?? null
+    const title = typeof data?.title === "string" ? data.title : null
+    const slug = typeof data?.slug === "string" && data.slug.length > 0 ? data.slug : null
+    return { title, slug }
   } catch {
-    return null
+    return { title: null, slug: null }
   }
+}
+
+async function fetchTopicTitle(topicId: string): Promise<string | null> {
+  const { title } = await fetchTopicTitleAndSlug(topicId)
+  return title
 }
 
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
@@ -84,7 +93,24 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   }
 }
 
-export default function HomePage() {
+/**
+ * Eski (ID tabanlı) başlık linklerini yeni SEO rotasına 301/308 ile taşır.
+ * Google veya başka bir kaynak `/?topic=<id>` biçimiyle geldiğinde sunucuda
+ * slug çözümlenir ve `/baslik/<slug>` rotasına kalıcı olarak yönlendirilir.
+ * URL'de `?topic=` yoksa anasayfa normal akışta render edilmeye devam eder.
+ */
+export default async function HomePage({ searchParams }: PageProps) {
+  const params = await searchParams
+  const topicId = params?.topic?.trim()
+  if (topicId) {
+    const { slug } = await fetchTopicTitleAndSlug(topicId)
+    if (slug) {
+      permanentRedirect(`/baslik/${slug}`, RedirectType.replace)
+    }
+    // Slug bulunamadıysa (silinmiş başlık vs.) eski davranış korunur; kullanıcı
+    // `?topic=<id>` ile normal anasayfa akışında — Client Component id'ye göre başlığı yükler.
+  }
+
   return (
     <Suspense
       fallback={

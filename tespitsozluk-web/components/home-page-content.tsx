@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { Clock, Compass, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Navbar } from "@/components/navbar"
@@ -63,6 +63,7 @@ function mapApiEntry(e: ApiEntry) {
 type SidebarTopicPayload = {
   id: string
   title?: string
+  slug?: string | null
   entryCount?: number
   authorId?: string
   authorName?: string
@@ -73,6 +74,32 @@ type SidebarTopicPayload = {
   isTopicOwner?: boolean
   canManageTopic?: boolean
   isFollowedByCurrentUser?: boolean
+}
+
+/**
+ * SSR rotalarından (örn. `/baslik/[slug]`) aktarılan ön-yüklenmiş başlık.
+ * Var olduğunda sayfa doğrudan bu başlık seçili şekilde açılır; URL `?topic=` beklenmez.
+ */
+export type InitialTopic = {
+  id: string
+  title: string
+  entryCount: number
+  authorId?: string
+  authorName?: string
+  authorUsername?: string
+  authorAvatar?: string | null
+  createdAt?: string
+  isAnonymous?: boolean
+  isTopicOwner?: boolean
+  canManageTopic?: boolean
+  isFollowedByCurrentUser?: boolean
+  /** Slug tabanlı rotada pagination URL'ini `/baslik/<slug>?page=N` olarak korumak için kullanılır. */
+  slug?: string
+}
+
+interface HomePageContentProps {
+  /** SSR ile pre-fetch edilmiş başlık; `/baslik/[slug]` rotasında dolu gelir. */
+  initialTopic?: InitialTopic
 }
 
 type User = {
@@ -100,9 +127,11 @@ function authResponseToUser(auth: AuthResponse): User {
   }
 }
 
-export function HomePageContent() {
+export function HomePageContent({ initialTopic }: HomePageContentProps = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const isSlugRoute = typeof pathname === "string" && pathname.startsWith("/baslik/")
   // Auth state
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [currentUser, setCurrentUser] = useState<User | null>(null)
@@ -113,13 +142,14 @@ export function HomePageContent() {
   const [showCreateTopicModal, setShowCreateTopicModal] = useState(false)
   const [showAllTopicsModal, setShowAllTopicsModal] = useState(false)
 
-  // Navigation state
-  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null)
+  // Navigation state — SSR'dan gelen initialTopic varsa o başlık seçili olarak başla
+  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(initialTopic?.id ?? null)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   // Data state (topics API'den TopicSidebar ile yüklenecek)
   const [topics, setTopics] = useState<{
     id: string
     title: string
+    slug?: string
     entryCount: number
     authorId?: string
     authorName?: string
@@ -140,6 +170,7 @@ export function HomePageContent() {
     const mapped = list.map((t) => ({
       id: String(t.id),
       title: String(t.title ?? ""),
+      slug: typeof t.slug === "string" && t.slug.length > 0 ? t.slug : undefined,
       entryCount: typeof t.entryCount === "number" ? t.entryCount : 0,
       authorId: t.authorId != null && t.authorId !== "" ? String(t.authorId) : undefined,
       authorName: typeof t.authorName === "string" ? t.authorName : undefined,
@@ -217,14 +248,18 @@ export function HomePageContent() {
   const topicsFromUrl = searchParams.get("topics")
   const searchFromUrl = searchParams.get("search")
 
-  // URL'deki topic parametresi tek kaynak — selectedTopicId buna göre güncellenir
+  // URL'deki topic parametresi tek kaynak — selectedTopicId buna göre güncellenir.
+  // Slug tabanlı rotada (`/baslik/[slug]`) `?topic=` beklenmez; initialTopic ile sabit kalır.
   useEffect(() => {
     if (topicFromUrl) {
       setSelectedTopicId(topicFromUrl)
+    } else if (isSlugRoute && initialTopic) {
+      // Slug rotasında initialTopic geçerli kaynak — URL'de topic query olmaması normal
+      return
     } else if (!loginFromUrl && !registerFromUrl && !topicsFromUrl) {
       setSelectedTopicId(null)
     }
-  }, [topicFromUrl, loginFromUrl, registerFromUrl, topicsFromUrl])
+  }, [topicFromUrl, loginFromUrl, registerFromUrl, topicsFromUrl, isSlugRoute, initialTopic])
 
   useEffect(() => {
     if (loginFromUrl !== "1") return
@@ -261,9 +296,11 @@ export function HomePageContent() {
   // Get selected topic (güvenli erişim - topics asla undefined olmasın)
   const topicsList = topics ?? []
   const selectedTopicFromList = topicsList.find((t) => t.id === selectedTopicId)
+  // SSR'dan `initialTopic` geldiyse TopicDetail'e ilk render'da dolu state verilsin — boş ekran yanıp sönmesin
   const [fetchedTopicForUrl, setFetchedTopicForUrl] = useState<{
     id: string
     title: string
+    slug?: string
     entryCount: number
     authorId?: string
     authorName?: string
@@ -274,7 +311,25 @@ export function HomePageContent() {
     isTopicOwner?: boolean
     canManageTopic?: boolean
     isFollowedByCurrentUser?: boolean
-  } | null>(null)
+  } | null>(
+    initialTopic
+      ? {
+          id: initialTopic.id,
+          title: initialTopic.title,
+          slug: initialTopic.slug,
+          entryCount: initialTopic.entryCount,
+          authorId: initialTopic.authorId,
+          authorName: initialTopic.authorName,
+          authorUsername: initialTopic.authorUsername,
+          authorAvatar: initialTopic.authorAvatar ?? null,
+          createdAt: initialTopic.createdAt,
+          isAnonymous: initialTopic.isAnonymous,
+          isTopicOwner: initialTopic.isTopicOwner,
+          canManageTopic: initialTopic.canManageTopic,
+          isFollowedByCurrentUser: initialTopic.isFollowedByCurrentUser,
+        }
+      : null
+  )
 
   // URL'den gelen topic listede yoksa (örn. sayfa 2'deki başlık) entries API'den minimal topic türet
   useEffect(() => {
@@ -296,6 +351,7 @@ export function HomePageContent() {
         setFetchedTopicForUrl({
           id: selectedTopicId,
           title: first?.topicTitle ?? topicData?.title ?? "Başlık",
+          slug: typeof topicData?.slug === "string" && topicData.slug.length > 0 ? topicData.slug : undefined,
           entryCount: data?.totalCount ?? topicData?.entryCount ?? 0,
           isFollowedByCurrentUser: topicData?.isFollowedByCurrentUser,
           authorId: topicData?.authorId != null && topicData?.authorId !== "" ? String(topicData.authorId) : undefined,
@@ -340,25 +396,51 @@ export function HomePageContent() {
     setCurrentUser(null)
   }, [])
 
-  // Topic handlers - URL ile senkron, sayfa geçişleri refreshTrigger'a muhtaç değil
+  // Topic handlers - URL ile senkron, sayfa geçişleri refreshTrigger'a muhtaç değil.
+  // Slug biliniyorsa SEO rotası (`/baslik/<slug>`) kullanılır; yoksa eski `/?topic=<id>`
+  // yapısına düşer ve anasayfadaki sunucu tarafı redirect tarafından yeni URL'e taşınır.
   const handleTopicSelect = useCallback((topicId: string) => {
     setSelectedTopicId(topicId)
+    const known = (topics ?? []).find((t) => t.id === topicId)
+    const initialMatch = initialTopic?.id === topicId ? initialTopic : undefined
+    const fetchedMatch = fetchedTopicForUrl?.id === topicId ? fetchedTopicForUrl : undefined
+    const slug = known?.slug || initialMatch?.slug || fetchedMatch?.slug
+    if (slug) {
+      router.replace(`/baslik/${slug}`, { scroll: false })
+      return
+    }
     const params = new URLSearchParams()
     params.set("topic", topicId)
     router.replace(`/?${params.toString()}`, { scroll: false })
-  }, [router])
+  }, [router, topics, initialTopic, fetchedTopicForUrl])
 
   const handleTopicEntriesPageUrlChange = useCallback(
     (page: number) => {
       if (!selectedTopicId) return
       const p = Math.max(1, page)
-      const urlTopic = searchParams.get("topic")
       const pageRaw = searchParams.get("page")
       const currentPage = Math.max(1, parseInt(pageRaw ?? "1", 10) || 1)
+      // Slug rotasında kalarak sadece `?page=` güncellenir; böylece `/baslik/<slug>` path'i korunur
+      if (isSlugRoute && initialTopic?.slug) {
+        if (currentPage === p) return
+        router.replace(`/baslik/${initialTopic.slug}?page=${p}`, { scroll: false })
+        return
+      }
+      // Slug rotasında değilsek, seçili başlık için slug bilinip bilinmediğine bak;
+      // bilinen slug varsa yeni SEO URL'ine kaydırırız, yoksa eski `/?topic=` yapısı korunur.
+      const known = (topics ?? []).find((t) => t.id === selectedTopicId)
+      const fetchedMatch = fetchedTopicForUrl?.id === selectedTopicId ? fetchedTopicForUrl : undefined
+      const slug = known?.slug || fetchedMatch?.slug
+      if (slug) {
+        if (currentPage === p && pathname === `/baslik/${slug}`) return
+        router.replace(`/baslik/${slug}?page=${p}`, { scroll: false })
+        return
+      }
+      const urlTopic = searchParams.get("topic")
       if (urlTopic === selectedTopicId && currentPage === p) return
       router.replace(`/?topic=${selectedTopicId}&page=${p}`, { scroll: false })
     },
-    [router, selectedTopicId, searchParams]
+    [router, selectedTopicId, searchParams, isSlugRoute, initialTopic, topics, fetchedTopicForUrl, pathname]
   )
 
   const handleCreateTopic = useCallback(
@@ -389,9 +471,12 @@ export function HomePageContent() {
           throw new Error(typeof topicData === "string" ? topicData : (topicData.title ?? topicData.message ?? "Başlık oluşturulamadı"))
         }
         const topicId = String(topicData.id)
+        const topicSlug =
+          typeof topicData.slug === "string" && topicData.slug.length > 0 ? topicData.slug : undefined
         const newTopic = {
           id: topicId,
           title: topicData.title ?? title.trim(),
+          slug: topicSlug,
           entryCount: 1,
           authorId: isAnonymous ? undefined : currentUser.id,
           isAnonymous: Boolean(topicData.isAnonymous ?? isAnonymous),
@@ -401,13 +486,16 @@ export function HomePageContent() {
 
         setTopics((prev) => [newTopic, ...(Array.isArray(prev) ? prev : [])])
         setSelectedTopicId(topicId)
+        if (topicSlug) {
+          router.replace(`/baslik/${topicSlug}`, { scroll: false })
+        }
         setRefreshTrigger((t) => t + 1)
         return topicId
       } catch (err) {
         throw err
       }
     },
-    [currentUser]
+    [currentUser, router]
   )
 
   // Entry handlers
@@ -489,7 +577,19 @@ export function HomePageContent() {
         if (typeof window !== "undefined") {
           sessionStorage.setItem("scrollToNewEntry", "true")
         }
-        await router.push(`/?topic=${selectedTopicId}&page=${exactLastPage}`, { scroll: false })
+        // Slug rotasında kalarak pagination URL'ini koru; aksi halde slug bilinen başlık için
+        // `/baslik/<slug>?page=N` tercih edilir; hiçbiri yoksa eski `?topic=id` yapısı kullanılır.
+        const known = (topics ?? []).find((t) => t.id === selectedTopicId)
+        const fetchedMatch =
+          fetchedTopicForUrl?.id === selectedTopicId ? fetchedTopicForUrl : undefined
+        const resolvedSlug =
+          (isSlugRoute ? initialTopic?.slug : undefined) ||
+          known?.slug ||
+          fetchedMatch?.slug
+        const targetUrl = resolvedSlug
+          ? `/baslik/${resolvedSlug}?page=${exactLastPage}`
+          : `/?topic=${selectedTopicId}&page=${exactLastPage}`
+        await router.push(targetUrl, { scroll: false })
         // Aynı sayfada kalındığında (son sayfa / tek sayfa) router.push URL'i değiştirmez; liste yenilenmez.
         // Hedef sayfa mevcut URL sayfasıyla aynıysa TopicDetail'deki fetchEntries'i refreshTrigger ile zorunlu tetikle.
         if (currentPageFromUrl === exactLastPage) {
@@ -501,7 +601,7 @@ export function HomePageContent() {
         throw err
       }
     },
-    [currentUser, selectedTopicId, selectedTopic, router, searchParams]
+    [currentUser, selectedTopicId, selectedTopic, router, searchParams, isSlugRoute, initialTopic, topics, fetchedTopicForUrl]
   )
 
   // Home handler

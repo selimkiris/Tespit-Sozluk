@@ -121,10 +121,22 @@ public class TopicsController : ControllerBase
         var entryId = Guid.NewGuid();
         var now = DateTime.UtcNow;
 
+        // SEO slug — Slugify(Title) + TopicId'nin ilk 6 hex hanesi. Çakışma olasılığı pratik olarak sıfır;
+        // yine de paranoyak bir güvenlik ağı olarak aynı slug varsa yeni bir Guid üretip yeniden dene.
+        var slug = SlugHelper.BuildTopicSlug(trimmedTitle, topicId);
+        var slugRetryGuard = 0;
+        while (await _context.Topics.AsNoTracking().AnyAsync(t => t.Slug == slug) && slugRetryGuard < 5)
+        {
+            topicId = Guid.NewGuid();
+            slug = SlugHelper.BuildTopicSlug(trimmedTitle, topicId);
+            slugRetryGuard++;
+        }
+
         var topic = new Topic
         {
             Id = topicId,
             Title = trimmedTitle,
+            Slug = slug,
             AuthorId = authorId,
             CreatedAt = now,
             IsAnonymous = dto.IsAnonymous
@@ -196,6 +208,7 @@ public class TopicsController : ControllerBase
         {
             Id = topic.Id,
             Title = topic.Title,
+            Slug = topic.Slug ?? string.Empty,
             AuthorId = effectiveAnon ? null : topic.AuthorId,
             AuthorName = effectiveAnon
                 ? "Anonim"
@@ -220,6 +233,7 @@ public class TopicsController : ControllerBase
     private static TopicResponseDto MapTopicProjectionToDto(
         Guid id,
         string title,
+        string? slug,
         Guid? authorId,
         DateTime createdAt,
         bool isAnonymousTopic,
@@ -241,6 +255,7 @@ public class TopicsController : ControllerBase
         {
             Id = id,
             Title = title,
+            Slug = slug ?? string.Empty,
             AuthorId = effectiveAnon ? null : authorId,
             AuthorName = effectiveAnon
                 ? "Anonim"
@@ -312,6 +327,7 @@ public class TopicsController : ControllerBase
             {
                 t.Id,
                 t.Title,
+                t.Slug,
                 t.AuthorId,
                 t.CreatedAt,
                 t.IsAnonymous,
@@ -336,6 +352,7 @@ public class TopicsController : ControllerBase
             .Select(r => MapTopicProjectionToDto(
                 r.Id,
                 r.Title,
+                r.Slug,
                 r.AuthorId,
                 r.CreatedAt,
                 r.IsAnonymous,
@@ -437,6 +454,7 @@ public class TopicsController : ControllerBase
             {
                 t.Id,
                 t.Title,
+                t.Slug,
                 t.AuthorId,
                 t.CreatedAt,
                 t.IsAnonymous,
@@ -461,6 +479,7 @@ public class TopicsController : ControllerBase
             .Select(r => MapTopicProjectionToDto(
                 r.Id,
                 r.Title,
+                r.Slug,
                 r.AuthorId,
                 r.CreatedAt,
                 r.IsAnonymous,
@@ -627,6 +646,7 @@ public class TopicsController : ControllerBase
             {
                 t.Id,
                 t.Title,
+                t.Slug,
                 t.AuthorId,
                 t.CreatedAt,
                 t.IsAnonymous,
@@ -656,6 +676,7 @@ public class TopicsController : ControllerBase
         return MapTopicProjectionToDto(
             r.Id,
             r.Title,
+            r.Slug,
             r.AuthorId,
             r.CreatedAt,
             r.IsAnonymous,
@@ -681,6 +702,7 @@ public class TopicsController : ControllerBase
             {
                 t.Id,
                 t.Title,
+                t.Slug,
                 t.AuthorId,
                 t.CreatedAt,
                 t.IsAnonymous,
@@ -710,6 +732,7 @@ public class TopicsController : ControllerBase
         return MapTopicProjectionToDto(
             row.Id,
             row.Title,
+            row.Slug,
             row.AuthorId,
             row.CreatedAt,
             row.IsAnonymous,
@@ -723,6 +746,105 @@ public class TopicsController : ControllerBase
             userId,
             isFollowed,
             canManageById);
+    }
+
+    /// <summary>
+    /// SEO dostu URL için: ID yerine Slug ile başlık getirir. Mevcut GetById(id) endpoint'i
+    /// aynen korunur; bu endpoint onun yanında çalışır ve aynı DTO şeklini döner.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("slug/{slug}")]
+    public async Task<ActionResult<TopicResponseDto>> GetBySlug(string slug)
+    {
+        if (string.IsNullOrWhiteSpace(slug))
+        {
+            return NotFound();
+        }
+
+        var normalizedSlug = slug.Trim().ToLowerInvariant();
+
+        var row = await _context.Topics.AsNoTracking()
+            .Where(t => t.Slug == normalizedSlug)
+            .Select(t => new
+            {
+                t.Id,
+                t.Title,
+                t.Slug,
+                t.AuthorId,
+                t.CreatedAt,
+                t.IsAnonymous,
+                HasAuthor = t.Author != null,
+                AuthorFirstName = t.Author != null ? t.Author.FirstName : null,
+                AuthorLastName = t.Author != null ? t.Author.LastName : null,
+                AuthorUsername = t.Author != null ? t.Author.Username : null,
+                AuthorAvatar = t.Author != null ? t.Author.Avatar : null,
+                AuthorRole = t.Author != null ? t.Author.Role : null,
+                EntryCount = t.Entries.Count()
+            })
+            .FirstOrDefaultAsync();
+        if (row == null) return NotFound();
+
+        var userId = GetCurrentUserId();
+        var isFollowed = userId.HasValue && await _context.UserTopicFollows
+            .AsNoTracking()
+            .AnyAsync(utf => utf.UserId == userId.Value && utf.TopicId == row.Id);
+
+        var canManageBySlug = false;
+        if (userId.HasValue && row.AuthorId.HasValue && row.AuthorId.Value == userId.Value)
+        {
+            canManageBySlug = !await _context.Entries.AsNoTracking()
+                .AnyAsync(e => e.TopicId == row.Id && e.AuthorId != userId.Value);
+        }
+
+        return MapTopicProjectionToDto(
+            row.Id,
+            row.Title,
+            row.Slug,
+            row.AuthorId,
+            row.CreatedAt,
+            row.IsAnonymous,
+            row.HasAuthor,
+            row.AuthorFirstName,
+            row.AuthorLastName,
+            row.AuthorUsername,
+            row.AuthorAvatar,
+            row.AuthorRole,
+            row.EntryCount,
+            userId,
+            isFollowed,
+            canManageBySlug);
+    }
+
+    /// <summary>
+    /// Slug üzerinden başlığın entry'lerini, mevcut `GET /api/Topics/{id}/entries` ile birebir
+    /// aynı biçimde döner. Önce slug→id çözümlemesi yapılır, sonra ID tabanlı metoda devredilir.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("slug/{slug}/entries")]
+    public async Task<ActionResult<PagedEntriesDto>> GetEntriesByTopicSlug(
+        string slug,
+        [FromQuery] string? search,
+        [FromQuery] string sortBy = "oldest",
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        if (string.IsNullOrWhiteSpace(slug))
+        {
+            return NotFound();
+        }
+
+        var normalizedSlug = slug.Trim().ToLowerInvariant();
+        var topicId = await _context.Topics.AsNoTracking()
+            .Where(t => t.Slug == normalizedSlug)
+            .Select(t => (Guid?)t.Id)
+            .FirstOrDefaultAsync();
+
+        if (topicId == null)
+        {
+            return NotFound();
+        }
+
+        return await GetEntriesByTopic(topicId.Value, search, sortBy, page, pageSize);
     }
 
     [Authorize]

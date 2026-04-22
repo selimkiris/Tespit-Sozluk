@@ -50,6 +50,7 @@ import { clampTopicTitleRaw, normalizeTopicTitleForApi } from "@/lib/topic-title
 import { FEED_COLUMN_MAX_WIDTH_CLASS } from "@/lib/feed-layout"
 import { formatTurkeyDateOnly } from "@/lib/turkey-datetime"
 import { TOPIC_TITLE_MAX_LENGTH } from "@/lib/topic.schema"
+import { topicHref, topicPageHref } from "@/lib/topic-href"
 import { DangerConfirmModal } from "@/components/admin/danger-confirm-modal"
 
 interface Entry {
@@ -72,6 +73,8 @@ interface Entry {
 interface Topic {
   id: string
   title: string
+  /** SEO dostu URL parçası — varsa `/baslik/<slug>` rotası tercih edilir; yoksa `/?topic=<id>` fallback. */
+  slug?: string
   entryCount: number
   authorId?: string
   authorName?: string
@@ -191,6 +194,7 @@ export function TopicDetail({
       const d = await res.json()
       setTopicDetail({
         title: d.title,
+        slug: typeof d.slug === "string" && d.slug.length > 0 ? d.slug : undefined,
         entryCount: typeof d.entryCount === "number" ? d.entryCount : undefined,
         authorId: d.authorId != null && d.authorId !== "" ? String(d.authorId) : undefined,
         authorName: d.authorName,
@@ -527,9 +531,10 @@ export function TopicDetail({
           </Button>
         </div>
 
-        {/* Başlık – 1. sayfaya Link; metin seçiliyken tıklamada navigasyon yok */}
+        {/* Başlık – 1. sayfaya Link; metin seçiliyken tıklamada navigasyon yok.
+            Slug biliniyorsa SEO rotasına, yoksa eski `/?topic=` yapısına düşer (sunucu redirect eder). */}
         <Link
-          href={`/?topic=${topic.id}&page=1`}
+          href={topicPageHref(mergedTopic, 1)}
           scroll={false}
           className="select-text block w-full min-w-0 max-w-full text-center my-4 px-2 text-inherit no-underline hover:no-underline"
           onPointerDown={(e) => {
@@ -554,13 +559,18 @@ export function TopicDetail({
             }
             const urlTopic = searchParams.get("topic")
             const urlPage = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1)
-            if (urlTopic === topic.id) {
+            const isOnThisTopicBySlug =
+              !!mergedTopic.slug && typeof window !== "undefined"
+                ? window.location.pathname === `/baslik/${mergedTopic.slug}`
+                : false
+            const isSameTopic = urlTopic === topic.id || isOnThisTopicBySlug
+            if (isSameTopic) {
               e.preventDefault()
               window.scrollTo({ top: 0, behavior: "auto" })
               if (urlPage <= 1) {
                 window.location.reload()
               } else {
-                window.location.replace(`/?topic=${topic.id}&page=1`)
+                window.location.replace(topicPageHref(mergedTopic, 1))
               }
             }
           }}
@@ -704,7 +714,7 @@ export function TopicDetail({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <ShareMenuSub
-                  url={`${getSiteUrl()}/?topic=${topic.id}`}
+                  url={`${getSiteUrl()}${topicHref(mergedTopic)}`}
                   title={`${mergedTopic.title} | Tespit Sözlük`}
                 />
                 <DropdownMenuItem

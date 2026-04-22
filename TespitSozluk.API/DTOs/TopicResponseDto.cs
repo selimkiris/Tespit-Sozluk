@@ -4,6 +4,8 @@ public class TopicResponseDto
 {
     public Guid Id { get; set; }
     public string Title { get; set; } = string.Empty;
+    /// <summary>SEO dostu URL parçası (Örn: "hayata-dair-tespitler-a4b2c3"). Boşsa istemci Id'ye düşer.</summary>
+    public string Slug { get; set; } = string.Empty;
     public Guid? AuthorId { get; set; }
     public string? AuthorName { get; set; }
     /// <summary>Görünen kullanıcı adı (nickname). Boşsa istemci AuthorName kullanabilir.</summary>

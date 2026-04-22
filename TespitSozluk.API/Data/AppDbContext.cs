@@ -184,6 +184,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Topic>()
             .HasIndex(t => t.Title);
 
+        modelBuilder.Entity<Topic>()
+            .HasIndex(t => t.Slug)
+            .IsUnique();
+
         modelBuilder.Entity<Entry>()
             .HasIndex(e => e.CreatedAt);
     }

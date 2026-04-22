@@ -9,6 +9,7 @@ export const revalidate = 3600
 
 type TopicListItem = {
   id: string
+  slug?: string
   createdAt?: string
 }
 
@@ -26,13 +27,19 @@ async function fetchTopicPage(
       return { items: [], hasNextPage: false }
     }
     const data: {
-      items?: Array<{ id?: string; createdAt?: string }>
+      items?: Array<{ id?: string; slug?: string | null; createdAt?: string }>
       hasNextPage?: boolean
     } = await res.json()
     const raw = data?.items ?? []
     const items: TopicListItem[] = []
     for (const t of raw) {
-      if (t?.id) items.push({ id: String(t.id), createdAt: t.createdAt })
+      if (t?.id) {
+        items.push({
+          id: String(t.id),
+          slug: typeof t.slug === "string" && t.slug.length > 0 ? t.slug : undefined,
+          createdAt: t.createdAt,
+        })
+      }
     }
     return { items, hasNextPage: data?.hasNextPage ?? false }
   } catch {
@@ -70,7 +77,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ])
 
   const topicEntries: MetadataRoute.Sitemap = allTopics.map((t) => ({
-    url: `${SITE_ORIGIN}/?topic=${t.id}`,
+    // Slug varsa SEO rotası kanoniktir; yoksa eski ID bazlı URL (sunucu 301 ile yönlendirir).
+    url: t.slug ? `${SITE_ORIGIN}/baslik/${t.slug}` : `${SITE_ORIGIN}/?topic=${t.id}`,
     lastModified: t.createdAt ? new Date(t.createdAt) : now,
     changeFrequency: "weekly" as const,
     priority: trendIds.has(t.id) ? 0.9 : 0.7,

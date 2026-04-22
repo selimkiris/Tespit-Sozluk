@@ -8,11 +8,14 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
+import { topicHref } from "@/lib/topic-href"
 
 interface Topic {
   id: string
   title: string
   entryCount: number
+  /** SEO dostu rota parçası. API yeni sürümünde dolu gelir; eski cevaplarda boş olabilir (fallback: `/?topic=<id>`). */
+  slug?: string
   authorId?: string
   authorName?: string
   authorUsername?: string
@@ -67,6 +70,7 @@ const BUTTON_RGB: Record<string, string> = {
 function mapApiTopic(apiTopic: {
   id: string
   title: string
+  slug?: string | null
   entryCount?: number
   authorId?: string
   authorName?: string
@@ -81,6 +85,7 @@ function mapApiTopic(apiTopic: {
   return {
     id: apiTopic.id,
     title: apiTopic.title,
+    slug: typeof apiTopic.slug === "string" && apiTopic.slug.length > 0 ? apiTopic.slug : undefined,
     entryCount: apiTopic.entryCount ?? 0,
     authorId: apiTopic.authorId,
     authorName: apiTopic.authorName,
@@ -267,7 +272,7 @@ export function TopicSidebar({
                       return (
                         <Link
                           key={topic.id}
-                          href={`/?${new URLSearchParams({ topic: topic.id }).toString()}`}
+                          href={topicHref(topic)}
                           scroll={false}
                           onClick={() => {
                             onTopicSelect(topic.id)
