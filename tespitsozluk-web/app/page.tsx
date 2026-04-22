@@ -30,23 +30,25 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
     "Modern sözlük platformu — başlıkları keşfet, entry yaz, topluluğa katıl."
   const ogImage = { url: "/og-image.png" as const, width: 1200, height: 630, alt: "Tespit Sözlük" as const }
 
+  const homeTitle = "Tespit Sözlük | Zihnin Kayda Geçtiği Yer"
+
   if (!topicId) {
     return {
-      title: "Tespit Sözlük",
+      title: homeTitle,
       description: defaultDesc,
       alternates: { canonical: `${siteUrl}/` },
       openGraph: {
-        title: "Tespit Sözlük",
+        title: homeTitle,
         description: defaultDesc,
         siteName: "Tespit Sözlük",
         type: "website",
         locale: "tr_TR",
         url: `${siteUrl}/`,
-        images: [ogImage],
+        images: [ogImage, { url: "/icon.png" as const, alt: "Tespit Sözlük logosu" as const }],
       },
       twitter: {
         card: "summary_large_image",
-        title: "Tespit Sözlük",
+        title: homeTitle,
         description: defaultDesc,
         images: ["/og-image.png"],
       },

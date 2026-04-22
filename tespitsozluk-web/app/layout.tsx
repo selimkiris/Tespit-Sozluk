@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { WelcomeModal } from '@/components/welcome-modal'
 import { Toaster } from '@/components/ui/sonner'
 import { getSiteUrl } from '@/lib/api'
+import { SiteIdentityJsonLd } from '@/components/site-identity-json-ld'
 import './globals.css'
 
 const inter = Inter({
@@ -17,10 +18,14 @@ const inter = Inter({
 const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
+const SITE_TITLE = 'Tespit Sözlük | Zihnin Kayda Geçtiği Yer'
+const DEFAULT_DESCRIPTION =
+  'Modern sözlük platformu — başlıkları keşfet, entry yaz, topluluğa katıl.'
+
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
-  title: 'Tespit Sözlük',
-  description: 'Modern sözlük platformu — başlıkları keşfet, entry yaz, topluluğa katıl.',
+  title: SITE_TITLE,
+  description: DEFAULT_DESCRIPTION,
   applicationName: 'Tespit Sözlük',
   robots: {
     index: true,
@@ -28,16 +33,16 @@ export const metadata: Metadata = {
     googleBot: { index: true, follow: true },
   },
   icons: {
-    icon: '/icon.svg',
-    shortcut: '/icon.svg',
-    apple: '/icon.svg',
+    icon: [{ url: '/icon.png', type: 'image/png' }],
+    shortcut: '/icon.png',
+    apple: '/icon.png',
   },
   openGraph: {
     type: 'website',
     locale: 'tr_TR',
     siteName: 'Tespit Sözlük',
-    title: 'Tespit Sözlük',
-    description: 'Modern sözlük platformu — başlıkları keşfet, entry yaz, topluluğa katıl.',
+    title: SITE_TITLE,
+    description: DEFAULT_DESCRIPTION,
     url: '/',
     images: [
       {
@@ -46,13 +51,18 @@ export const metadata: Metadata = {
         height: 630,
         alt: 'Tespit Sözlük',
       },
+      {
+        url: '/icon.png',
+        type: 'image/png',
+        alt: 'Tespit Sözlük logosu',
+      },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Tespit Sözlük',
-    description: 'Modern sözlük platformu — başlıkları keşfet, entry yaz, topluluğa katıl.',
-    images: ['/og-image.png'],
+    title: SITE_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Tespit Sözlük' }],
   },
 }
 
@@ -71,6 +81,7 @@ export default function RootLayout({
   return (
     <html lang="tr" className="dark" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
+        <SiteIdentityJsonLd />
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
