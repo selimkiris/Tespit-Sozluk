@@ -3,7 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo } from "react"
 import type { ReactNode } from "react"
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, Lock, FileText, Pencil, Trash2, Send, Plus, User, UserPlus, UserMinus, CalendarDays, Heart, Save, PencilLine, ShieldX, CheckCircle2, Clock, AlertTriangle, RotateCcw, Flag, Trash, BadgeCheck, Mail, ShieldAlert, MessageCircle, FileEdit, Share2, Search } from "lucide-react"
+import { ArrowLeft, Lock, FileText, Pencil, Trash2, Send, Plus, User, UserPlus, UserMinus, CalendarDays, Heart, Save, PencilLine, ShieldX, CheckCircle2, Clock, AlertTriangle, RotateCcw, Flag, Trash, BadgeCheck, Mail, ShieldAlert, MessageCircle, FileEdit, Share2, Search, BookOpen } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
 import { Navbar } from "@/components/navbar"
@@ -41,6 +41,7 @@ import { CreateDraftModal } from "@/components/create-draft-modal"
 import { AvatarDialog } from "@/components/avatar-dialog"
 import { EditDraftModal } from "@/components/edit-draft-modal"
 import { FollowListModal } from "@/components/follow-list-modal"
+import { UserTopicsModal } from "@/components/user-topics-modal"
 import { AyakIcon } from "@/components/icons/AyakIcon"
 import { CiviIcon } from "@/components/icons/CiviIcon"
 import { getApiUrl, apiFetch, getSiteUrl } from "@/lib/api"
@@ -91,6 +92,7 @@ type UserProfile = {
   bio?: string | null
   createdAt?: string
   totalEntryCount: number
+  totalTopicCount: number
   totalUpvotesReceived?: number
   totalDownvotesReceived?: number
   totalSavesReceived?: number
@@ -310,6 +312,7 @@ export default function UserProfilePage() {
   const [entriesSortBy, setEntriesSortBy] = useState<string>("newest")
   const [followersModalOpen, setFollowersModalOpen] = useState(false)
   const [followingModalOpen, setFollowingModalOpen] = useState(false)
+  const [userTopicsModalOpen, setUserTopicsModalOpen] = useState(false)
   const [avatarDialogOpen, setAvatarDialogOpen] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
   const [profileReportOpen, setProfileReportOpen] = useState(false)
@@ -400,6 +403,7 @@ export default function UserProfilePage() {
         bio: data.bio ?? null,
         createdAt: data.createdAt ?? null,
         totalEntryCount: data.totalEntryCount ?? 0,
+        totalTopicCount: data.totalTopicCount ?? 0,
         totalUpvotesReceived: data.totalUpvotesReceived ?? 0,
         totalDownvotesReceived: data.totalDownvotesReceived ?? 0,
         totalSavesReceived: data.totalSavesReceived ?? 0,
@@ -1224,6 +1228,15 @@ export default function UserProfilePage() {
                 <FileText className="h-4 w-4" />
                 Toplam Entry: {user.totalEntryCount}
               </span>
+              <button
+                type="button"
+                onClick={() => setUserTopicsModalOpen(true)}
+                aria-label={`${user.nickname} kullanıcısının açtığı başlıkları görüntüle`}
+                className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary hover:underline underline-offset-4 decoration-dotted cursor-pointer transition-colors focus-visible:outline-none focus-visible:text-primary focus-visible:underline"
+              >
+                <BookOpen className="h-4 w-4" />
+                <span>Toplam Başlık: <span className="font-semibold tabular-nums">{user.totalTopicCount ?? 0}</span></span>
+              </button>
               {user.email && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/80 text-sm text-muted-foreground border border-border/50">
                   <Lock className="h-3.5 w-3.5 shrink-0" />
@@ -2290,6 +2303,13 @@ export default function UserProfilePage() {
             onOpenChange={setFollowingModalOpen}
             userId={id}
             mode="following"
+          />
+          <UserTopicsModal
+            open={userTopicsModalOpen}
+            onOpenChange={setUserTopicsModalOpen}
+            userId={id}
+            nickname={user?.nickname}
+            isOwnProfile={isOwnProfile}
           />
         </>
       )}

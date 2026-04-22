@@ -137,6 +137,7 @@ public class UsersController : ControllerBase
 
         var followerCount = await _context.UserFollows.CountAsync(uf => uf.FollowingId == id);
         var followingCount = await _context.UserFollows.CountAsync(uf => uf.FollowerId == id);
+        var totalTopicCount = await _context.Topics.CountAsync(t => t.AuthorId == id);
 
         var totalUpvotesReceived = await _context.Entries
             .Where(e => e.AuthorId == id)
@@ -177,6 +178,7 @@ public class UsersController : ControllerBase
             Bio = user.Bio,
             CreatedAt = user.CreatedAt,
             TotalEntryCount = user.EntryCount,
+            TotalTopicCount = totalTopicCount,
             TotalUpvotesReceived = totalUpvotesReceived,
             TotalDownvotesReceived = totalDownvotesReceived,
             TotalSavesReceived = totalSavesReceived,
@@ -189,6 +191,62 @@ public class UsersController : ControllerBase
             LikedEntriesCount = likedEntriesCount,
             DraftsCount = draftsCount
         };
+    }
+
+    /// <summary>
+    /// Bir kullanıcının kurucusu olduğu başlıkların özet listesi.
+    /// Her satır: başlık adı, slug, entry sayısı ve takipçi sayısını içerir; alfabetik (A→Z) sıralanır.
+    ///
+    /// Performans notu: Sayılar SQL tarafında doğrudan
+    /// <c>t.Entries.Count</c> ve <c>_context.UserTopicFollows</c> üzerinden korelasyonlu alt
+    /// sorgu ile hesaplanır — bu EF Core tarafından tek bir SELECT'te LEFT JOIN LATERAL /
+    /// correlated subquery olarak çevrilir ve N+1 sorunu yaşanmaz. Title üzerindeki index
+    /// (AppDbContext.OnModelCreating) sayesinde sıralama da DB tarafında yapılır.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("{id:guid}/topics")]
+    public async Task<ActionResult<IReadOnlyList<UserTopicListItemDto>>> GetUserTopics(
+        Guid id,
+        [FromQuery] bool includeAnonymous = false)
+    {
+        var userExists = await _context.Users.AnyAsync(u => u.Id == id);
+        if (!userExists)
+        {
+            return NotFound();
+        }
+
+        var requestorId = User.Identity?.IsAuthenticated == true
+            && Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var uid)
+            ? (Guid?)uid
+            : null;
+
+        var isOwnProfile = requestorId.HasValue && requestorId.Value == id;
+
+        var query = _context.Topics
+            .AsNoTracking()
+            .Where(t => t.AuthorId == id);
+
+        if (!isOwnProfile || !includeAnonymous)
+        {
+            query = query.Where(t => !t.IsAnonymous);
+        }
+
+        var items = await query
+            .OrderBy(t => t.Title)
+            .ThenBy(t => t.Id)
+            .Select(t => new UserTopicListItemDto
+            {
+                Id = t.Id,
+                Title = t.Title,
+                Slug = t.Slug,
+                EntryCount = t.Entries.Count,
+                FollowerCount = _context.UserTopicFollows.Count(f => f.TopicId == t.Id),
+                IsAnonymous = t.IsAnonymous,
+                CreatedAt = t.CreatedAt
+            })
+            .ToListAsync();
+
+        return Ok(items);
     }
 
     [AllowAnonymous]

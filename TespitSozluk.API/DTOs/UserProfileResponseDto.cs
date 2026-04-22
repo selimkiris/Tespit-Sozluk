@@ -12,6 +12,8 @@ public class UserProfileResponseDto
     public string? Bio { get; set; }
     public DateTime CreatedAt { get; set; }
     public int TotalEntryCount { get; set; }
+    /// <summary>Kullanıcının açtığı toplam başlık sayısı (AuthorId eşleşmesi, anonim dahil).</summary>
+    public int TotalTopicCount { get; set; }
     public int TotalUpvotesReceived { get; set; }
     public int TotalDownvotesReceived { get; set; }
     public int TotalSavesReceived { get; set; }
