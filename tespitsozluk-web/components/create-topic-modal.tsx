@@ -18,6 +18,7 @@ import { trimComposerHtml } from "@/lib/composer-guard"
 import { UnsavedChangesAlertDialog } from "@/components/unsaved-changes-alert-dialog"
 import { useBeforeunloadWarning } from "@/hooks/use-beforeunload-warning"
 import { useInternalNavigationGuard } from "@/hooks/use-internal-navigation-guard"
+import { toast } from "sonner"
 
 function trimHtmlContent(html: string): string {
   if (!html) return ""
@@ -132,6 +133,35 @@ export function CreateTopicModal({
     return { titleData: titleParsed.data, finalContent }
   }
 
+  const persistNewTopicDraft = async () => {
+    if (isOverLimit) {
+      throw new Error("Entry çok uzun.")
+    }
+    const titleParsed = topicTitleSchema.safeParse(normalizeTopicTitleForApi(title))
+    if (!titleParsed.success) {
+      throw new Error(titleParsed.error.issues[0]?.message ?? "Geçersiz başlık")
+    }
+    const finalContent = trimHtmlContent(
+      (firstEntry ?? "").replace(/^[\s\n\r\u00a0\u200b]+/, "").replace(/[\s\n\r\u00a0\u200b]+$/, ""),
+    )
+    if (!finalContent) {
+      throw new Error("Önce entry yazın.")
+    }
+    const res = await apiFetch(getApiUrl("api/Drafts"), {
+      method: "POST",
+      body: JSON.stringify({
+        content: finalContent,
+        newTopicTitle: titleParsed.data,
+        isAnonymous,
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      const msg = typeof data === "string" ? data : data.message ?? data.title ?? "Taslak kaydedilemedi"
+      throw new Error(msg)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -168,37 +198,27 @@ export function CreateTopicModal({
     }
   }
 
+  const handleSaveDraft = async () => {
+    setIsSavingDraft(true)
+    setError("")
+    try {
+      await persistNewTopicDraft()
+      toast.success("Taslak kaydedildi")
+      resetLocal()
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Taslak kaydedilemedi")
+    } finally {
+      setIsSavingDraft(false)
+    }
+  }
+
   const saveDraftFromGuard = async () => {
     setIsSavingDraft(true)
     setError("")
     try {
-      if (isOverLimit) {
-        throw new Error("Entry çok uzun.")
-      }
-      const titleParsed = topicTitleSchema.safeParse(normalizeTopicTitleForApi(title))
-      if (!titleParsed.success) {
-        throw new Error(titleParsed.error.issues[0]?.message ?? "Geçersiz başlık")
-      }
-      const finalContent = trimHtmlContent(
-        (firstEntry ?? "").replace(/^[\s\n\r\u00a0\u200b]+/, "").replace(/[\s\n\r\u00a0\u200b]+$/, ""),
-      )
-      if (!finalContent) {
-        throw new Error("Önce entry yazın.")
-      }
       const nav = pendingNav
-      const res = await apiFetch(getApiUrl("api/Drafts"), {
-        method: "POST",
-        body: JSON.stringify({
-          content: finalContent,
-          newTopicTitle: titleParsed.data,
-          isAnonymous,
-        }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        const msg = typeof data === "string" ? data : data.message ?? data.title ?? "Taslak kaydedilemedi"
-        throw new Error(msg)
-      }
+      await persistNewTopicDraft()
       setUnsavedOpen(false)
       setPendingNav(null)
       resetLocal()
@@ -328,20 +348,38 @@ export function CreateTopicModal({
                   </p>
                 )}
                 {!isOverLimit && error && <p className="text-sm text-destructive">{error}</p>}
-                <Button
-                  type="submit"
-                  disabled={
-                    !normalizeTopicTitleForApi(title) ||
-                    !hasContent ||
-                    normalizeTopicTitleForApi(title).length > TOPIC_TITLE_MAX_LENGTH ||
-                    isLoading ||
-                    isSavingDraft ||
-                    isOverLimit
-                  }
-                  className="h-10 w-full shrink-0 bg-foreground text-background hover:bg-foreground/90"
-                >
-                  {isLoading ? "Oluşturuluyor..." : "Başlık Oluştur"}
-                </Button>
+                <div className="flex w-full shrink-0 flex-col gap-2 sm:flex-row sm:gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSaveDraft}
+                    disabled={
+                      !normalizeTopicTitleForApi(title) ||
+                      !hasContent ||
+                      normalizeTopicTitleForApi(title).length > TOPIC_TITLE_MAX_LENGTH ||
+                      isLoading ||
+                      isSavingDraft ||
+                      isOverLimit
+                    }
+                    className="h-10 w-full sm:flex-1"
+                  >
+                    {isSavingDraft ? "Kaydediliyor..." : "Taslak Olarak Kaydet"}
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={
+                      !normalizeTopicTitleForApi(title) ||
+                      !hasContent ||
+                      normalizeTopicTitleForApi(title).length > TOPIC_TITLE_MAX_LENGTH ||
+                      isLoading ||
+                      isSavingDraft ||
+                      isOverLimit
+                    }
+                    className="h-10 w-full shrink-0 bg-foreground text-background hover:bg-foreground/90 sm:flex-1"
+                  >
+                    {isLoading ? "Oluşturuluyor..." : "Başlık Oluştur"}
+                  </Button>
+                </div>
               </form>
             )}
           </div>
