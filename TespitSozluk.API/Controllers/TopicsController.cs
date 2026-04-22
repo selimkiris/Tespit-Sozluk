@@ -951,28 +951,49 @@ public class TopicsController : ControllerBase
             return StatusCode(403, "Bu başlığı düzenleme yetkiniz yok.");
         }
 
-        var hasOtherAuthorsEntries = await _context.Entries
-            .AnyAsync(e => e.TopicId == id && e.AuthorId != userId);
-        if (hasOtherAuthorsEntries)
-        {
-            return StatusCode(403, "Bu başlıkta başkalarının da entry'si var, silemez/düzenleyemezsiniz.");
-        }
-
         var newTitle = dto.Title.Trim();
         if (newTitle.Length > 60)
         {
             return BadRequest("Başlık en fazla 60 karakter olabilir.");
         }
 
-        var titleExists = await _context.Topics
-            .AnyAsync(t => t.Title.ToLower() == newTitle.ToLower() && t.Id != id);
-        if (titleExists)
+        var titleChanged = !string.Equals(newTitle, topic.Title, StringComparison.Ordinal);
+        var anonChanged = dto.IsAnonymous.HasValue && dto.IsAnonymous.Value != topic.IsAnonymous;
+
+        // Başlık adı değişiyorsa, altında başka yazarların entry'leri olamaz (mevcut kısıt).
+        // Sadece anonimlik değişiyorsa (başlık adı aynı) bu kısıt devreye girmez —
+        // anonimlik Topic tablosunda izole bir bayraktır, başkalarının entry'lerini etkilemez.
+        if (titleChanged)
         {
-            return BadRequest("Bu başlık adı zaten mevcut.");
+            var hasOtherAuthorsEntries = await _context.Entries
+                .AnyAsync(e => e.TopicId == id && e.AuthorId != userId);
+            if (hasOtherAuthorsEntries)
+            {
+                return StatusCode(403, "Bu başlıkta başkalarının da entry'si var, silemez/düzenleyemezsiniz.");
+            }
+
+            var titleExists = await _context.Topics
+                .AnyAsync(t => t.Title.ToLower() == newTitle.ToLower() && t.Id != id);
+            if (titleExists)
+            {
+                return BadRequest("Bu başlık adı zaten mevcut.");
+            }
+
+            topic.Title = newTitle;
         }
 
-        topic.Title = newTitle;
-        await _context.SaveChangesAsync();
+        // KRİTİK: Yalnızca Topic.IsAnonymous alanı güncellenir.
+        // Bu başlığa ait ilk entry veya diğer hiçbir entry'nin IsAnonymous değeri
+        // bu endpoint tarafından DEĞİŞTİRİLMEZ — başlık ve entry anonimliği bağımsızdır.
+        if (anonChanged)
+        {
+            topic.IsAnonymous = dto.IsAnonymous!.Value;
+        }
+
+        if (titleChanged || anonChanged)
+        {
+            await _context.SaveChangesAsync();
+        }
 
         return NoContent();
     }

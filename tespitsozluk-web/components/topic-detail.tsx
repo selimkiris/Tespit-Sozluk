@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Label } from "@/components/ui/label"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -145,6 +147,7 @@ export function TopicDetail({
   const [sortBy, setSortBy] = useState<string>("oldest")
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [editTitle, setEditTitle] = useState(topic.title)
+  const [editIsAnonymous, setEditIsAnonymous] = useState<boolean>(topic.isAnonymous ?? false)
   const [isEditSaving, setIsEditSaving] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
@@ -370,7 +373,8 @@ export function TopicDetail({
 
   useEffect(() => {
     setEditTitle(mergedTopic.title)
-  }, [topic.id, mergedTopic.title])
+    setEditIsAnonymous(mergedTopic.isAnonymous ?? false)
+  }, [topic.id, mergedTopic.title, mergedTopic.isAnonymous])
 
   const handleEditTopic = async () => {
     const trimmed = normalizeTopicTitleForApi(editTitle)
@@ -385,7 +389,7 @@ export function TopicDetail({
     setIsEditSaving(true)
     setEditError(null)
     const url = getApiUrl(`api/Topics/${topic.id}`)
-    const body = JSON.stringify({ title: trimmed })
+    const body = JSON.stringify({ title: trimmed, isAnonymous: editIsAnonymous })
     try {
       const res = await apiFetch(url, {
         method: "PUT",
@@ -401,6 +405,10 @@ export function TopicDetail({
         console.error("[Topic Edit] API hatası:", res.status, res.statusText, { text, data })
         throw new Error(msg)
       }
+      // Anında UI güncellemesi: header'daki yazar/anonim göstergesi yeni değere göre
+      // re-render olsun diye topicDetail'i iyimser (optimistic) biçimde güncelliyoruz.
+      // Ardından onTopicChange tam tazeliği getirmek üzere refetch tetikliyor.
+      setTopicDetail((prev) => ({ ...prev, title: trimmed, isAnonymous: editIsAnonymous }))
       setIsEditOpen(false)
       onTopicChange?.()
     } catch (err) {
@@ -729,7 +737,12 @@ export function TopicDetail({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="cursor-pointer"
-                      onClick={() => { setIsEditOpen(true); setEditError(null) }}
+                      onClick={() => {
+                        setEditTitle(mergedTopic.title)
+                        setEditIsAnonymous(mergedTopic.isAnonymous ?? false)
+                        setIsEditOpen(true)
+                        setEditError(null)
+                      }}
                     >
                       <Pencil className="h-4 w-4" />
                       Düzenle
@@ -881,7 +894,15 @@ export function TopicDetail({
       </Dialog>
 
       {/* Edit Topic Dialog */}
-      <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) setEditError(null) }}>
+      <Dialog open={isEditOpen} onOpenChange={(open) => {
+        setIsEditOpen(open)
+        if (!open) {
+          setEditError(null)
+          // Kapanışta düzenleme alanlarını güncel başlık değerlerine geri sıfırla.
+          setEditTitle(mergedTopic.title)
+          setEditIsAnonymous(mergedTopic.isAnonymous ?? false)
+        }
+      }}>
         <DialogContent
           className={cn(
             "w-full max-w-[calc(100%-2rem)] min-w-0 overflow-x-hidden p-5 gap-4",
@@ -902,6 +923,39 @@ export function TopicDetail({
             <span className="text-xs text-muted-foreground">
               {normalizeTopicTitleForApi(editTitle).length}/{TOPIC_TITLE_MAX_LENGTH}
             </span>
+            <div className="pt-2 space-y-1">
+              <RadioGroup
+                value={editIsAnonymous ? "anonymous" : "account"}
+                onValueChange={(v) => setEditIsAnonymous(v === "anonymous")}
+                className="flex gap-4"
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="account" id={`edit-topic-account-${topic.id}`} />
+                  <Label
+                    htmlFor={`edit-topic-account-${topic.id}`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    Kendi hesabınla paylaş
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="anonymous" id={`edit-topic-anonymous-${topic.id}`} />
+                  <Label
+                    htmlFor={`edit-topic-anonymous-${topic.id}`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    Tam anonim paylaş
+                  </Label>
+                </div>
+              </RadioGroup>
+              {editIsAnonymous && (
+                <p className="text-xs text-muted-foreground">
+                  Anonim modda başlığı açan yazar bilgisi gizlenir; başlık üstünde sadece
+                  &quot;Anonim&quot; yazar. Altındaki entry&apos;lerin anonimlik durumu bu değişiklikten
+                  etkilenmez.
+                </p>
+              )}
+            </div>
             {editError && <p className="text-sm text-destructive">{editError}</p>}
           </div>
           <DialogFooter>

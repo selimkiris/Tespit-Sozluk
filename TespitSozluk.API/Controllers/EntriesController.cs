@@ -460,6 +460,34 @@ public class EntriesController : ControllerBase
 
         entry.Content = dto.Content.Trim();
         entry.UpdatedAt = DateTime.UtcNow;
+
+        // ── Anonimlik güncellemesi (opsiyonel) ──
+        // dto.IsAnonymous yalnızca yollandıysa (null değilse) geçerlidir.
+        // KRİTİK: Güncellenen entry, ilgili başlığın İLK ENTRY'si ise (TopicId bazında
+        // en eski CreatedAt; eşitlikte Id sıralaması ile tiebreaker) başlığın
+        // IsAnonymous değeri de aynı değere çekilir. Aksi halde yalnızca entry güncellenir.
+        if (dto.IsAnonymous.HasValue && dto.IsAnonymous.Value != entry.IsAnonymous)
+        {
+            entry.IsAnonymous = dto.IsAnonymous.Value;
+
+            var firstEntryId = await _context.Entries
+                .AsNoTracking()
+                .Where(e => e.TopicId == entry.TopicId)
+                .OrderBy(e => e.CreatedAt)
+                .ThenBy(e => e.Id)
+                .Select(e => e.Id)
+                .FirstOrDefaultAsync();
+
+            if (firstEntryId == entry.Id)
+            {
+                var topicToSync = await _context.Topics.FirstOrDefaultAsync(t => t.Id == entry.TopicId);
+                if (topicToSync != null && topicToSync.IsAnonymous != entry.IsAnonymous)
+                {
+                    topicToSync.IsAnonymous = entry.IsAnonymous;
+                }
+            }
+        }
+
         await _context.SaveChangesAsync();
 
         var author = await _context.Users.FindAsync(entry.AuthorId);

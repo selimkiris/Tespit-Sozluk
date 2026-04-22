@@ -25,6 +25,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { RichTextEditor } from "@/components/rich-text-editor"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Label } from "@/components/ui/label"
 import { ExpandableHtmlContent } from "@/components/expandable-html-content"
 import {
   AlertDialog,
@@ -151,6 +153,12 @@ export function EntryCard({
   const [editBaseline, setEditBaseline] = useState("")
   const [editLeaveOpen, setEditLeaveOpen] = useState(false)
   const [editPendingNav, setEditPendingNav] = useState<string | null>(null)
+  // Anonimlik — edit modalı için toggle state'i ve baseline (dirty kontrolü için)
+  const [editIsAnonymous, setEditIsAnonymous] = useState<boolean>(entry.isAnonymous ?? false)
+  const [editAnonBaseline, setEditAnonBaseline] = useState<boolean>(entry.isAnonymous ?? false)
+  // Anında UI güncellemesi için yerel yazar/anonim görüntü durumu
+  const [localIsAnonymous, setLocalIsAnonymous] = useState<boolean>(entry.isAnonymous ?? false)
+  const [localAuthor, setLocalAuthor] = useState<Entry["author"]>(entry.author)
 
   // --- Mikro-animasyon geçici state'leri (yalnızca görsel; API/mantık etkilenmez) ---
   const [heartAnim, setHeartAnim] = useState(false)
@@ -194,7 +202,7 @@ export function EntryCard({
   /** Backend + istemci: entry sahibi (anonim entry'de AuthorId maskeli olsa da canManage doğru gelir). */
   const canManage = entry.canManage ?? (!!currentUser && currentUser.id === entry.author.id)
   const isAdmin = currentUser?.role === "Admin"
-  const isAnonymousEntry = entry.isAnonymous ?? entry.author?.nickname === "Anonim"
+  const isAnonymousEntry = localIsAnonymous || localAuthor?.nickname === "Anonim"
 
   useEffect(() => {
     setUserVote(entry.userVote ?? null)
@@ -204,10 +212,14 @@ export function EntryCard({
     setSaveCount(entry.saveCount ?? 0)
     setIsSaved(entry.isSavedByCurrentUser ?? false)
     setLocalUpdatedAt(entry.updatedAt ?? null)
-  }, [entry.id, entry.userVote, entry.upvotes, entry.downvotes, entry.content, entry.saveCount, entry.isSavedByCurrentUser, entry.updatedAt])
+    setLocalIsAnonymous(entry.isAnonymous ?? false)
+    setLocalAuthor(entry.author)
+  }, [entry.id, entry.userVote, entry.upvotes, entry.downvotes, entry.content, entry.saveCount, entry.isSavedByCurrentUser, entry.updatedAt, entry.isAnonymous, entry.author])
 
   const isEditDirty =
-    isEditOpen && trimComposerHtml(content) !== trimComposerHtml(editBaseline)
+    isEditOpen &&
+    (trimComposerHtml(content) !== trimComposerHtml(editBaseline) ||
+      editIsAnonymous !== editAnonBaseline)
 
   useBeforeunloadWarning(isEditDirty)
   useInternalNavigationGuard(isEditDirty, (path) => {
@@ -239,10 +251,14 @@ export function EntryCard({
     setIsEditSaving(true)
     setEditError(null)
     const savedContent = trimmedContent
+    const anonChanged = editIsAnonymous !== (entry.isAnonymous ?? false)
     try {
       const res = await apiFetch(getApiUrl(`api/Entries/${entry.id}`), {
         method: "PUT",
-        body: JSON.stringify({ content: trimmedContent }),
+        body: JSON.stringify({
+          content: trimmedContent,
+          isAnonymous: editIsAnonymous,
+        }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -250,7 +266,31 @@ export function EntryCard({
       }
       setContent(data.content ?? savedContent)
       setLocalUpdatedAt(data.updatedAt ?? new Date().toISOString())
+      // Anonimlik değiştiyse yazar görüntüsünü backend yanıtı + toggle değerine göre güncelle
+      const nextAnon: boolean = typeof data.isAnonymous === "boolean" ? data.isAnonymous : editIsAnonymous
+      setLocalIsAnonymous(nextAnon)
+      setEditAnonBaseline(nextAnon)
+      if (nextAnon) {
+        setLocalAuthor({
+          id: entry.author.id,
+          nickname: data.authorName ?? "Anonim",
+          avatar: null,
+          role: "User",
+        })
+      } else {
+        setLocalAuthor({
+          id: data.authorId ?? entry.author.id,
+          nickname: data.authorName ?? entry.author.nickname,
+          avatar: data.authorAvatar ?? entry.author.avatar ?? null,
+          role: data.authorRole ?? entry.author.role ?? "User",
+        })
+      }
       setIsEditOpen(false)
+      // Eğer anonimlik değiştiyse, ilk entry'de topic header'ı da güncellemek için
+      // üst bileşene haber ver (o liste/topic'i yeniden çekecek).
+      if (anonChanged) {
+        onEntryChange?.()
+      }
       return true
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Bir hata oluştu")
@@ -583,21 +623,21 @@ export function EntryCard({
                   <User className="h-3 w-3" />
                 </AvatarFallback>
               </Avatar>
-            ) : entry.author?.avatar?.startsWith("http") ? (
+            ) : localAuthor?.avatar?.startsWith("http") ? (
               <img
-                src={entry.author.avatar}
+                src={localAuthor.avatar}
                 alt=""
                 referrerPolicy="no-referrer"
                 className="h-5 w-5 rounded-full object-cover border border-border/60"
               />
-            ) : entry.author?.avatar ? (
+            ) : localAuthor?.avatar ? (
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary/80 text-sm border border-border/60 leading-none">
-                {entry.author.avatar}
+                {localAuthor.avatar}
               </span>
             ) : (
               <Avatar className="h-5 w-5">
                 <AvatarFallback className="bg-muted text-muted-foreground text-[10px]">
-                  {(entry.author?.nickname?.charAt(0) ?? "?").toUpperCase()}
+                  {(localAuthor?.nickname?.charAt(0) ?? "?").toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             )}
@@ -607,18 +647,18 @@ export function EntryCard({
           {isAnonymousEntry ? (
             <span className="text-sm font-normal text-slate-200 max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap inline-block">
               {shouldApplyEntrySearchHighlight(searchTerm)
-                ? highlightText(entry.author?.nickname ?? "Anonim", searchTerm!)
-                : (entry.author?.nickname ?? "Anonim")}
+                ? highlightText(localAuthor?.nickname ?? "Anonim", searchTerm!)
+                : (localAuthor?.nickname ?? "Anonim")}
             </span>
           ) : (
             <Link
-              href={`/user/${entry.author.id}`}
+              href={`/user/${localAuthor.id}`}
               className="inline-flex items-center gap-0.5 text-sm font-normal text-slate-200 hover:text-[#c2c6cf] transition-colors max-w-[220px] overflow-hidden"
             >
               {shouldApplyEntrySearchHighlight(searchTerm)
-                ? highlightText(entry.author.nickname, searchTerm!)
-                : entry.author.nickname}
-              {entry.author.role === "Admin" && (
+                ? highlightText(localAuthor.nickname, searchTerm!)
+                : localAuthor.nickname}
+              {localAuthor.role === "Admin" && (
                 <BadgeCheck className="w-3.5 h-3.5 text-blue-500 fill-blue-500/20 ml-0.5 shrink-0" />
               )}
             </Link>
@@ -658,6 +698,9 @@ export function EntryCard({
                   <DropdownMenuItem
                     onClick={() => {
                       setEditBaseline(entry.content)
+                      const currentAnon = entry.isAnonymous ?? false
+                      setEditIsAnonymous(currentAnon)
+                      setEditAnonBaseline(currentAnon)
                       setIsEditOpen(true)
                       setEditError(null)
                     }}
@@ -677,7 +720,7 @@ export function EntryCard({
               )}
               <ShareMenuSub
                 url={`${getSiteUrl()}/entry/${entry.id}`}
-                title={`${entry.topicTitle} - ${entry.author?.nickname ?? "Anonim"} | Tespit Sözlük`}
+                title={`${entry.topicTitle} - ${localAuthor?.nickname ?? "Anonim"} | Tespit Sözlük`}
               />
               <DropdownMenuItem onClick={() => setIsReportOpen(true)}>
                 <Flag className="h-4 w-4" />
@@ -738,6 +781,39 @@ export function EntryCard({
               innerContentPaddingClassName="px-[14px]"
               toolbarStickyTopClass="top-0"
             />
+            <div className="mt-3 space-y-1">
+              <RadioGroup
+                value={editIsAnonymous ? "anonymous" : "account"}
+                onValueChange={(v) => setEditIsAnonymous(v === "anonymous")}
+                className="flex gap-4"
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="account" id={`edit-account-${entry.id}`} />
+                  <Label
+                    htmlFor={`edit-account-${entry.id}`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    Kendi hesabınla paylaş
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="anonymous" id={`edit-anonymous-${entry.id}`} />
+                  <Label
+                    htmlFor={`edit-anonymous-${entry.id}`}
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    Tam anonim paylaş
+                  </Label>
+                </div>
+              </RadioGroup>
+              {editIsAnonymous && (
+                <p className="text-xs text-muted-foreground">
+                  Tam Anonim modda paylaşılan entrylerde kullanıcı adı görünmez, profile erişilemez.
+                  Kullanıcı adı kısmında sadece "Anonim" yazar ve profil fotoğrafı gösterilmez.
+                  Eğer bu entry başlığın ilk entry'siyse başlığın anonimlik durumu da aynı değere çekilir.
+                </p>
+              )}
+            </div>
             {editError && <p className="mt-2 text-sm text-destructive">{editError}</p>}
           </div>
           <DialogFooter className="mt-4">
@@ -762,6 +838,7 @@ export function EntryCard({
           const nav = editPendingNav
           setEditPendingNav(null)
           setContent(editBaseline)
+          setEditIsAnonymous(editAnonBaseline)
           setEditLeaveOpen(false)
           closeEditDialog()
           if (nav) router.push(nav)
