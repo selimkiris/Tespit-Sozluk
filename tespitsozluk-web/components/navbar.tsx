@@ -401,7 +401,7 @@ export function Navbar({
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2">
-          {isLoggedIn && user?.role !== "Admin" && (
+          {isLoggedIn && (
             <Popover open={isNotificationsOpen} onOpenChange={handleNotificationsOpenChange}>
               <PopoverTrigger asChild>
                 <Button
@@ -410,12 +410,12 @@ export function Navbar({
                   className="relative h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-[#3a3b3c] rounded-full transition-colors duration-200"
                 >
                   <Bell className="h-4 w-4" />
-                  {unreadCount > 0 && adminUnreadReports === 0 && (
+                  {unreadCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground px-1">
                       {unreadCount > 99 ? "99+" : unreadCount}
                     </span>
                   )}
-                  {adminUnreadReports > 0 && (
+                  {adminUnreadReports > 0 && unreadCount === 0 && (
                     <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white px-1 animate-pulse">
                       {adminUnreadReports > 99 ? "99+" : adminUnreadReports}
                     </span>
