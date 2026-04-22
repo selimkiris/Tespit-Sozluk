@@ -130,6 +130,12 @@ public class AppDbContext : DbContext
             .HasForeignKey(n => n.EntryId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        modelBuilder.Entity<Notification>()
+            .HasOne(n => n.Topic)
+            .WithMany()
+            .HasForeignKey(n => n.TopicId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         modelBuilder.Entity<UserTopicFollow>()
             .HasKey(utf => new { utf.UserId, utf.TopicId });
 

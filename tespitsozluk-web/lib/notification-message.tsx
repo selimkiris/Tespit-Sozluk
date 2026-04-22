@@ -106,6 +106,9 @@ const MENTION_MESSAGES = [
 /** entry / enrty + isteğe bağlı Türkçe ek (kesme ve harfler) */
 const ENTRY_TOKEN_RE = /((?:enrty|entry)(?:[''\u2019][a-zA-ZüğıöşçÜĞİÖŞÇ]+)?)/gi
 
+/** "başlığın" / "başlığını" (Türkçe büyük-küçük varyantları); uzun eşleşme önce. */
+const TOPIC_TITLE_POSSESSIVE_RE = /(Başlığını|başlığını|Başlığın|başlığın)/g
+
 /** Sunucu ve istemcide aynı şablon indeksini verir (Math.random kullanılmaz). */
 export function pickTemplateIndex(notificationId: string, length: number): number {
   if (length <= 0) return 0
@@ -145,6 +148,36 @@ function renderChunkWithEntryLinks(
   return out
 }
 
+function renderMessageWithTopicTitleLinks(
+  message: string,
+  topicId: string,
+  topicLinkClass: string,
+  onLinkClick: LinkClick,
+): ReactNode[] {
+  const parts = message.split(TOPIC_TITLE_POSSESSIVE_RE)
+  if (parts.length === 1) return [message]
+  const out: ReactNode[] = []
+  let k = 0
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i]
+    if (i % 2 === 0) {
+      out.push(p)
+    } else {
+      out.push(
+        <Link
+          key={`topic-t-${k++}`}
+          href={`/?topic=${encodeURIComponent(topicId)}&page=1`}
+          className={topicLinkClass}
+          onClick={onLinkClick}
+        >
+          {p}
+        </Link>,
+      )
+    }
+  }
+  return out
+}
+
 function buildNodesFromTemplate(
   template: string,
   authorProfileId: string | null,
@@ -177,7 +210,7 @@ function buildNodesFromTemplate(
   return nodes
 }
 
-export type NotificationCopyVariant = "like" | "dislike" | "save" | "follow" | "mention"
+export type NotificationCopyVariant = "like" | "dislike" | "save" | "follow" | "topicFollow" | "mention"
 
 export function renderNotificationCopy({
   notification,
@@ -211,6 +244,18 @@ export function renderNotificationCopy({
     case "follow":
       templates = FOLLOW_MESSAGES
       break
+    case "topicFollow": {
+      const topicId = notification.topicId?.trim() || null
+      const text = notification.message?.trim() || ""
+      if (!text) {
+        return <span className="text-muted-foreground">Bildirim içeriği yüklenemedi.</span>
+      }
+      if (!topicId) {
+        return <span className="text-foreground">{text}</span>
+      }
+      const nodes = renderMessageWithTopicTitleLinks(text, topicId, inlineEntryLinkClass, onLinkClick)
+      return <>{nodes}</>
+    }
     case "mention":
       templates = MENTION_MESSAGES
       break

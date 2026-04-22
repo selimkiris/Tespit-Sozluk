@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TespitSozluk.API.Data;
 using TespitSozluk.API.DTOs;
 using TespitSozluk.API.Entities;
@@ -24,19 +25,22 @@ public class EntriesController : ControllerBase
     private readonly IEntryInteractionNotificationService _entryInteractionNotifications;
     private readonly IEntryLikesService _entryLikesService;
     private readonly IEntryMentionService _entryMentionService;
+    private readonly ILogger<EntriesController> _logger;
 
     public EntriesController(
         AppDbContext context,
         IEntryDeletionService entryDeletionService,
         IEntryInteractionNotificationService entryInteractionNotifications,
         IEntryLikesService entryLikesService,
-        IEntryMentionService entryMentionService)
+        IEntryMentionService entryMentionService,
+        ILogger<EntriesController> logger)
     {
         _context = context;
         _entryDeletionService = entryDeletionService;
         _entryInteractionNotifications = entryInteractionNotifications;
         _entryLikesService = entryLikesService;
         _entryMentionService = entryMentionService;
+        _logger = logger;
     }
 
     [AllowAnonymous]
@@ -541,30 +545,53 @@ public class EntriesController : ControllerBase
         {
             _context.EntryVotes.Remove(existingVote);
             entry.Upvotes--;
-            _entryInteractionNotifications.RemoveEntryInteractionNotification(
-                entry.AuthorId, userId, id, EntryInteractionNotificationTypes.Like);
+            try
+            {
+                _entryInteractionNotifications.RemoveEntryInteractionNotification(
+                    entry.AuthorId, userId, id, EntryInteractionNotificationTypes.Like);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Beğeni bildirimi kaldırılamadı. EntryId={EntryId}", id);
+            }
         }
         else
         {
-            _entryInteractionNotifications.RemoveEntryInteractionNotification(
-                entry.AuthorId, userId, id, EntryInteractionNotificationTypes.Dislike);
+            try
+            {
+                _entryInteractionNotifications.RemoveEntryInteractionNotification(
+                    entry.AuthorId, userId, id, EntryInteractionNotificationTypes.Dislike);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Ayak bildirimi kaldırılamadı. EntryId={EntryId}", id);
+            }
+
             existingVote.IsUpvote = true;
             entry.Downvotes--;
             entry.Upvotes++;
             shouldNotifyLike = true;
         }
 
+        await _context.SaveChangesAsync();
+
         if (shouldNotifyLike)
         {
-            _entryInteractionNotifications.TryNotifyEntryOwner(
-                id,
-                entry.AuthorId,
-                userId,
-                EntryInteractionNotificationTypes.Like,
-                "Girdinizi beğendi.");
+            try
+            {
+                _entryInteractionNotifications.TryNotifyEntryOwner(
+                    id,
+                    entry.AuthorId,
+                    userId,
+                    EntryInteractionNotificationTypes.Like,
+                    "Girdinizi beğendi.");
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Beğeni bildirimi kaydedilemedi. EntryId={EntryId}", id);
+            }
         }
-
-        await _context.SaveChangesAsync();
 
         var userVoteType = existingVote == null ? 1 : (existingVote.IsUpvote ? 0 : 1);
         return Ok(new { upvotes = entry.Upvotes, downvotes = entry.Downvotes, userVoteType });
@@ -607,30 +634,53 @@ public class EntriesController : ControllerBase
         {
             _context.EntryVotes.Remove(existingVote);
             entry.Downvotes--;
-            _entryInteractionNotifications.RemoveEntryInteractionNotification(
-                entry.AuthorId, userId, id, EntryInteractionNotificationTypes.Dislike);
+            try
+            {
+                _entryInteractionNotifications.RemoveEntryInteractionNotification(
+                    entry.AuthorId, userId, id, EntryInteractionNotificationTypes.Dislike);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Ayak bildirimi kaldırılamadı. EntryId={EntryId}", id);
+            }
         }
         else
         {
-            _entryInteractionNotifications.RemoveEntryInteractionNotification(
-                entry.AuthorId, userId, id, EntryInteractionNotificationTypes.Like);
+            try
+            {
+                _entryInteractionNotifications.RemoveEntryInteractionNotification(
+                    entry.AuthorId, userId, id, EntryInteractionNotificationTypes.Like);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Beğeni bildirimi kaldırılamadı. EntryId={EntryId}", id);
+            }
+
             existingVote.IsUpvote = false;
             entry.Upvotes--;
             entry.Downvotes++;
             shouldNotifyDislike = true;
         }
 
+        await _context.SaveChangesAsync();
+
         if (shouldNotifyDislike)
         {
-            _entryInteractionNotifications.TryNotifyEntryOwner(
-                id,
-                entry.AuthorId,
-                userId,
-                EntryInteractionNotificationTypes.Dislike,
-                "Girdinizi beğenmedi.");
+            try
+            {
+                _entryInteractionNotifications.TryNotifyEntryOwner(
+                    id,
+                    entry.AuthorId,
+                    userId,
+                    EntryInteractionNotificationTypes.Dislike,
+                    "Girdinizi beğenmedi.");
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Ayak bildirimi kaydedilemedi. EntryId={EntryId}", id);
+            }
         }
-
-        await _context.SaveChangesAsync();
 
         var userVoteType = existingVote == null ? -1 : (!existingVote.IsUpvote ? 0 : -1);
         return Ok(new { upvotes = entry.Upvotes, downvotes = entry.Downvotes, userVoteType });
@@ -658,9 +708,17 @@ public class EntriesController : ControllerBase
 
         if (existing != null)
         {
+            try
+            {
+                _entryInteractionNotifications.RemoveEntryInteractionNotification(
+                    entry.AuthorId, userId, id, EntryInteractionNotificationTypes.Save);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Kaydet bildirimi kaldırılamadı. EntryId={EntryId}", id);
+            }
+
             _context.UserSavedEntries.Remove(existing);
-            _entryInteractionNotifications.RemoveEntryInteractionNotification(
-                entry.AuthorId, userId, id, EntryInteractionNotificationTypes.Save);
             await _context.SaveChangesAsync();
             var newCount = await _context.UserSavedEntries.CountAsync(s => s.EntryId == id);
             return Ok(new { saveCount = newCount, isSavedByCurrentUser = false });
@@ -673,13 +731,23 @@ public class EntriesController : ControllerBase
                 EntryId = id,
                 SavedAt = DateTime.UtcNow
             });
-            _entryInteractionNotifications.TryNotifyEntryOwner(
-                id,
-                entry.AuthorId,
-                userId,
-                EntryInteractionNotificationTypes.Save,
-                "Girdinizi kaydetti.");
             await _context.SaveChangesAsync();
+
+            try
+            {
+                _entryInteractionNotifications.TryNotifyEntryOwner(
+                    id,
+                    entry.AuthorId,
+                    userId,
+                    EntryInteractionNotificationTypes.Save,
+                    "Girdinizi kaydetti.");
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Kaydet bildirimi kaydedilemedi. EntryId={EntryId}", id);
+            }
+
             var newCount = await _context.UserSavedEntries.CountAsync(s => s.EntryId == id);
             return Ok(new { saveCount = newCount, isSavedByCurrentUser = true });
         }

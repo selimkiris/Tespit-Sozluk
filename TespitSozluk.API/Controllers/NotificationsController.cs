@@ -2,9 +2,10 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TespitSozluk.API.Data;
 using TespitSozluk.API.DTOs;
-using TespitSozluk.API.Entities;
+using TespitSozluk.API.Services;
 
 namespace TespitSozluk.API.Controllers;
 
@@ -14,10 +15,12 @@ namespace TespitSozluk.API.Controllers;
 public class NotificationsController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly ILogger<NotificationsController> _logger;
 
-    public NotificationsController(AppDbContext context)
+    public NotificationsController(AppDbContext context, ILogger<NotificationsController> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -29,31 +32,43 @@ public class NotificationsController : ControllerBase
             return Unauthorized();
         }
 
-        var cutoffUtc = DateTime.UtcNow.AddMonths(-1);
-        await _context.Notifications
-            .Where(n => n.UserId == userId && n.CreatedAt < cutoffUtc)
-            .ExecuteDeleteAsync();
+        try
+        {
+            var cutoffUtc = DateTime.UtcNow.AddMonths(-1);
+            await _context.Notifications
+                .Where(n => n.UserId == userId && n.CreatedAt < cutoffUtc)
+                .ExecuteDeleteAsync();
 
-        var notifications = await _context.Notifications
-            .Include(n => n.Sender)
-            .Where(n => n.UserId == userId)
-            .OrderByDescending(n => n.CreatedAt)
-            .Select(n => new NotificationResponseDto
-            {
-                Id = n.Id,
-                EntryId = n.EntryId,
-                TopicId = n.Entry != null ? n.Entry.TopicId : null,
-                SenderId = n.SenderId,
-                ActorId = n.SenderId,
-                SenderName = n.Sender.FirstName + " " + n.Sender.LastName,
-                Type = n.Type,
-                Message = n.Message,
-                IsRead = n.IsRead,
-                CreatedAt = n.CreatedAt
-            })
-            .ToListAsync();
+            // Entry: TopicId (mention/beğeni derin link); TopicId: başlık takibi. Include yok; EF projeksiyonda join üretir.
+            var notifications = await _context.Notifications
+                .AsNoTracking()
+                .Include(n => n.Sender)
+                .Where(n => n.UserId == userId)
+                .OrderByDescending(n => n.CreatedAt)
+                .Select(n => new NotificationResponseDto
+                {
+                    Id = n.Id,
+                    EntryId = n.EntryId,
+                    TopicId = n.TopicId ?? (n.Entry != null ? n.Entry.TopicId : null),
+                    SenderId = n.Type == EntryInteractionNotificationTypes.TopicFollow ? Guid.Empty : n.SenderId,
+                    ActorId = n.Type == EntryInteractionNotificationTypes.TopicFollow ? Guid.Empty : n.SenderId,
+                    SenderName = n.Type == EntryInteractionNotificationTypes.TopicFollow
+                        ? string.Empty
+                        : n.Sender.FirstName + " " + n.Sender.LastName,
+                    Type = n.Type,
+                    Message = n.Message,
+                    IsRead = n.IsRead,
+                    CreatedAt = n.CreatedAt
+                })
+                .ToListAsync();
 
-        return notifications;
+            return notifications;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Bildirim listesi alınamadı (UserId={UserId}). Muhtemel sebep: veritabanı şeması güncel değil; API dizininde 'dotnet ef database update' çalıştırın.", userId);
+            return Ok(new List<NotificationResponseDto>());
+        }
     }
 
     [HttpGet("unread-count")]
@@ -65,10 +80,19 @@ public class NotificationsController : ControllerBase
             return Unauthorized();
         }
 
-        var count = await _context.Notifications
-            .CountAsync(n => n.UserId == userId && !n.IsRead);
+        try
+        {
+            var count = await _context.Notifications
+                .AsNoTracking()
+                .CountAsync(n => n.UserId == userId && !n.IsRead);
 
-        return count;
+            return count;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Okunmamış bildirim sayısı alınamadı (UserId={UserId}).", userId);
+            return Ok(0);
+        }
     }
 
     [HttpPut("mark-all-read")]

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TespitSozluk.API.Data;
 using TespitSozluk.API.DTOs;
 using TespitSozluk.API.Entities;
@@ -22,15 +23,21 @@ public class TopicsController : ControllerBase
     private readonly AppDbContext _context;
     private readonly IRateLimitService _rateLimitService;
     private readonly IEntryMentionService _entryMentionService;
+    private readonly IEntryInteractionNotificationService _entryInteractionNotifications;
+    private readonly ILogger<TopicsController> _logger;
 
     public TopicsController(
         AppDbContext context,
         IRateLimitService rateLimitService,
-        IEntryMentionService entryMentionService)
+        IEntryMentionService entryMentionService,
+        IEntryInteractionNotificationService entryInteractionNotifications,
+        ILogger<TopicsController> logger)
     {
         _context = context;
         _rateLimitService = rateLimitService;
         _entryMentionService = entryMentionService;
+        _entryInteractionNotifications = entryInteractionNotifications;
+        _logger = logger;
     }
 
     [Authorize]
@@ -729,8 +736,11 @@ public class TopicsController : ControllerBase
             return Unauthorized();
         }
 
-        var topicExists = await _context.Topics.AnyAsync(t => t.Id == id);
-        if (!topicExists)
+        var topicRow = await _context.Topics
+            .AsNoTracking()
+            .Select(t => new { t.Id, t.AuthorId })
+            .FirstOrDefaultAsync(t => t.Id == id);
+        if (topicRow == null)
         {
             return NotFound("Başlık bulunamadı.");
         }
@@ -740,6 +750,18 @@ public class TopicsController : ControllerBase
 
         if (existing != null)
         {
+            if (topicRow.AuthorId is Guid authorId && authorId != Guid.Empty)
+            {
+                try
+                {
+                    _entryInteractionNotifications.RemoveTopicFollowNotification(authorId, userId, id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Başlık takip bildirimi silinemedi. TopicId={TopicId}", id);
+                }
+            }
+
             _context.UserTopicFollows.Remove(existing);
             await _context.SaveChangesAsync();
             return Ok(new { isFollowed = false });
@@ -752,7 +774,31 @@ public class TopicsController : ControllerBase
                 TopicId = id,
                 CreatedAt = DateTime.UtcNow
             });
+
             await _context.SaveChangesAsync();
+
+            if (topicRow.AuthorId is Guid topicAuthorId &&
+                topicAuthorId != Guid.Empty &&
+                topicAuthorId != userId)
+            {
+                var topicFollowMessages = new[]
+                {
+                    "👓 Gizemli birisi başlığını takip etmeye başladı.",
+                    "👓 Gizemli birisi başlığını takip etti, gündeme oturuyorsun.",
+                    "👓 Başlığın tuttu, takip edenler var.",
+                };
+                var message = topicFollowMessages[Random.Shared.Next(topicFollowMessages.Length)];
+                try
+                {
+                    _entryInteractionNotifications.TryNotifyTopicAuthorOnFollow(id, topicAuthorId, userId, message);
+                    await _context.SaveChangesAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Başlık takip bildirimi kaydedilemedi. TopicId={TopicId}, AuthorId={AuthorId}", id, topicAuthorId);
+                }
+            }
+
             return Ok(new { isFollowed = true });
         }
     }

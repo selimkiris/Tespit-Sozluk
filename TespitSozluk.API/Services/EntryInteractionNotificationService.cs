@@ -11,6 +11,7 @@ public static class EntryInteractionNotificationTypes
     public const string Save = "Save";
     public const string Follow = "Follow";
     public const string Mention = "Mention";
+    public const string TopicFollow = "TopicFollow";
 }
 
 public class EntryInteractionNotificationService : IEntryInteractionNotificationService
@@ -24,7 +25,7 @@ public class EntryInteractionNotificationService : IEntryInteractionNotification
 
     public void TryNotifyEntryOwner(Guid entryId, Guid entryAuthorId, Guid actorUserId, string type, string message)
     {
-        if (actorUserId == entryAuthorId)
+        if (actorUserId == entryAuthorId || entryAuthorId == Guid.Empty)
             return;
 
         _context.Notifications.Add(new Notification
@@ -52,6 +53,54 @@ public class EntryInteractionNotificationService : IEntryInteractionNotification
     {
         var rows = _context.Notifications
             .Where(n => n.UserId == followedUserId && n.SenderId == followerId && n.Type == EntryInteractionNotificationTypes.Follow)
+            .ToList();
+        _context.Notifications.RemoveRange(rows);
+    }
+
+    public void TryNotifyOnUserFollow(Guid followedUserId, Guid followerId, string message)
+    {
+        if (followedUserId == Guid.Empty || followerId == Guid.Empty || followedUserId == followerId)
+            return;
+
+        _context.Notifications.Add(new Notification
+        {
+            Id = Guid.NewGuid(),
+            UserId = followedUserId,
+            SenderId = followerId,
+            Type = EntryInteractionNotificationTypes.Follow,
+            Message = message,
+            IsRead = false,
+            CreatedAt = DateTime.UtcNow
+        });
+    }
+
+    public void TryNotifyTopicAuthorOnFollow(Guid topicId, Guid topicAuthorId, Guid followerId, string message)
+    {
+        if (followerId == topicAuthorId || topicAuthorId == Guid.Empty)
+            return;
+
+        _context.Notifications.Add(new Notification
+        {
+            Id = Guid.NewGuid(),
+            UserId = topicAuthorId,
+            SenderId = followerId,
+            Type = EntryInteractionNotificationTypes.TopicFollow,
+            Message = message,
+            IsRead = false,
+            CreatedAt = DateTime.UtcNow,
+            EntryId = null,
+            TopicId = topicId
+        });
+    }
+
+    public void RemoveTopicFollowNotification(Guid topicAuthorId, Guid followerId, Guid topicId)
+    {
+        var rows = _context.Notifications
+            .Where(n =>
+                n.UserId == topicAuthorId &&
+                n.SenderId == followerId &&
+                n.TopicId == topicId &&
+                n.Type == EntryInteractionNotificationTypes.TopicFollow)
             .ToList();
         _context.Notifications.RemoveRange(rows);
     }

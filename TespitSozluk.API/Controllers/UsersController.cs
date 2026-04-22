@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using TespitSozluk.API.Data;
 using TespitSozluk.API.DTOs;
 using TespitSozluk.API.Entities;
@@ -28,11 +29,16 @@ public class UsersController : ControllerBase
 
     private readonly AppDbContext _context;
     private readonly IEntryInteractionNotificationService _entryInteractionNotifications;
+    private readonly ILogger<UsersController> _logger;
 
-    public UsersController(AppDbContext context, IEntryInteractionNotificationService entryInteractionNotifications)
+    public UsersController(
+        AppDbContext context,
+        IEntryInteractionNotificationService entryInteractionNotifications,
+        ILogger<UsersController> logger)
     {
         _context = context;
         _entryInteractionNotifications = entryInteractionNotifications;
+        _logger = logger;
     }
 
     /// <summary>
@@ -499,6 +505,11 @@ public class UsersController : ControllerBase
             return Unauthorized();
         }
 
+        if (id == Guid.Empty)
+        {
+            return BadRequest(new { message = "Geçersiz kullanıcı." });
+        }
+
         if (followerId == id)
         {
             return BadRequest(new { message = "Kendinizi takip edemezsiniz." });
@@ -515,8 +526,16 @@ public class UsersController : ControllerBase
 
         if (existingFollow != null)
         {
+            try
+            {
+                _entryInteractionNotifications.RemoveFollowNotifications(id, followerId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Kullanıcı takip bildirimi silinemedi. FollowingId={FollowingId}", id);
+            }
+
             _context.UserFollows.Remove(existingFollow);
-            _entryInteractionNotifications.RemoveFollowNotifications(id, followerId);
             await _context.SaveChangesAsync();
             return Ok(new { isFollowing = false, message = "Takipten çıkıldı." });
         }
@@ -535,18 +554,19 @@ public class UsersController : ControllerBase
             CreatedAt = DateTime.UtcNow
         });
 
-        _context.Notifications.Add(new Notification
-        {
-            Id = Guid.NewGuid(),
-            UserId = id,
-            SenderId = followerId,
-            Type = EntryInteractionNotificationTypes.Follow,
-            Message = $"{followerName} seni takip etmeye başladı.",
-            IsRead = false,
-            CreatedAt = DateTime.UtcNow
-        });
-
         await _context.SaveChangesAsync();
+
+        var followMessage = $"{followerName} seni takip etmeye başladı.";
+        try
+        {
+            _entryInteractionNotifications.TryNotifyOnUserFollow(id, followerId, followMessage);
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Kullanıcı takip bildirimi kaydedilemedi. FollowingId={FollowingId}, FollowerId={FollowerId}", id, followerId);
+        }
+
         return Ok(new { isFollowing = true, message = "Takip edildi." });
     }
 

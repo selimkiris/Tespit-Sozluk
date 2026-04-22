@@ -20,6 +20,7 @@ export function formatNotificationTime(iso: string): string {
 
 export const NotificationType = {
   Follow: "Follow",
+  TopicFollow: "TopicFollow",
   Like: "Like",
   Dislike: "Dislike",
   Save: "Save",

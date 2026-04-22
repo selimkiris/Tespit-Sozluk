@@ -14,6 +14,10 @@ public class Notification
     public Guid? EntryId { get; set; }
     public Entry? Entry { get; set; }
 
+    /// <summary>Başlık takibi gibi doğrudan başlığa bağlı bildirimlerde yönlendirme için.</summary>
+    public Guid? TopicId { get; set; }
+    public Topic? Topic { get; set; }
+
     public User User { get; set; } = null!;
     public User Sender { get; set; } = null!;
 }

@@ -575,6 +575,31 @@ export function Navbar({
                         )
                       }
 
+                      if (n.type === NotificationType.TopicFollow) {
+                        return (
+                          <div
+                            key={n.id}
+                            role="presentation"
+                            onClick={() => {
+                              closeNotificationsMenu()
+                              if (!n.isRead) void handleMarkAsRead(n.id)
+                            }}
+                            className={`w-full flex flex-col gap-0.5 px-3 py-2.5 text-left cursor-pointer hover:bg-accent transition-colors border-b border-border last:border-b-0 ${!n.isRead ? "bg-accent/50" : ""}`}
+                          >
+                            <p className="text-sm text-foreground leading-snug">
+                              <NotificationCopy
+                                notification={n}
+                                variant="topicFollow"
+                                userLinkClass={userLinkClass}
+                                inlineEntryLinkClass={inlineEntryLinkClass}
+                                onLinkClick={markReadOnLinkClick}
+                              />
+                            </p>
+                            {timeRow}
+                          </div>
+                        )
+                      }
+
                       if (n.type === NotificationType.Like) {
                         return (
                           <div
