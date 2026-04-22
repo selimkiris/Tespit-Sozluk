@@ -54,6 +54,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { DangerConfirmModal } from "@/components/admin/danger-confirm-modal"
+import { ReportDialog } from "@/components/report-dialog"
 import { HtmlRenderer } from "@/components/html-renderer"
 import { ExpandableHtmlContent } from "@/components/expandable-html-content"
 import { Input } from "@/components/ui/input"
@@ -160,6 +161,12 @@ type Report = {
     authorRole?: string
     entryCount?: number
   } | null
+  reportedUser?: {
+    id: string
+    username: string
+    avatar?: string | null
+    authorRole?: string
+  } | null
 }
 
 function normalizeProfileTabFromQuery(
@@ -251,6 +258,7 @@ export default function UserProfilePage() {
   const [followingModalOpen, setFollowingModalOpen] = useState(false)
   const [avatarDialogOpen, setAvatarDialogOpen] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
+  const [profileReportOpen, setProfileReportOpen] = useState(false)
   const [bioEditing, setBioEditing] = useState(false)
   const [bioDraft, setBioDraft] = useState("")
   const [bioSaving, setBioSaving] = useState(false)
@@ -1107,6 +1115,25 @@ export default function UserProfilePage() {
                   />
                 </DropdownMenuContent>
               </DropdownMenu>
+              {!isOwnProfile && isLoggedIn && (
+                <TooltipProvider delayDuration={300}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        aria-label="Şikayet et"
+                        onClick={() => setProfileReportOpen(true)}
+                      >
+                        <Flag className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Şikayet Et</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
               {isAdmin && !isOwnProfile && (
                 <>
                   <Button
@@ -1838,6 +1865,59 @@ export default function UserProfilePage() {
                               )}
                             </div>
                           </div>
+                        ) : report.reportedUser ? (
+                          <div className="border-t border-border/50 bg-card">
+                            <div className="px-4 pt-3 pb-1">
+                              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                                <Flag className="h-3 w-3" /> Şikayet Edilen Kullanıcı
+                              </p>
+                            </div>
+                            <div className="px-4 pb-3">
+                              <div className="flex items-center gap-2 mt-1">
+                                {report.reportedUser.avatar?.startsWith("http") ? (
+                                  <img
+                                    src={report.reportedUser.avatar}
+                                    alt=""
+                                    referrerPolicy="no-referrer"
+                                    className="h-8 w-8 shrink-0 rounded-full object-cover border border-border/60"
+                                  />
+                                ) : (
+                                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted border border-border/60 text-sm font-medium">
+                                    {report.reportedUser.username?.[0]?.toUpperCase() ?? "?"}
+                                  </span>
+                                )}
+                                <div className="min-w-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => router.push(`/user/${report.reportedUser!.id}`)}
+                                    className="text-base font-bold text-foreground hover:underline underline-offset-2 text-left flex items-center gap-0.5"
+                                  >
+                                    {report.reportedUser.username}
+                                    {report.reportedUser.authorRole === "Admin" && (
+                                      <BadgeCheck className="w-3.5 h-3.5 text-blue-500 fill-blue-500/20 ml-0.5 shrink-0" />
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-t border-border/50 bg-muted/5">
+                              {report.reportedUser.authorRole !== "Admin" && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setWarnTargetUserId(report.reportedUser!.id)
+                                    setWarnEntryId(null)
+                                    setWarnTopicId(null)
+                                    setWarnMessage("")
+                                    setWarnUserOpen(true)
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border border-yellow-500/40 text-yellow-600 dark:text-yellow-400 bg-yellow-500/5 hover:bg-yellow-500/15 transition-colors"
+                                >
+                                  <ShieldAlert className="h-3.5 w-3.5" /> Kullanıcıyı Uyar
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         ) : null}
                       </div>
                     ))}
@@ -2139,6 +2219,14 @@ export default function UserProfilePage() {
           router.push("/?login=1")
         }}
       />
+      {user && id && !isOwnProfile && isLoggedIn && (
+        <ReportDialog
+          open={profileReportOpen}
+          onOpenChange={setProfileReportOpen}
+          targetId={user.id}
+          targetType="user"
+        />
+      )}
     </div>
   )
 }

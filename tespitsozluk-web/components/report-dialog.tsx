@@ -33,7 +33,7 @@ interface ReportDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   targetId: string
-  targetType: "entry" | "topic"
+  targetType: "entry" | "topic" | "user"
 }
 
 export function ReportDialog({
@@ -61,8 +61,9 @@ export function ReportDialog({
 
     const entryId = targetType === "entry" ? targetId : undefined
     const topicId = targetType === "topic" ? targetId : undefined
+    const userId = targetType === "user" ? targetId : undefined
 
-    if (!entryId && !topicId) {
+    if (!entryId && !topicId && !userId) {
       toast.error("Geçersiz hedef.")
       return
     }
@@ -74,6 +75,7 @@ export function ReportDialog({
         body: JSON.stringify({
           entryId: entryId ?? null,
           topicId: topicId ?? null,
+          userId: userId ?? null,
           reason: reason.trim(),
           details: details.trim() || null,
         }),
@@ -91,7 +93,7 @@ export function ReportDialog({
         return
       }
 
-      toast.success("Şikayetiniz yönetime iletildi. Teşekkür ederiz.")
+      toast.success("Şikayetiniz yönetime iletildi")
       onOpenChange(false)
     } catch {
       toast.error("Şikayet gönderilemedi.")

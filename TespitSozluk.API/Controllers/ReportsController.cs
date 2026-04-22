@@ -29,9 +29,10 @@ public class ReportsController : ControllerBase
             return Unauthorized();
         }
 
-        if (!dto.EntryId.HasValue && !dto.TopicId.HasValue)
+        var targetCount = (dto.EntryId.HasValue ? 1 : 0) + (dto.TopicId.HasValue ? 1 : 0) + (dto.UserId.HasValue ? 1 : 0);
+        if (targetCount != 1)
         {
-            return BadRequest(new { message = "EntryId veya TopicId'den en az biri gereklidir." });
+            return BadRequest(new { message = "Tam olarak bir hedef (entry, başlık veya kullanıcı) belirtilmelidir." });
         }
 
         if (string.IsNullOrWhiteSpace(dto.Reason))
@@ -57,11 +58,26 @@ public class ReportsController : ControllerBase
             }
         }
 
+        if (dto.UserId.HasValue)
+        {
+            if (dto.UserId.Value == reporterId)
+            {
+                return BadRequest(new { message = "Kendi profilinizi şikayet edemezsiniz." });
+            }
+
+            var userExists = await _context.Users.AnyAsync(u => u.Id == dto.UserId.Value);
+            if (!userExists)
+            {
+                return NotFound(new { message = "Kullanıcı bulunamadı." });
+            }
+        }
+
         var report = new Report
         {
             ReporterId = reporterId,
             ReportedEntryId = dto.EntryId,
             ReportedTopicId = dto.TopicId,
+            ReportedUserId = dto.UserId,
             Reason = dto.Reason.Trim(),
             Details = string.IsNullOrWhiteSpace(dto.Details) ? null : dto.Details.Trim(),
         };

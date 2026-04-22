@@ -169,6 +169,12 @@ public class AppDbContext : DbContext
             .HasForeignKey(r => r.ReportedTopicId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        modelBuilder.Entity<Report>()
+            .HasOne(r => r.ReportedUser)
+            .WithMany()
+            .HasForeignKey(r => r.ReportedUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Username);
 

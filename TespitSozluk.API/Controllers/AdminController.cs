@@ -402,6 +402,7 @@ public class AdminController : ControllerBase
             .Include(r => r.ReportedEntry).ThenInclude(e => e!.Author)
             .Include(r => r.ReportedTopic).ThenInclude(t => t!.Author)
             .Include(r => r.ReportedTopic).ThenInclude(t => t!.Entries)
+            .Include(r => r.ReportedUser)
             .OrderBy(r => r.IsResolved)
             .ThenByDescending(r => r.CreatedAt);
 
@@ -441,6 +442,13 @@ public class AdminController : ControllerBase
                     AuthorAvatar = r.ReportedTopic.Author != null ? r.ReportedTopic.Author.Avatar : null,
                     AuthorRole = r.ReportedTopic.Author != null ? r.ReportedTopic.Author.Role : "User",
                     EntryCount = r.ReportedTopic.Entries.Count
+                },
+                ReportedUser = r.ReportedUser == null ? null : new
+                {
+                    r.ReportedUser.Id,
+                    r.ReportedUser.Username,
+                    r.ReportedUser.Avatar,
+                    AuthorRole = r.ReportedUser.Role
                 }
             })
             .ToListAsync();

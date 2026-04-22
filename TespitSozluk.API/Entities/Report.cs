@@ -9,6 +9,8 @@ public class Report
     public Entry? ReportedEntry { get; set; }
     public Guid? ReportedTopicId { get; set; }
     public Topic? ReportedTopic { get; set; }
+    public Guid? ReportedUserId { get; set; }
+    public User? ReportedUser { get; set; }
     public string Reason { get; set; } = string.Empty;
     public string? Details { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
