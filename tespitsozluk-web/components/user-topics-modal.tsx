@@ -107,10 +107,12 @@ export function UserTopicsModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl gap-0 p-0 overflow-hidden">
-        <DialogHeader className="px-5 pt-5 pb-4 border-b border-border/60">
-          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <BookOpen className="h-5 w-5 text-primary" aria-hidden />
-            <span className="truncate">{title}</span>
+        <DialogHeader className="px-5 pt-5 pb-4 pr-12 border-b border-border/60">
+          <DialogTitle className="flex min-w-0 items-center gap-2 text-base sm:text-lg">
+            <BookOpen className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+            <span className="min-w-0 flex-1 truncate" title={title}>
+              {title}
+            </span>
             {!loading && !errored && topics.length > 0 && (
               <span className="ml-auto shrink-0 inline-flex items-center justify-center min-w-[24px] h-6 px-2 rounded-full text-[11px] font-bold bg-muted text-muted-foreground">
                 {topics.length}

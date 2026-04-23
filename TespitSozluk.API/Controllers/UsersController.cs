@@ -126,7 +126,7 @@ public class UsersController : ControllerBase
                 u.Avatar,
                 u.HasChangedUsername,
                 u.CreatedAt,
-                EntryCount = u.Entries.Count
+                EntryCount = u.Entries.Count(e => !e.IsAnonymous)
             })
             .FirstOrDefaultAsync();
 
@@ -137,16 +137,16 @@ public class UsersController : ControllerBase
 
         var followerCount = await _context.UserFollows.CountAsync(uf => uf.FollowingId == id);
         var followingCount = await _context.UserFollows.CountAsync(uf => uf.FollowerId == id);
-        var totalTopicCount = await _context.Topics.CountAsync(t => t.AuthorId == id);
+        var totalTopicCount = await _context.Topics.CountAsync(t => t.AuthorId == id && !t.IsAnonymous);
 
         var totalUpvotesReceived = await _context.Entries
-            .Where(e => e.AuthorId == id)
+            .Where(e => e.AuthorId == id && !e.IsAnonymous)
             .SumAsync(e => e.Upvotes);
         var totalDownvotesReceived = await _context.Entries
-            .Where(e => e.AuthorId == id)
+            .Where(e => e.AuthorId == id && !e.IsAnonymous)
             .SumAsync(e => e.Downvotes);
         var totalSavesReceived = await _context.UserSavedEntries
-            .CountAsync(s => _context.Entries.Any(e => e.Id == s.EntryId && e.AuthorId == id));
+            .CountAsync(s => _context.Entries.Any(e => e.Id == s.EntryId && e.AuthorId == id && !e.IsAnonymous));
 
         var writtenEntriesCount = user.EntryCount;
         var savedEntriesCount = await _context.UserSavedEntries.CountAsync(s => s.UserId == id);
