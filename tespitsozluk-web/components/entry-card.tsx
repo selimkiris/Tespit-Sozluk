@@ -62,6 +62,7 @@ import {
   shouldApplyEntrySearchHighlight,
 } from "@/lib/search-highlight-html"
 import { formatTurkeyDateTime } from "@/lib/turkey-datetime"
+import { NoviceBadge, shouldShowNoviceBadge } from "@/components/novice-badge"
 
 interface Entry {
   id: string
@@ -85,6 +86,8 @@ interface Entry {
   canManage?: boolean
   saveCount?: number
   isSavedByCurrentUser?: boolean
+  /** API: yazarın çömez (novice) statüsü. */
+  isNovice?: boolean
   /** Opsiyonel anket. Null/undefined ise bu entry'ye bağlı anket yoktur. */
   poll?: ApiPoll | null
 }
@@ -174,6 +177,7 @@ export function EntryCard({
   // Anında UI güncellemesi için yerel yazar/anonim görüntü durumu
   const [localIsAnonymous, setLocalIsAnonymous] = useState<boolean>(entry.isAnonymous ?? false)
   const [localAuthor, setLocalAuthor] = useState<Entry["author"]>(entry.author)
+  const [localIsNovice, setLocalIsNovice] = useState(entry.isNovice ?? false)
 
   // --- Mikro-animasyon geçici state'leri (yalnızca görsel; API/mantık etkilenmez) ---
   const [heartAnim, setHeartAnim] = useState(false)
@@ -229,8 +233,9 @@ export function EntryCard({
     setLocalUpdatedAt(entry.updatedAt ?? null)
     setLocalIsAnonymous(entry.isAnonymous ?? false)
     setLocalAuthor(entry.author)
+    setLocalIsNovice(entry.isNovice ?? false)
     setLocalPoll(entry.poll ?? null)
-  }, [entry.id, entry.userVote, entry.upvotes, entry.downvotes, entry.content, entry.saveCount, entry.isSavedByCurrentUser, entry.updatedAt, entry.isAnonymous, entry.author, entry.poll])
+  }, [entry.id, entry.userVote, entry.upvotes, entry.downvotes, entry.content, entry.saveCount, entry.isSavedByCurrentUser, entry.updatedAt, entry.isAnonymous, entry.isNovice, entry.author, entry.poll])
 
   const editPollSnapshot = JSON.stringify(editPoll)
   const editPollBaselineSnapshot = JSON.stringify(editPollBaseline)
@@ -322,6 +327,7 @@ export function EntryCard({
           avatar: null,
           role: "User",
         })
+        setLocalIsNovice(false)
       } else {
         setLocalAuthor({
           id: data.authorId ?? entry.author.id,
@@ -329,6 +335,9 @@ export function EntryCard({
           avatar: data.authorAvatar ?? entry.author.avatar ?? null,
           role: data.authorRole ?? entry.author.role ?? "User",
         })
+        if (typeof data.isNovice === "boolean") {
+          setLocalIsNovice(data.isNovice)
+        }
       }
       setIsEditOpen(false)
       // Eğer anonimlik değiştiyse, ilk entry'de topic header'ı da güncellemek için
@@ -665,8 +674,11 @@ export function EntryCard({
           </button>
         </div>
 
-        {/* RIGHT GROUP: Author info + date + share + options */}
+        {/* RIGHT GROUP: Author info + date + share + options — sıra: rozet (çömez) | avatar | ad */}
         <div className="flex items-center gap-1.5 min-w-0 shrink">
+          {!isAnonymousEntry && shouldShowNoviceBadge(localIsNovice, localAuthor.role) && (
+            <NoviceBadge className="shrink-0" />
+          )}
           {/* Avatar */}
           <div className="shrink-0">
             {isAnonymousEntry ? (
@@ -705,11 +717,13 @@ export function EntryCard({
           ) : (
             <Link
               href={`/user/${localAuthor.id}`}
-              className="inline-flex items-center gap-0.5 text-sm font-normal text-slate-200 hover:text-[#c2c6cf] transition-colors max-w-[220px] overflow-hidden"
+              className="inline-flex items-center gap-0.5 text-sm font-normal text-slate-200 hover:text-[#c2c6cf] transition-colors max-w-[min(100%,220px)] min-w-0 overflow-hidden"
             >
-              {shouldApplyEntrySearchHighlight(searchTerm)
-                ? highlightText(localAuthor.nickname, searchTerm!)
-                : localAuthor.nickname}
+              <span className="min-w-0 truncate">
+                {shouldApplyEntrySearchHighlight(searchTerm)
+                  ? highlightText(localAuthor.nickname, searchTerm!)
+                  : localAuthor.nickname}
+              </span>
               {localAuthor.role === "Admin" && (
                 <BadgeCheck className="w-3.5 h-3.5 text-blue-500 fill-blue-500/20 ml-0.5 shrink-0" />
               )}

@@ -29,4 +29,7 @@ public class UserProfileResponseDto
     public int LikedEntriesCount { get; set; }
     /// <summary>Taslak sayısı</summary>
     public int DraftsCount { get; set; }
+
+    /// <summary>Profil sahibi çömez (novice) statüsünde mi (20 gün + 20 entry + 3 başlık şartları).</summary>
+    public bool IsNovice { get; set; }
 }

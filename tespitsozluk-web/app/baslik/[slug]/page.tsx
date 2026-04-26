@@ -33,6 +33,8 @@ type TopicApiResponse = {
   isAnonymous?: boolean
   isTopicOwner?: boolean
   canManageTopic?: boolean
+  isNovice?: boolean
+  authorRole?: string | null
 }
 
 type EntriesApiResponse = {
@@ -189,6 +191,8 @@ export default async function TopicSlugPage({ params }: PageProps) {
       typeof topic.canManageTopic === "boolean" ? topic.canManageTopic : undefined,
     isFollowedByCurrentUser: topic.isFollowedByCurrentUser === true,
     slug: topic.slug ?? slug,
+    authorRole: topic.authorRole ?? undefined,
+    isNovice: topic.isNovice === true,
   }
 
   return (

@@ -25,6 +25,7 @@ public class TopicsController : ControllerBase
     private readonly IEntryMentionService _entryMentionService;
     private readonly IEntryInteractionNotificationService _entryInteractionNotifications;
     private readonly IPollService _pollService;
+    private readonly INoviceStatusService _noviceStatus;
     private readonly ILogger<TopicsController> _logger;
 
     public TopicsController(
@@ -33,6 +34,7 @@ public class TopicsController : ControllerBase
         IEntryMentionService entryMentionService,
         IEntryInteractionNotificationService entryInteractionNotifications,
         IPollService pollService,
+        INoviceStatusService noviceStatus,
         ILogger<TopicsController> logger)
     {
         _context = context;
@@ -40,6 +42,7 @@ public class TopicsController : ControllerBase
         _entryMentionService = entryMentionService;
         _entryInteractionNotifications = entryInteractionNotifications;
         _pollService = pollService;
+        _noviceStatus = noviceStatus;
         _logger = logger;
     }
 
@@ -194,7 +197,11 @@ public class TopicsController : ControllerBase
             .Include(t => t.Author)
             .FirstAsync(t => t.Id == topic.Id);
 
-        return Ok(MapTopicToDto(created, authorId, false, 1, canManageTopic: true));
+        var createNov = created.IsAnonymous || !created.AuthorId.HasValue
+            ? false
+            : (await _noviceStatus.GetIsNoviceMapAsync(new[] { created.AuthorId!.Value })).GetValueOrDefault(created.AuthorId.Value, true);
+
+        return Ok(MapTopicToDto(created, authorId, false, 1, canManageTopic: true, createNov));
     }
 
     private static string NormalizeEntryContentForCreate(string content)
@@ -217,7 +224,7 @@ public class TopicsController : ControllerBase
         return content.Trim();
     }
 
-    private static TopicResponseDto MapTopicToDto(Topic topic, Guid? currentUserId, bool isFollowed, int entryCount, bool canManageTopic)
+    private static TopicResponseDto MapTopicToDto(Topic topic, Guid? currentUserId, bool isFollowed, int entryCount, bool canManageTopic, bool authorIsNovice)
     {
         var author = topic.Author;
         var effectiveAnon = topic.IsAnonymous || !topic.AuthorId.HasValue || author == null;
@@ -237,6 +244,7 @@ public class TopicsController : ControllerBase
                 : author.Username.Trim(),
             AuthorAvatar = effectiveAnon ? null : author?.Avatar,
             AuthorRole = author?.Role ?? "User",
+            IsNovice = effectiveAnon ? false : authorIsNovice,
             CreatedAt = topic.CreatedAt,
             EntryCount = entryCount,
             IsFollowedByCurrentUser = isFollowed,
@@ -265,7 +273,8 @@ public class TopicsController : ControllerBase
         int entryCount,
         Guid? currentUserId,
         bool isFollowed,
-        bool canManageTopic)
+        bool canManageTopic,
+        bool authorIsNovice)
     {
         var effectiveAnon = isAnonymousTopic || !authorId.HasValue || !hasAuthor;
         var isOwner = currentUserId.HasValue && authorId.HasValue && authorId.Value == currentUserId.Value;
@@ -284,6 +293,7 @@ public class TopicsController : ControllerBase
                 : authorUsername!.Trim(),
             AuthorAvatar = effectiveAnon ? null : authorAvatar,
             AuthorRole = string.IsNullOrEmpty(authorRole) ? "User" : authorRole!,
+            IsNovice = effectiveAnon ? false : authorIsNovice,
             CreatedAt = createdAt,
             EntryCount = entryCount,
             IsFollowedByCurrentUser = isFollowed,
@@ -367,8 +377,19 @@ public class TopicsController : ControllerBase
             topicIdsWithForeignEntries = await GetTopicIdsWithForeignEntriesAsync(userId.Value, myTopicIds);
         }
 
-        var items = rows
-            .Select(r => MapTopicProjectionToDto(
+        var latestNoviceIds = rows
+            .Where(r => !r.IsAnonymous && r.AuthorId.HasValue)
+            .Select(r => r.AuthorId!.Value)
+            .Distinct()
+            .ToList();
+        var latestNoviceMap = await _noviceStatus.GetIsNoviceMapAsync(latestNoviceIds);
+        var items = new List<TopicResponseDto>(rows.Count);
+        foreach (var r in rows)
+        {
+            var aNov = (r.IsAnonymous || !r.AuthorId.HasValue)
+                ? false
+                : latestNoviceMap.GetValueOrDefault(r.AuthorId.Value, true);
+            items.Add(MapTopicProjectionToDto(
                 r.Id,
                 r.Title,
                 r.Slug,
@@ -384,8 +405,9 @@ public class TopicsController : ControllerBase
                 r.EntryCount,
                 userId,
                 followedIds.Contains(r.Id),
-                userId.HasValue && r.AuthorId == userId && !topicIdsWithForeignEntries.Contains(r.Id)))
-            .ToList();
+                userId.HasValue && r.AuthorId == userId && !topicIdsWithForeignEntries.Contains(r.Id),
+                aNov));
+        }
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
@@ -494,8 +516,19 @@ public class TopicsController : ControllerBase
             topicIdsWithForeignEntriesAlpha = await GetTopicIdsWithForeignEntriesAsync(userId.Value, myTopicIds);
         }
 
-        var items = rows
-            .Select(r => MapTopicProjectionToDto(
+        var alphaNoviceIds = rows
+            .Where(r => !r.IsAnonymous && r.AuthorId.HasValue)
+            .Select(r => r.AuthorId!.Value)
+            .Distinct()
+            .ToList();
+        var alphaNoviceMap = await _noviceStatus.GetIsNoviceMapAsync(alphaNoviceIds);
+        var items = new List<TopicResponseDto>(rows.Count);
+        foreach (var r in rows)
+        {
+            var aNov = (r.IsAnonymous || !r.AuthorId.HasValue)
+                ? false
+                : alphaNoviceMap.GetValueOrDefault(r.AuthorId.Value, true);
+            items.Add(MapTopicProjectionToDto(
                 r.Id,
                 r.Title,
                 r.Slug,
@@ -511,8 +544,9 @@ public class TopicsController : ControllerBase
                 r.EntryCount,
                 userId,
                 followedIds.Contains(r.Id),
-                userId.HasValue && r.AuthorId == userId && !topicIdsWithForeignEntriesAlpha.Contains(r.Id)))
-            .ToList();
+                userId.HasValue && r.AuthorId == userId && !topicIdsWithForeignEntriesAlpha.Contains(r.Id),
+                aNov));
+        }
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
@@ -623,16 +657,25 @@ public class TopicsController : ControllerBase
         var mentionMaps = await MentionHelper.LoadMentionUserMapsAsync(_context, mentionBag, Array.Empty<Guid>());
         var bkzMaps = await BkzTopicHelper.LoadBkzTopicMapsAsync(_context, bkzBag);
 
+        var topicEntryNoviceIds = entriesData
+            .Where(e => !e.IsAnonymous)
+            .Select(e => e.AuthorId)
+            .Distinct()
+            .ToList();
+        var topicEntryNoviceMap = await _noviceStatus.GetIsNoviceMapAsync(topicEntryNoviceIds);
+
         var entries = new List<EntryResponseDto>();
         foreach (var e in entriesData)
         {
             var contentForBkz = MentionHelper.ApplyMentionsMarkdown(e.Content, mentionMaps);
             var validBkzs = BkzTopicHelper.BuildValidBkzs(contentForBkz, bkzMaps);
             var contentOut = BkzTopicHelper.ApplyBkzHtmlToContent(contentForBkz, bkzMaps);
+            var aNov = e.IsAnonymous ? false : topicEntryNoviceMap.GetValueOrDefault(e.AuthorId, true);
             var dto = BuildEntryResponse(e.Id, contentOut, e.Upvotes, e.Downvotes, e.TopicId, e.TopicTitle,
                 e.AuthorId, e.AuthorName, e.AuthorAvatar, e.AuthorRole, e.CreatedAt, e.UpdatedAt, e.IsAnonymous, userId, userVotes,
                 saveCounts.TryGetValue(e.Id, out var sc) ? sc : 0,
-                userSavedIds.Contains(e.Id));
+                userSavedIds.Contains(e.Id),
+                aNov);
             dto.ValidBkzs = validBkzs;
             entries.Add(dto);
         }
@@ -705,6 +748,10 @@ public class TopicsController : ControllerBase
                 .AnyAsync(e => e.TopicId == r.Id && e.AuthorId != userId.Value);
         }
 
+        var randomNov = (r.IsAnonymous || !r.AuthorId.HasValue)
+            ? false
+            : (await _noviceStatus.GetIsNoviceMapAsync(new[] { r.AuthorId.Value })).GetValueOrDefault(r.AuthorId.Value, true);
+
         return MapTopicProjectionToDto(
             r.Id,
             r.Title,
@@ -721,7 +768,8 @@ public class TopicsController : ControllerBase
             r.EntryCount,
             userId,
             followedIds.Contains(r.Id),
-            canManageRandom);
+            canManageRandom,
+            randomNov);
     }
 
     [AllowAnonymous]
@@ -761,6 +809,10 @@ public class TopicsController : ControllerBase
                 .AnyAsync(e => e.TopicId == id && e.AuthorId != userId.Value);
         }
 
+        var byIdNov = (row.IsAnonymous || !row.AuthorId.HasValue)
+            ? false
+            : (await _noviceStatus.GetIsNoviceMapAsync(new[] { row.AuthorId.Value })).GetValueOrDefault(row.AuthorId.Value, true);
+
         return MapTopicProjectionToDto(
             row.Id,
             row.Title,
@@ -777,7 +829,8 @@ public class TopicsController : ControllerBase
             row.EntryCount,
             userId,
             isFollowed,
-            canManageById);
+            canManageById,
+            byIdNov);
     }
 
     /// <summary>
@@ -828,6 +881,10 @@ public class TopicsController : ControllerBase
                 .AnyAsync(e => e.TopicId == row.Id && e.AuthorId != userId.Value);
         }
 
+        var bySlugNov = (row.IsAnonymous || !row.AuthorId.HasValue)
+            ? false
+            : (await _noviceStatus.GetIsNoviceMapAsync(new[] { row.AuthorId.Value })).GetValueOrDefault(row.AuthorId.Value, true);
+
         return MapTopicProjectionToDto(
             row.Id,
             row.Title,
@@ -844,7 +901,8 @@ public class TopicsController : ControllerBase
             row.EntryCount,
             userId,
             isFollowed,
-            canManageBySlug);
+            canManageBySlug,
+            bySlugNov);
     }
 
     /// <summary>
@@ -1088,7 +1146,7 @@ public class TopicsController : ControllerBase
     private static EntryResponseDto BuildEntryResponse(
         Guid id, string content, int upvotes, int downvotes, Guid topicId, string topicTitle,
         Guid authorId, string authorName, string? authorAvatar, string authorRole, DateTime createdAt, DateTime? updatedAt, bool isAnonymous,
-        Guid? requestorId, Dictionary<Guid, int> userVotes, int saveCount = 0, bool isSavedByCurrentUser = false)
+        Guid? requestorId, Dictionary<Guid, int> userVotes, int saveCount = 0, bool isSavedByCurrentUser = false, bool authorIsNovice = false)
     {
         var canManage = requestorId.HasValue && requestorId.Value == authorId;
         return new EntryResponseDto
@@ -1103,6 +1161,7 @@ public class TopicsController : ControllerBase
             AuthorName = isAnonymous ? "Anonim" : authorName,
             AuthorAvatar = isAnonymous ? null : authorAvatar,
             AuthorRole = isAnonymous ? "User" : (authorRole ?? "User"),
+            IsNovice = isAnonymous ? false : authorIsNovice,
             CreatedAt = createdAt,
             UpdatedAt = updatedAt,
             IsAnonymous = isAnonymous,

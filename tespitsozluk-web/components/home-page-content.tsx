@@ -37,6 +37,7 @@ type ApiEntry = {
   canManage?: boolean
   saveCount?: number
   isSavedByCurrentUser?: boolean
+  isNovice?: boolean
   poll?: ApiPollDto | null
 }
 
@@ -59,6 +60,7 @@ function mapApiEntry(e: ApiEntry) {
     canManage: e.canManage ?? false,
     saveCount: e.saveCount ?? 0,
     isSavedByCurrentUser: e.isSavedByCurrentUser ?? false,
+    isNovice: e.isNovice ?? false,
     poll: e.poll ?? null,
   }
 }
@@ -77,6 +79,8 @@ type SidebarTopicPayload = {
   isTopicOwner?: boolean
   canManageTopic?: boolean
   isFollowedByCurrentUser?: boolean
+  authorRole?: string
+  isNovice?: boolean
 }
 
 /**
@@ -96,6 +100,8 @@ export type InitialTopic = {
   isTopicOwner?: boolean
   canManageTopic?: boolean
   isFollowedByCurrentUser?: boolean
+  authorRole?: string
+  isNovice?: boolean
   /** Slug tabanlı rotada pagination URL'ini `/baslik/<slug>?page=N` olarak korumak için kullanılır. */
   slug?: string
 }
@@ -314,6 +320,8 @@ export function HomePageContent({ initialTopic }: HomePageContentProps = {}) {
     isTopicOwner?: boolean
     canManageTopic?: boolean
     isFollowedByCurrentUser?: boolean
+    authorRole?: string
+    isNovice?: boolean
   } | null>(
     initialTopic
       ? {
@@ -330,6 +338,8 @@ export function HomePageContent({ initialTopic }: HomePageContentProps = {}) {
           isTopicOwner: initialTopic.isTopicOwner,
           canManageTopic: initialTopic.canManageTopic,
           isFollowedByCurrentUser: initialTopic.isFollowedByCurrentUser,
+          authorRole: initialTopic.authorRole,
+          isNovice: initialTopic.isNovice,
         }
       : null
   )
@@ -365,6 +375,8 @@ export function HomePageContent({ initialTopic }: HomePageContentProps = {}) {
           isAnonymous: topicData?.isAnonymous === true,
           isTopicOwner: topicData?.isTopicOwner === true,
           canManageTopic: typeof topicData?.canManageTopic === "boolean" ? topicData.canManageTopic : undefined,
+          authorRole: typeof topicData?.authorRole === "string" ? topicData.authorRole : undefined,
+          isNovice: topicData?.isNovice === true,
         })
       } catch {
         if (!cancelled) setFetchedTopicForUrl(null)
@@ -499,6 +511,8 @@ export function HomePageContent({ initialTopic }: HomePageContentProps = {}) {
           isAnonymous: Boolean(topicData.isAnonymous ?? isAnonymous),
           isTopicOwner: topicData.isTopicOwner !== false,
           canManageTopic: topicData.canManageTopic !== false,
+          authorRole: typeof topicData.authorRole === "string" ? topicData.authorRole : currentUser.role,
+          isNovice: topicData.isNovice === true,
         }
 
         setTopics((prev) => [newTopic, ...(Array.isArray(prev) ? prev : [])])

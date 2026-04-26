@@ -23,6 +23,7 @@ type ApiEntry = {
   canManage?: boolean
   saveCount?: number
   isSavedByCurrentUser?: boolean
+  isNovice?: boolean
   poll?: ApiPollDto | null
 }
 
@@ -45,6 +46,7 @@ function mapApiEntryToCard(e: ApiEntry) {
     canManage: e.canManage ?? false,
     saveCount: e.saveCount ?? 0,
     isSavedByCurrentUser: e.isSavedByCurrentUser ?? false,
+    isNovice: e.isNovice ?? false,
     poll: e.poll ?? null,
   }
 }

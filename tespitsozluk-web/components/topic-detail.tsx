@@ -51,6 +51,7 @@ import { cn } from "@/lib/utils"
 import { clampTopicTitleRaw, normalizeTopicTitleForApi } from "@/lib/topic-title-input"
 import { FEED_COLUMN_MAX_WIDTH_CLASS } from "@/lib/feed-layout"
 import { formatTurkeyDateOnly } from "@/lib/turkey-datetime"
+import { NoviceBadge, shouldShowNoviceBadge } from "@/components/novice-badge"
 import { TOPIC_TITLE_MAX_LENGTH } from "@/lib/topic.schema"
 import { topicHref, topicPageHref } from "@/lib/topic-href"
 import { DangerConfirmModal } from "@/components/admin/danger-confirm-modal"
@@ -71,6 +72,7 @@ interface Entry {
   userVote?: "up" | "down" | null
   /** Anonim entry'de author.id maskeli olsa bile API'den gelir. */
   canManage?: boolean
+  isNovice?: boolean
 }
 
 interface Topic {
@@ -89,6 +91,8 @@ interface Topic {
   /** Backend: başlık sahibi ve tüm entry'ler aynı kullanıcıya ait. */
   canManageTopic?: boolean
   isFollowedByCurrentUser?: boolean
+  authorRole?: string
+  isNovice?: boolean
 }
 
 interface TopicDetailProps {
@@ -110,7 +114,7 @@ interface TopicDetailProps {
   onEntriesPageUrlChange: (page: number) => void
 }
 
-function mapApiEntry(e: { id: string; topicId: string; topicTitle: string; content: string; authorId: string; authorName: string; authorAvatar?: string | null; authorRole?: string; createdAt: string; updatedAt?: string | null; upvotes: number; downvotes: number; userVoteType?: number; validBkzs?: Record<string, string> | null; isAnonymous?: boolean; canManage?: boolean; saveCount?: number; isSavedByCurrentUser?: boolean; poll?: ApiPollDto | null }) {
+function mapApiEntry(e: { id: string; topicId: string; topicTitle: string; content: string; authorId: string; authorName: string; authorAvatar?: string | null; authorRole?: string; createdAt: string; updatedAt?: string | null; upvotes: number; downvotes: number; userVoteType?: number; validBkzs?: Record<string, string> | null; isAnonymous?: boolean; canManage?: boolean; saveCount?: number; isSavedByCurrentUser?: boolean; isNovice?: boolean; poll?: ApiPollDto | null }) {
   const userVote: "up" | "down" | null =
     e.userVoteType === 1 ? "up" : e.userVoteType === -1 ? "down" : null
   return {
@@ -129,6 +133,7 @@ function mapApiEntry(e: { id: string; topicId: string; topicTitle: string; conte
     canManage: e.canManage ?? false,
     saveCount: e.saveCount ?? 0,
     isSavedByCurrentUser: e.isSavedByCurrentUser ?? false,
+    isNovice: e.isNovice ?? false,
     poll: e.poll ?? null,
   }
 }
@@ -215,6 +220,8 @@ export function TopicDetail({
         isTopicOwner: d.isTopicOwner === true,
         canManageTopic: typeof d.canManageTopic === "boolean" ? d.canManageTopic : undefined,
         isFollowedByCurrentUser: d.isFollowedByCurrentUser,
+        authorRole: typeof d.authorRole === "string" ? d.authorRole : undefined,
+        isNovice: d.isNovice === true,
       })
       if (typeof d.isFollowedByCurrentUser === "boolean") {
         setIsFollowed(d.isFollowedByCurrentUser)
@@ -628,6 +635,10 @@ export function TopicDetail({
           <div className="flex flex-wrap items-center justify-end gap-x-1.5 gap-y-1 min-w-0">
             {(mergedTopic.authorId || mergedTopic.isAnonymous) && (
               <span className="flex items-center gap-1.5 min-w-0 max-w-[320px]">
+                {!mergedTopic.isAnonymous &&
+                  shouldShowNoviceBadge(mergedTopic.isNovice, mergedTopic.authorRole) && (
+                    <NoviceBadge className="shrink-0" />
+                  )}
                 <span className="shrink-0">
                   {mergedTopic.isAnonymous ? (
                     <Avatar className="h-5 w-5">
@@ -660,7 +671,7 @@ export function TopicDetail({
                   <button
                     type="button"
                     onClick={() => router.push(`/user/${mergedTopic.authorId}`)}
-                    className="text-sm font-normal text-foreground hover:underline underline-offset-2 max-w-[280px] overflow-hidden text-ellipsis whitespace-nowrap inline-block min-w-0 text-left leading-tight"
+                    className="min-w-0 max-w-[min(100%,280px)] truncate text-left text-sm font-normal text-foreground hover:underline underline-offset-2 leading-tight"
                   >
                     {topicAuthorDisplay}
                   </button>

@@ -13,6 +13,8 @@ public class TopicResponseDto
     /// <summary>Profil görseli URL veya emoji kısa avatar; anonim başlıkta null.</summary>
     public string? AuthorAvatar { get; set; }
     public string AuthorRole { get; set; } = "User";
+    /// <summary>Başlık açan yazarın çömez (novice) statüsü. Anonim başlıkta false.</summary>
+    public bool IsNovice { get; set; }
     public DateTime CreatedAt { get; set; }
     public int EntryCount { get; set; }
     public bool IsFollowedByCurrentUser { get; set; }

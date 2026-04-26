@@ -26,6 +26,7 @@ public class EntriesController : ControllerBase
     private readonly IEntryLikesService _entryLikesService;
     private readonly IEntryMentionService _entryMentionService;
     private readonly IPollService _pollService;
+    private readonly INoviceStatusService _noviceStatus;
     private readonly ILogger<EntriesController> _logger;
 
     public EntriesController(
@@ -35,6 +36,7 @@ public class EntriesController : ControllerBase
         IEntryLikesService entryLikesService,
         IEntryMentionService entryMentionService,
         IPollService pollService,
+        INoviceStatusService noviceStatus,
         ILogger<EntriesController> logger)
     {
         _context = context;
@@ -43,6 +45,7 @@ public class EntriesController : ControllerBase
         _entryLikesService = entryLikesService;
         _entryMentionService = entryMentionService;
         _pollService = pollService;
+        _noviceStatus = noviceStatus;
         _logger = logger;
     }
 
@@ -198,16 +201,21 @@ public class EntriesController : ControllerBase
         var mentionMaps = await MentionHelper.LoadMentionUserMapsAsync(_context, mentionBag, Array.Empty<Guid>());
         var bkzMaps = await BkzTopicHelper.LoadBkzTopicMapsAsync(_context, bkzBag);
 
+        var feedNoviceIds = entries.Where(e => !e.IsAnonymous).Select(e => e.AuthorId).Distinct().ToList();
+        var feedNoviceMap = await _noviceStatus.GetIsNoviceMapAsync(feedNoviceIds);
+
         var result = new List<EntryResponseDto>();
         foreach (var e in entries)
         {
             var contentForBkz = MentionHelper.ApplyMentionsMarkdown(e.Content, mentionMaps);
             var validBkzs = BkzTopicHelper.BuildValidBkzs(contentForBkz, bkzMaps);
             var contentOut = BkzTopicHelper.ApplyBkzHtmlToContent(contentForBkz, bkzMaps);
+            var aNov = e.IsAnonymous ? false : feedNoviceMap.GetValueOrDefault(e.AuthorId, true);
             var dto = MapToPublicResponse(e.Id, contentOut, e.Upvotes, e.Downvotes, e.TopicId, e.TopicTitle,
                 e.AuthorId, e.AuthorName, e.AuthorAvatar, e.AuthorRole, e.CreatedAt, e.UpdatedAt, e.IsAnonymous, userId, userVotes,
                 saveCounts.TryGetValue(e.Id, out var sc) ? sc : 0,
-                userSavedIds.Contains(e.Id));
+                userSavedIds.Contains(e.Id),
+                aNov);
             dto.ValidBkzs = validBkzs;
             result.Add(dto);
         }
@@ -268,13 +276,17 @@ public class EntriesController : ControllerBase
         var contentForBkzSingle = MentionHelper.ApplyMentionsMarkdown(entry.Content, mentionMapsSingle);
         var (validBkzs, bkzMaps) = await BkzTopicHelper.BuildValidBkzsAndMapsAsync(_context, contentForBkzSingle);
         var contentOut = BkzTopicHelper.ApplyBkzHtmlToContent(contentForBkzSingle, bkzMaps);
+        var singleNovice = entry.IsAnonymous
+            ? false
+            : (await _noviceStatus.GetIsNoviceMapAsync(new[] { entry.AuthorId })).GetValueOrDefault(entry.AuthorId, true);
         var dto = MapToPublicResponse(
             entry.Id, contentOut, entry.Upvotes, entry.Downvotes,
             entry.TopicId, entry.Topic!.Title, entry.AuthorId, authorName, authorAvatar, authorRole,
             entry.CreatedAt, entry.UpdatedAt, entry.IsAnonymous,
             userId, userVotes,
             saveCounts.TryGetValue(id, out var sc) ? sc : 0,
-            userSavedIds.Contains(id));
+            userSavedIds.Contains(id),
+            singleNovice);
         dto.ValidBkzs = validBkzs;
 
         var singleList = new List<EntryResponseDto> { dto };
@@ -375,16 +387,21 @@ public class EntriesController : ControllerBase
         var mentionMaps = await MentionHelper.LoadMentionUserMapsAsync(_context, mentionBag, Array.Empty<Guid>());
         var bkzMaps = await BkzTopicHelper.LoadBkzTopicMapsAsync(_context, bkzBag);
 
+        var noviceIdsList = entries.Where(e => !e.IsAnonymous).Select(e => e.AuthorId).Distinct().ToList();
+        var noviceMapList = await _noviceStatus.GetIsNoviceMapAsync(noviceIdsList);
+
         var result = new List<EntryResponseDto>();
         foreach (var e in entries)
         {
             var contentForBkz = MentionHelper.ApplyMentionsMarkdown(e.Content, mentionMaps);
             var validBkzs = BkzTopicHelper.BuildValidBkzs(contentForBkz, bkzMaps);
             var contentOut = BkzTopicHelper.ApplyBkzHtmlToContent(contentForBkz, bkzMaps);
+            var aNov = e.IsAnonymous ? false : noviceMapList.GetValueOrDefault(e.AuthorId, true);
             var dto = MapToPublicResponse(e.Id, contentOut, e.Upvotes, e.Downvotes, e.TopicId, e.TopicTitle,
                 e.AuthorId, e.AuthorName, e.AuthorAvatar, e.AuthorRole, e.CreatedAt, e.UpdatedAt, e.IsAnonymous, userId, userVotes,
                 saveCounts.TryGetValue(e.Id, out var sc) ? sc : 0,
-                userSavedIds.Contains(e.Id));
+                userSavedIds.Contains(e.Id),
+                aNov);
             dto.ValidBkzs = validBkzs;
             result.Add(dto);
         }
@@ -454,7 +471,9 @@ public class EntriesController : ControllerBase
 
         var author = await _context.Users.FindAsync(authorId);
         var topic = await _context.Topics.FindAsync(entry.TopicId);
-        var response = MapToResponseDto(entry, author!, topic!, 0, true);
+        var noviceMapCreate = await _noviceStatus.GetIsNoviceMapAsync(new[] { authorId });
+        var isNoviceCreate = entry.IsAnonymous ? false : noviceMapCreate.GetValueOrDefault(authorId, true);
+        var response = MapToResponseDto(entry, author!, topic!, 0, true, isNoviceCreate);
         var mentionBagCreate = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         MentionHelper.CollectMentionHandlesToBag(entry.Content, mentionBagCreate);
         var mentionMapsCreate = await MentionHelper.LoadMentionUserMapsAsync(_context, mentionBagCreate, Array.Empty<Guid>());
@@ -570,7 +589,9 @@ public class EntriesController : ControllerBase
         var vote = await _context.EntryVotes
             .FirstOrDefaultAsync(v => v.EntryId == id && v.UserId == authorId);
         if (vote != null) userVoteType = vote.IsUpvote ? 1 : -1;
-        var response = MapToResponseDto(entry, author!, topic!, userVoteType, true);
+        var noviceMapUpdate = await _noviceStatus.GetIsNoviceMapAsync(new[] { entry.AuthorId });
+        var isNoviceUpdate = entry.IsAnonymous ? false : noviceMapUpdate.GetValueOrDefault(entry.AuthorId, true);
+        var response = MapToResponseDto(entry, author!, topic!, userVoteType, true, isNoviceUpdate);
         var mentionBagUpdate = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         MentionHelper.CollectMentionHandlesToBag(entry.Content, mentionBagUpdate);
         var mentionMapsUpdate = await MentionHelper.LoadMentionUserMapsAsync(_context, mentionBagUpdate, Array.Empty<Guid>());
@@ -884,7 +905,7 @@ public class EntriesController : ControllerBase
     private static EntryResponseDto MapToPublicResponse(
         Guid id, string content, int upvotes, int downvotes, Guid topicId, string topicTitle,
         Guid authorId, string authorName, string? authorAvatar, string authorRole, DateTime createdAt, DateTime? updatedAt, bool isAnonymous,
-        Guid? requestorId, Dictionary<Guid, int> userVotes, int saveCount = 0, bool isSavedByCurrentUser = false)
+        Guid? requestorId, Dictionary<Guid, int> userVotes, int saveCount = 0, bool isSavedByCurrentUser = false, bool authorIsNovice = false)
     {
         const string anonimName = "Anonim";
         var canManage = requestorId.HasValue && requestorId.Value == authorId;
@@ -900,6 +921,7 @@ public class EntriesController : ControllerBase
             AuthorName = isAnonymous ? anonimName : authorName,
             AuthorAvatar = isAnonymous ? null : authorAvatar,
             AuthorRole = isAnonymous ? "User" : (authorRole ?? "User"),
+            IsNovice = isAnonymous ? false : authorIsNovice,
             CreatedAt = createdAt,
             UpdatedAt = updatedAt,
             IsAnonymous = isAnonymous,
@@ -911,7 +933,7 @@ public class EntriesController : ControllerBase
         };
     }
 
-    private static EntryResponseDto MapToResponseDto(Entry entry, User author, Topic topic, int userVoteType = 0, bool canManage = false)
+    private static EntryResponseDto MapToResponseDto(Entry entry, User author, Topic topic, int userVoteType = 0, bool canManage = false, bool authorIsNovice = false)
     {
         const string anonimName = "Anonim";
         var isAnon = entry.IsAnonymous;
@@ -927,6 +949,7 @@ public class EntriesController : ControllerBase
             AuthorName = isAnon ? anonimName : (author.FirstName + " " + author.LastName),
             AuthorAvatar = isAnon ? null : author.Avatar,
             AuthorRole = isAnon ? "User" : (author.Role ?? "User"),
+            IsNovice = isAnon ? false : authorIsNovice,
             CreatedAt = entry.CreatedAt,
             UpdatedAt = entry.UpdatedAt,
             IsAnonymous = isAnon,

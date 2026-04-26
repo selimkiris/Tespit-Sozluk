@@ -50,6 +50,7 @@ import { ENTRY_BODY_RENDERER_CLASSNAME } from "@/lib/entry-body-renderer-classes
 import { getAuth, clearAuth, updateAuthUser, type AuthData } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 import { formatTurkeyDateTime } from "@/lib/turkey-datetime"
+import { NoviceBadge, shouldShowNoviceBadge } from "@/components/novice-badge"
 import {
   ENTRY_SEARCH_HIGHLIGHT_MARK_CLASS,
   shouldApplyEntrySearchHighlight,
@@ -105,6 +106,7 @@ type UserProfile = {
   savedEntriesCount?: number
   likedEntriesCount?: number
   draftsCount?: number
+  isNovice?: boolean
 }
 
 type ApiEntry = {
@@ -126,6 +128,7 @@ type ApiEntry = {
   validBkzs?: Record<string, string> | null
   saveCount?: number
   isSavedByCurrentUser?: boolean
+  isNovice?: boolean
   poll?: import("@/lib/entry-poll").ApiPollDto | null
 }
 
@@ -274,6 +277,7 @@ function mapEntry(e: ApiEntry) {
     validBkzs: e.validBkzs ?? null,
     saveCount: e.saveCount ?? 0,
     isSavedByCurrentUser: e.isSavedByCurrentUser ?? false,
+    isNovice: e.isNovice ?? false,
     poll: e.poll ?? null,
   }
 }
@@ -425,6 +429,7 @@ export default function UserProfilePage() {
         savedEntriesCount: data.savedEntriesCount ?? 0,
         likedEntriesCount: data.likedEntriesCount ?? 0,
         draftsCount: data.draftsCount ?? 0,
+        isNovice: data.isNovice === true,
       }
     } catch {
       return null
@@ -1026,9 +1031,14 @@ export default function UserProfilePage() {
                 )
               )}
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-              {user.nickname}
-            </h1>
+            <div className="flex items-start justify-between gap-2 mb-0.5 w-full min-w-0">
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground min-w-0 flex-1 break-words">
+                {user.nickname}
+              </h1>
+              {shouldShowNoviceBadge(user.isNovice, undefined) && (
+                <NoviceBadge variant="profile" className="shrink-0" />
+              )}
+            </div>
             {isAdmin && !isOwnProfile && viewedUserEmail && (
               <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm">
                 <Mail className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />

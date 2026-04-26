@@ -30,17 +30,20 @@ public class UsersController : ControllerBase
     private readonly AppDbContext _context;
     private readonly IEntryInteractionNotificationService _entryInteractionNotifications;
     private readonly IPollService _pollService;
+    private readonly INoviceStatusService _noviceStatus;
     private readonly ILogger<UsersController> _logger;
 
     public UsersController(
         AppDbContext context,
         IEntryInteractionNotificationService entryInteractionNotifications,
         IPollService pollService,
+        INoviceStatusService noviceStatus,
         ILogger<UsersController> logger)
     {
         _context = context;
         _entryInteractionNotifications = entryInteractionNotifications;
         _pollService = pollService;
+        _noviceStatus = noviceStatus;
         _logger = logger;
     }
 
@@ -141,6 +144,7 @@ public class UsersController : ControllerBase
                 u.Avatar,
                 u.HasChangedUsername,
                 u.CreatedAt,
+                u.Role,
                 EntryCount = u.Entries.Count(e => !e.IsAnonymous)
             })
             .FirstOrDefaultAsync();
@@ -184,6 +188,13 @@ public class UsersController : ControllerBase
         var isFollowedByCurrentUser = requestorId.HasValue && await _context.UserFollows
             .AnyAsync(uf => uf.FollowerId == requestorId.Value && uf.FollowingId == id);
 
+        var isNovice = _noviceStatus.IsNovice(
+            user.Role,
+            user.Id,
+            user.CreatedAt,
+            user.EntryCount,
+            totalTopicCount);
+
         return new UserProfileResponseDto
         {
             Id = user.Id,
@@ -204,7 +215,8 @@ public class UsersController : ControllerBase
             WrittenEntriesCount = writtenEntriesCount,
             SavedEntriesCount = savedEntriesCount,
             LikedEntriesCount = likedEntriesCount,
-            DraftsCount = draftsCount
+            DraftsCount = draftsCount,
+            IsNovice = isNovice
         };
     }
 
@@ -349,6 +361,9 @@ public class UsersController : ControllerBase
         var rawContents = entriesData.Select(e => e.Content).ToList();
         var processedContents = await EntryPublicContentBatch.ProcessContentsAsync(_context, rawContents, HttpContext.RequestAborted);
 
+        var noviceAuthorIds = entriesData.Where(e => !e.IsAnonymous).Select(e => e.AuthorId).Distinct().ToList();
+        var noviceMap = await _noviceStatus.GetIsNoviceMapAsync(noviceAuthorIds);
+
         var entries = entriesData.Select((e, i) =>
         {
             var canManage = requestorId.HasValue && e.AuthorId == requestorId.Value;
@@ -364,6 +379,7 @@ public class UsersController : ControllerBase
                 AuthorName = e.IsAnonymous ? "Anonim" : e.AuthorName,
                 AuthorAvatar = e.IsAnonymous ? null : e.AuthorAvatar,
                 AuthorRole = e.IsAnonymous ? "User" : (e.AuthorRole ?? "User"),
+                IsNovice = e.IsAnonymous ? false : noviceMap.GetValueOrDefault(e.AuthorId, true),
                 CreatedAt = e.CreatedAt,
                 UpdatedAt = e.UpdatedAt,
                 IsAnonymous = e.IsAnonymous,
@@ -812,6 +828,9 @@ public class UsersController : ControllerBase
         var rawContentsOwn = entriesData.Select(e => e.Content).ToList();
         var processedOwn = await EntryPublicContentBatch.ProcessContentsAsync(_context, rawContentsOwn, HttpContext.RequestAborted);
 
+        var noviceIdsOwn = entriesData.Where(e => !e.IsAnonymous).Select(e => e.AuthorId).Distinct().ToList();
+        var noviceMapOwn = await _noviceStatus.GetIsNoviceMapAsync(noviceIdsOwn);
+
         var entries = entriesData.Select((e, i) =>
         {
             var canManage = isOwnProfile && requestorId.HasValue && e.AuthorId == requestorId.Value;
@@ -827,6 +846,7 @@ public class UsersController : ControllerBase
                 AuthorName = e.IsAnonymous ? "Anonim" : e.AuthorName,
                 AuthorAvatar = e.IsAnonymous ? null : e.AuthorAvatar,
                 AuthorRole = e.IsAnonymous ? "User" : (e.AuthorRole ?? "User"),
+                IsNovice = e.IsAnonymous ? false : noviceMapOwn.GetValueOrDefault(e.AuthorId, true),
                 CreatedAt = e.CreatedAt,
                 UpdatedAt = e.UpdatedAt,
                 IsAnonymous = e.IsAnonymous,
@@ -929,6 +949,9 @@ public class UsersController : ControllerBase
         var rawContentsSaved = entriesData.Select(e => e.Content).ToList();
         var processedSaved = await EntryPublicContentBatch.ProcessContentsAsync(_context, rawContentsSaved, HttpContext.RequestAborted);
 
+        var noviceIdsSaved = entriesData.Where(e => !e.IsAnonymous).Select(e => e.AuthorId).Distinct().ToList();
+        var noviceMapSaved = await _noviceStatus.GetIsNoviceMapAsync(noviceIdsSaved);
+
         var entries = entriesData.Select((e, i) =>
         {
             var canManage = e.AuthorId == requestorId;
@@ -944,6 +967,7 @@ public class UsersController : ControllerBase
                 AuthorName = e.IsAnonymous ? "Anonim" : e.AuthorName,
                 AuthorAvatar = e.IsAnonymous ? null : e.AuthorAvatar,
                 AuthorRole = e.IsAnonymous ? "User" : (e.AuthorRole ?? "User"),
+                IsNovice = e.IsAnonymous ? false : noviceMapSaved.GetValueOrDefault(e.AuthorId, true),
                 CreatedAt = e.CreatedAt,
                 UpdatedAt = e.UpdatedAt,
                 IsAnonymous = e.IsAnonymous,

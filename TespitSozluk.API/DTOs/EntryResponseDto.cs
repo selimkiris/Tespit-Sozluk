@@ -25,6 +25,8 @@ public class EntryResponseDto
     public bool IsAnonymous { get; set; }
     /// <summary>Yazarın rolü: "User" veya "Admin". IsAnonymous ise her zaman "User".</summary>
     public string AuthorRole { get; set; } = "User";
+    /// <summary>Yazar çömez (novice) statüsünde mi. Anonim entry'de daima false.</summary>
+    public bool IsNovice { get; set; }
     /// <summary>İstek yapan kullanıcı bu entry'nin yazarı mı (düzenle/sil yetkisi)</summary>
     public bool CanManage { get; set; }
     /// <summary>Kaç kullanıcı bu entry'yi kaydetti</summary>
