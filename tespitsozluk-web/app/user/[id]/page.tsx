@@ -107,6 +107,8 @@ type UserProfile = {
   likedEntriesCount?: number
   draftsCount?: number
   isNovice?: boolean
+  /** Backend `levelName` — örn. "Çömez", "Level 4" */
+  levelName?: string
 }
 
 type ApiEntry = {
@@ -430,6 +432,10 @@ export default function UserProfilePage() {
         likedEntriesCount: data.likedEntriesCount ?? 0,
         draftsCount: data.draftsCount ?? 0,
         isNovice: data.isNovice === true,
+        levelName:
+          typeof data.levelName === "string" && data.levelName.trim().length > 0
+            ? data.levelName.trim()
+            : "Çömez",
       }
     } catch {
       return null
@@ -920,6 +926,13 @@ export default function UserProfilePage() {
     )
   }
 
+  const profileLevelLabel = (user.levelName ?? "").trim()
+  const showAuthorLevelBadge =
+    profileLevelLabel.length > 0 && profileLevelLabel !== "Çömez"
+  const showProfileNoviceBadge = shouldShowNoviceBadge(user.isNovice, undefined)
+  const showProfileHeaderRightColumn =
+    showProfileNoviceBadge || showAuthorLevelBadge
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar
@@ -1031,12 +1044,29 @@ export default function UserProfilePage() {
                 )
               )}
             </div>
-            <div className="flex items-start justify-between gap-2 mb-0.5 w-full min-w-0">
+            <div className="flex items-start justify-between gap-3 mb-0.5 w-full min-w-0">
               <h1 className="text-2xl md:text-3xl font-bold text-foreground min-w-0 flex-1 break-words">
                 {user.nickname}
               </h1>
-              {shouldShowNoviceBadge(user.isNovice, undefined) && (
-                <NoviceBadge variant="profile" className="shrink-0" />
+              {showProfileHeaderRightColumn && (
+                <div className="flex flex-col items-end gap-2 shrink-0 pt-0.5">
+                  {showProfileNoviceBadge && (
+                    <NoviceBadge variant="profile" className="shrink-0" />
+                  )}
+                  {showAuthorLevelBadge && (
+                    <div
+                      className="flex flex-col items-center justify-center text-center gap-0 rounded-md border border-blue-500/20 bg-blue-50/30 px-2 py-0.5 dark:bg-blue-900/10"
+                      aria-label={`${profileLevelLabel}, yazar`}
+                    >
+                      <p className="text-[12px] font-semibold leading-none tracking-tight text-blue-600 dark:text-blue-400">
+                        {profileLevelLabel}
+                      </p>
+                      <p className="mt-0.5 text-[10px] font-normal leading-none tracking-wide text-blue-500/70 dark:text-blue-300/70">
+                        yazar
+                      </p>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
             {isAdmin && !isOwnProfile && viewedUserEmail && (

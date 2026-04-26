@@ -12,8 +12,11 @@ public class UserProfileResponseDto
     public string? Bio { get; set; }
     public DateTime CreatedAt { get; set; }
     public int TotalEntryCount { get; set; }
-    /// <summary>Kullanıcının açtığı toplam başlık sayısı (AuthorId eşleşmesi, anonim dahil).</summary>
+    /// <summary>Kullanıcının açtığı toplam başlık sayısı (anonim olmayan).</summary>
     public int TotalTopicCount { get; set; }
+
+    /// <summary>Kayıt süresi, anonim olmayan entry ve başlık sayılarına göre hesaplanan seviye adı.</summary>
+    public string LevelName { get; set; } = string.Empty;
     public int TotalUpvotesReceived { get; set; }
     public int TotalDownvotesReceived { get; set; }
     public int TotalSavesReceived { get; set; }

@@ -195,6 +195,13 @@ public class UsersController : ControllerBase
             user.EntryCount,
             totalTopicCount);
 
+        var utcNow = DateTime.UtcNow;
+        var levelName = UserLevelHelper.GetLevelName(
+            user.CreatedAt,
+            user.EntryCount,
+            totalTopicCount,
+            utcNow);
+
         return new UserProfileResponseDto
         {
             Id = user.Id,
@@ -205,6 +212,7 @@ public class UsersController : ControllerBase
             CreatedAt = user.CreatedAt,
             TotalEntryCount = user.EntryCount,
             TotalTopicCount = totalTopicCount,
+            LevelName = levelName,
             TotalUpvotesReceived = totalUpvotesReceived,
             TotalDownvotesReceived = totalDownvotesReceived,
             TotalSavesReceived = totalSavesReceived,
