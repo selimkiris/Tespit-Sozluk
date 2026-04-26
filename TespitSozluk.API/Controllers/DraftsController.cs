@@ -6,6 +6,7 @@ using TespitSozluk.API.Data;
 using TespitSozluk.API.DTOs;
 using TespitSozluk.API.Entities;
 using TespitSozluk.API.Helpers;
+using TespitSozluk.API.Services;
 
 namespace TespitSozluk.API.Controllers;
 
@@ -17,10 +18,12 @@ public class DraftsController : ControllerBase
     private const int DraftsPageSize = 25;
 
     private readonly AppDbContext _context;
+    private readonly IPollService _pollService;
 
-    public DraftsController(AppDbContext context)
+    public DraftsController(AppDbContext context, IPollService pollService)
     {
         _context = context;
+        _pollService = pollService;
     }
 
     [HttpGet]
@@ -41,23 +44,38 @@ public class DraftsController : ControllerBase
 
         var totalCount = await baseQuery.CountAsync();
 
-        var drafts = await baseQuery
+        var rows = await baseQuery
             .OrderByDescending(d => d.UpdatedAt)
             .Skip((page - 1) * DraftsPageSize)
             .Take(DraftsPageSize)
-            .Select(d => new DraftResponseDto
+            .Select(d => new
             {
-                Id = d.Id,
-                AuthorId = d.AuthorId,
-                Content = d.Content,
-                TopicId = d.TopicId,
+                d.Id,
+                d.AuthorId,
+                d.Content,
+                d.TopicId,
                 TopicTitle = d.Topic != null ? d.Topic.Title : null,
-                NewTopicTitle = d.NewTopicTitle,
-                IsAnonymous = d.IsAnonymous,
-                CreatedAt = d.CreatedAt,
-                UpdatedAt = d.UpdatedAt
+                d.NewTopicTitle,
+                d.IsAnonymous,
+                d.CreatedAt,
+                d.UpdatedAt,
+                d.PollData
             })
             .ToListAsync();
+
+        var drafts = rows.Select(r => new DraftResponseDto
+        {
+            Id = r.Id,
+            AuthorId = r.AuthorId,
+            Content = r.Content,
+            TopicId = r.TopicId,
+            TopicTitle = r.TopicTitle,
+            NewTopicTitle = r.NewTopicTitle,
+            IsAnonymous = r.IsAnonymous,
+            CreatedAt = r.CreatedAt,
+            UpdatedAt = r.UpdatedAt,
+            Poll = _pollService.DeserializeDraftPoll(r.PollData)
+        }).ToList();
 
         if (drafts.Count > 0)
         {
@@ -87,29 +105,42 @@ public class DraftsController : ControllerBase
             return Unauthorized();
         }
 
-        var draft = await _context.DraftEntries
+        var row = await _context.DraftEntries
             .Include(d => d.Topic)
             .Where(d => d.Id == id && d.AuthorId == authorId)
-            .Select(d => new DraftResponseDto
+            .Select(d => new
             {
-                Id = d.Id,
-                AuthorId = d.AuthorId,
-                Content = d.Content,
-                TopicId = d.TopicId,
+                d.Id,
+                d.AuthorId,
+                d.Content,
+                d.TopicId,
                 TopicTitle = d.Topic != null ? d.Topic.Title : null,
-                NewTopicTitle = d.NewTopicTitle,
-                IsAnonymous = d.IsAnonymous,
-                CreatedAt = d.CreatedAt,
-                UpdatedAt = d.UpdatedAt
+                d.NewTopicTitle,
+                d.IsAnonymous,
+                d.CreatedAt,
+                d.UpdatedAt,
+                d.PollData
             })
             .FirstOrDefaultAsync();
 
-        if (draft == null)
+        if (row == null)
         {
             return NotFound();
         }
 
-        return draft;
+        return new DraftResponseDto
+        {
+            Id = row.Id,
+            AuthorId = row.AuthorId,
+            Content = row.Content,
+            TopicId = row.TopicId,
+            TopicTitle = row.TopicTitle,
+            NewTopicTitle = row.NewTopicTitle,
+            IsAnonymous = row.IsAnonymous,
+            CreatedAt = row.CreatedAt,
+            UpdatedAt = row.UpdatedAt,
+            Poll = _pollService.DeserializeDraftPoll(row.PollData)
+        };
     }
 
     [HttpPost]
@@ -121,9 +152,10 @@ public class DraftsController : ControllerBase
             return Unauthorized();
         }
 
-        if (string.IsNullOrWhiteSpace(dto.Content))
+        // Yeni politika: taslak içeriği boş olabilir, ANCAK içerisinde anket varsa.
+        if (string.IsNullOrWhiteSpace(dto.Content) && dto.Poll == null)
         {
-            return BadRequest("İçerik boş olamaz.");
+            return BadRequest("İçerik veya anket gerekli.");
         }
 
         // TopicId veya NewTopicTitle'dan en az biri dolu olmalı (veya ikisi de - o zaman TopicId öncelikli)
@@ -157,33 +189,20 @@ public class DraftsController : ControllerBase
             }
         }
 
-        if (!string.IsNullOrEmpty(dto.Content))
-        {
-            dto.Content = System.Text.RegularExpressions.Regex.Replace(
-                dto.Content,
-                @"^(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+",
-                "",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase
-            );
-            dto.Content = System.Text.RegularExpressions.Regex.Replace(
-                dto.Content,
-                @"(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+$",
-                "",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase
-            );
-            dto.Content = dto.Content.Trim();
-        }
+        dto.Content = NormalizeDraftContent(dto.Content);
 
         var draft = new DraftEntry
         {
             Id = Guid.NewGuid(),
             AuthorId = authorId,
-            Content = dto.Content.Trim(),
+            Content = (dto.Content ?? string.Empty).Trim(),
             TopicId = topicId,
             NewTopicTitle = newTopicTitle,
             IsAnonymous = dto.IsAnonymous,
             CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            UpdatedAt = DateTime.UtcNow,
+            // Anket: dto.Poll varsa jsonb olarak serileştir; yoksa null.
+            PollData = _pollService.SerializeDraftPoll(dto.Poll)
         };
 
         _context.DraftEntries.Add(draft);
@@ -200,10 +219,27 @@ public class DraftsController : ControllerBase
             NewTopicTitle = draft.NewTopicTitle,
             IsAnonymous = draft.IsAnonymous,
             CreatedAt = draft.CreatedAt,
-            UpdatedAt = draft.UpdatedAt
+            UpdatedAt = draft.UpdatedAt,
+            Poll = _pollService.DeserializeDraftPoll(draft.PollData)
         };
 
         return Created($"/api/Drafts/{draft.Id}", response);
+    }
+
+    private static string NormalizeDraftContent(string? content)
+    {
+        if (string.IsNullOrEmpty(content)) return string.Empty;
+        var c = System.Text.RegularExpressions.Regex.Replace(
+            content,
+            @"^(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+",
+            "",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        c = System.Text.RegularExpressions.Regex.Replace(
+            c,
+            @"(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+$",
+            "",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return c.Trim();
     }
 
     [HttpPut("{id:guid}")]
@@ -224,9 +260,14 @@ public class DraftsController : ControllerBase
             return NotFound();
         }
 
-        if (string.IsNullOrWhiteSpace(dto.Content))
+        // Update sonrası taslakta anket olacak mı? (yeni payload veya korunan eski)
+        var willHavePoll = dto.Poll != null
+            || (!dto.RemovePoll && !string.IsNullOrWhiteSpace(draft.PollData));
+
+        // Yeni politika: taslak içeriği boş olabilir, ANCAK içerisinde anket varsa.
+        if (string.IsNullOrWhiteSpace(dto.Content) && !willHavePoll)
         {
-            return BadRequest("İçerik boş olamaz.");
+            return BadRequest("İçerik veya anket gerekli.");
         }
 
         Guid? topicId = null;
@@ -254,28 +295,26 @@ public class DraftsController : ControllerBase
             return BadRequest("Mevcut başlık seçin veya yeni başlık adı girin.");
         }
 
-        if (!string.IsNullOrEmpty(dto.Content))
-        {
-            dto.Content = System.Text.RegularExpressions.Regex.Replace(
-                dto.Content,
-                @"^(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+",
-                "",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase
-            );
-            dto.Content = System.Text.RegularExpressions.Regex.Replace(
-                dto.Content,
-                @"(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+$",
-                "",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase
-            );
-            dto.Content = dto.Content.Trim();
-        }
+        dto.Content = NormalizeDraftContent(dto.Content);
 
-        draft.Content = dto.Content.Trim();
+        draft.Content = (dto.Content ?? string.Empty).Trim();
         draft.TopicId = topicId;
         draft.NewTopicTitle = newTopicTitle;
         draft.IsAnonymous = dto.IsAnonymous;
         draft.UpdatedAt = DateTime.UtcNow;
+
+        // Anket güncelleme:
+        // - Poll yollandıysa: jsonb'ı tamamen yeni payload ile değiştir.
+        // - Poll yok + RemovePoll=true: PollData null'a çek.
+        // - Hiçbiri: PollData dokunulmaz.
+        if (dto.Poll != null)
+        {
+            draft.PollData = _pollService.SerializeDraftPoll(dto.Poll);
+        }
+        else if (dto.RemovePoll)
+        {
+            draft.PollData = null;
+        }
 
         await _context.SaveChangesAsync();
 
@@ -290,7 +329,8 @@ public class DraftsController : ControllerBase
             NewTopicTitle = draft.NewTopicTitle,
             IsAnonymous = draft.IsAnonymous,
             CreatedAt = draft.CreatedAt,
-            UpdatedAt = draft.UpdatedAt
+            UpdatedAt = draft.UpdatedAt,
+            Poll = _pollService.DeserializeDraftPoll(draft.PollData)
         };
     }
 
@@ -339,6 +379,7 @@ public class DraftsController : ControllerBase
 
         Guid targetTopicId;
         string? message = null;
+        Topic? pendingNewTopic = null;
 
         if (draft.TopicId.HasValue)
         {
@@ -362,17 +403,29 @@ public class DraftsController : ControllerBase
             }
             else
             {
-                var newTopic = new Topic
+                // Slug zorunlu ve Topics.Slug üzerinde unique index var; boş bırakılırsa
+                // ikinci yayınlamada (veya çakışmada) DbUpdateException → 500 oluşur.
+                var trimmedTitle = draft.NewTopicTitle.Trim();
+                var topicId = Guid.NewGuid();
+                var slug = SlugHelper.BuildTopicSlug(trimmedTitle, topicId);
+                var slugRetryGuard = 0;
+                while (await _context.Topics.AsNoTracking().AnyAsync(t => t.Slug == slug) && slugRetryGuard < 5)
                 {
-                    Id = Guid.NewGuid(),
-                    Title = draft.NewTopicTitle.Trim(),
+                    topicId = Guid.NewGuid();
+                    slug = SlugHelper.BuildTopicSlug(trimmedTitle, topicId);
+                    slugRetryGuard++;
+                }
+
+                pendingNewTopic = new Topic
+                {
+                    Id = topicId,
+                    Title = trimmedTitle,
+                    Slug = slug,
                     AuthorId = authorId,
                     CreatedAt = DateTime.UtcNow,
                     IsAnonymous = publishAsAnonymous
                 };
-                _context.Topics.Add(newTopic);
-                await _context.SaveChangesAsync();
-                targetTopicId = newTopic.Id;
+                targetTopicId = topicId;
             }
         }
         else
@@ -380,44 +433,65 @@ public class DraftsController : ControllerBase
             return BadRequest("Taslakta ne başlık ID'si ne de yeni başlık adı bulunuyor.");
         }
 
-        if (!string.IsNullOrEmpty(draft.Content))
+        draft.Content = NormalizeDraftContent(draft.Content);
+
+        // Yeni politika: yayında entry metni boş olabilir, ANCAK içerisinde anket olacaksa.
+        var draftPollDto = _pollService.DeserializeDraftPoll(draft.PollData);
+        if (string.IsNullOrWhiteSpace(draft.Content) && draftPollDto == null)
         {
-            draft.Content = System.Text.RegularExpressions.Regex.Replace(
-                draft.Content,
-                @"^(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+",
-                "",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase
-            );
-            draft.Content = System.Text.RegularExpressions.Regex.Replace(
-                draft.Content,
-                @"(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+$",
-                "",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase
-            );
-            draft.Content = draft.Content.Trim();
+            return BadRequest("İçerik veya anket gerekli.");
         }
 
-        var entry = new Entry
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            Id = Guid.NewGuid(),
-            Content = draft.Content.Trim(),
-            TopicId = targetTopicId,
-            AuthorId = authorId,
-            IsAnonymous = publishAsAnonymous,
-            CreatedAt = DateTime.UtcNow
-        };
+            if (pendingNewTopic != null)
+            {
+                _context.Topics.Add(pendingNewTopic);
+            }
 
-        _context.Entries.Add(entry);
-        _context.DraftEntries.Remove(draft);
-        await _context.SaveChangesAsync();
+            var entry = new Entry
+            {
+                Id = Guid.NewGuid(),
+                Content = (draft.Content ?? string.Empty).Trim(),
+                TopicId = targetTopicId,
+                AuthorId = authorId,
+                IsAnonymous = publishAsAnonymous,
+                CreatedAt = DateTime.UtcNow
+            };
 
-        var result = new
+            _context.Entries.Add(entry);
+
+            // Taslakta anket varsa: ilişkisel Poll/PollOption tablolarına dönüştür; tek SaveChanges ile commit.
+            if (draftPollDto != null)
+            {
+                try
+                {
+                    _pollService.CreatePollForEntry(entry, draftPollDto, authorId);
+                }
+                catch (PollValidationException ex)
+                {
+                    await transaction.RollbackAsync();
+                    _context.ChangeTracker.Clear();
+                    return BadRequest(new { message = ex.Message });
+                }
+            }
+
+            _context.DraftEntries.Remove(draft);
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return Ok(new
+            {
+                entryId = entry.Id,
+                topicId = targetTopicId,
+                message
+            });
+        }
+        catch
         {
-            entryId = entry.Id,
-            topicId = targetTopicId,
-            message
-        };
-
-        return Ok(result);
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 }

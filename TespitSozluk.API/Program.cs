@@ -45,6 +45,7 @@ builder.Services.AddScoped<IEntryDeletionService, EntryDeletionService>();
 builder.Services.AddScoped<IEntryInteractionNotificationService, EntryInteractionNotificationService>();
 builder.Services.AddScoped<IEntryLikesService, EntryLikesService>();
 builder.Services.AddScoped<IEntryMentionService, EntryMentionService>();
+builder.Services.AddScoped<IPollService, PollService>();
 builder.Services.AddHostedService<LogCleanupBackgroundService>();
 
 builder.Services.AddControllers()

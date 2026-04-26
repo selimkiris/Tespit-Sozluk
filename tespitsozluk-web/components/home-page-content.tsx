@@ -16,6 +16,7 @@ import { getApiUrl, apiFetch } from "@/lib/api"
 import { TOPIC_ENTRIES_PAGE_SIZE } from "@/lib/topic-entries"
 import { FEED_COLUMN_MAX_WIDTH_CLASS } from "@/lib/feed-layout"
 import { toast } from "sonner"
+import type { ApiPollDto, EntryPollSubmission } from "@/lib/entry-poll"
 
 type ApiEntry = {
   id: string
@@ -36,6 +37,7 @@ type ApiEntry = {
   canManage?: boolean
   saveCount?: number
   isSavedByCurrentUser?: boolean
+  poll?: ApiPollDto | null
 }
 
 function mapApiEntry(e: ApiEntry) {
@@ -57,6 +59,7 @@ function mapApiEntry(e: ApiEntry) {
     canManage: e.canManage ?? false,
     saveCount: e.saveCount ?? 0,
     isSavedByCurrentUser: e.isSavedByCurrentUser ?? false,
+    poll: e.poll ?? null,
   }
 }
 
@@ -444,19 +447,33 @@ export function HomePageContent({ initialTopic }: HomePageContentProps = {}) {
   )
 
   const handleCreateTopic = useCallback(
-    async (title: string, firstEntry: string, isAnonymous: boolean = false): Promise<string | null> => {
+    async (
+      title: string,
+      firstEntry: string,
+      isAnonymous: boolean = false,
+      poll?: EntryPollSubmission | null,
+    ): Promise<string | null> => {
       if (!currentUser) return null
       const auth = getAuth()
       if (!auth?.token) return null
 
       try {
+        const createTopicBody: Record<string, unknown> = {
+          title: title.trim(),
+          isAnonymous,
+          firstEntryContent: firstEntry.trim(),
+        }
+        if (poll) {
+          createTopicBody.poll = {
+            question: poll.question,
+            options: poll.options,
+            allowMultiple: poll.allowMultiple,
+            allowUserOptions: poll.allowUserOptions,
+          }
+        }
         const createTopicRes = await apiFetch(getApiUrl("api/Topics"), {
           method: "POST",
-          body: JSON.stringify({
-            title: title.trim(),
-            isAnonymous,
-            firstEntryContent: firstEntry.trim(),
-          }),
+          body: JSON.stringify(createTopicBody),
         })
         const topicData = await createTopicRes.json().catch(() => ({}))
         if (createTopicRes.status === 429) {
@@ -500,7 +517,12 @@ export function HomePageContent({ initialTopic }: HomePageContentProps = {}) {
 
   // Entry handlers
   const handleSubmitEntry = useCallback(
-    async (content: string, isAnonymous: boolean = false, onApiSuccess?: () => void): Promise<void> => {
+    async (
+      content: string,
+      isAnonymous: boolean = false,
+      onApiSuccess?: () => void,
+      poll?: EntryPollSubmission | null,
+    ): Promise<void> => {
       if (!currentUser || !selectedTopicId || !selectedTopic) {
         onApiSuccess?.()
         return
@@ -518,9 +540,22 @@ export function HomePageContent({ initialTopic }: HomePageContentProps = {}) {
       }
 
       try {
+        const body: Record<string, unknown> = {
+          topicId: selectedTopicId,
+          content: content.trim(),
+          isAnonymous,
+        }
+        if (poll) {
+          body.poll = {
+            question: poll.question,
+            options: poll.options,
+            allowMultiple: poll.allowMultiple,
+            allowUserOptions: poll.allowUserOptions,
+          }
+        }
         const res = await apiFetch(getApiUrl("api/Entries"), {
           method: "POST",
-          body: JSON.stringify({ topicId: selectedTopicId, content: content.trim(), isAnonymous }),
+          body: JSON.stringify(body),
         })
         const data = await res.json().catch(() => ({}))
         if (res.status === 429) {

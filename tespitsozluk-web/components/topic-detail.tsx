@@ -54,6 +54,7 @@ import { formatTurkeyDateOnly } from "@/lib/turkey-datetime"
 import { TOPIC_TITLE_MAX_LENGTH } from "@/lib/topic.schema"
 import { topicHref, topicPageHref } from "@/lib/topic-href"
 import { DangerConfirmModal } from "@/components/admin/danger-confirm-modal"
+import type { ApiPollDto, EntryPollSubmission } from "@/lib/entry-poll"
 
 interface Entry {
   id: string
@@ -95,7 +96,12 @@ interface TopicDetailProps {
   isLoggedIn: boolean
   currentUser?: { id: string; role?: string } | null
   onBack: () => void
-  onSubmitEntry: (content: string, isAnonymous: boolean, onApiSuccess: () => void) => void | Promise<void>
+  onSubmitEntry: (
+    content: string,
+    isAnonymous: boolean,
+    onApiSuccess: () => void,
+    poll?: EntryPollSubmission | null,
+  ) => void | Promise<void>
   onLoginClick: () => void
   onTopicChange?: () => void
   refreshTrigger?: number
@@ -104,7 +110,7 @@ interface TopicDetailProps {
   onEntriesPageUrlChange: (page: number) => void
 }
 
-function mapApiEntry(e: { id: string; topicId: string; topicTitle: string; content: string; authorId: string; authorName: string; authorAvatar?: string | null; authorRole?: string; createdAt: string; updatedAt?: string | null; upvotes: number; downvotes: number; userVoteType?: number; validBkzs?: Record<string, string> | null; isAnonymous?: boolean; canManage?: boolean; saveCount?: number; isSavedByCurrentUser?: boolean }) {
+function mapApiEntry(e: { id: string; topicId: string; topicTitle: string; content: string; authorId: string; authorName: string; authorAvatar?: string | null; authorRole?: string; createdAt: string; updatedAt?: string | null; upvotes: number; downvotes: number; userVoteType?: number; validBkzs?: Record<string, string> | null; isAnonymous?: boolean; canManage?: boolean; saveCount?: number; isSavedByCurrentUser?: boolean; poll?: ApiPollDto | null }) {
   const userVote: "up" | "down" | null =
     e.userVoteType === 1 ? "up" : e.userVoteType === -1 ? "down" : null
   return {
@@ -123,6 +129,7 @@ function mapApiEntry(e: { id: string; topicId: string; topicTitle: string; conte
     canManage: e.canManage ?? false,
     saveCount: e.saveCount ?? 0,
     isSavedByCurrentUser: e.isSavedByCurrentUser ?? false,
+    poll: e.poll ?? null,
   }
 }
 

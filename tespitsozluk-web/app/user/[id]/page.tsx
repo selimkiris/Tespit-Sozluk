@@ -40,6 +40,7 @@ import {
 import { CreateDraftModal } from "@/components/create-draft-modal"
 import { AvatarDialog } from "@/components/avatar-dialog"
 import { EditDraftModal } from "@/components/edit-draft-modal"
+import { DraftPollPreview } from "@/components/draft-poll-preview"
 import { FollowListModal } from "@/components/follow-list-modal"
 import { UserTopicsModal } from "@/components/user-topics-modal"
 import { AyakIcon } from "@/components/icons/AyakIcon"
@@ -125,6 +126,7 @@ type ApiEntry = {
   validBkzs?: Record<string, string> | null
   saveCount?: number
   isSavedByCurrentUser?: boolean
+  poll?: import("@/lib/entry-poll").ApiPollDto | null
 }
 
 type ApiDraft = {
@@ -136,6 +138,13 @@ type ApiDraft = {
   isAnonymous?: boolean
   createdAt: string
   updatedAt: string
+  /** Backend `DraftResponseDto.Poll` — `CreatePollDto` formatında; ID/oy yok. */
+  poll?: {
+    question?: string | null
+    options?: string[] | null
+    allowMultiple?: boolean
+    allowUserOptions?: boolean
+  } | null
 }
 
 type Report = {
@@ -265,6 +274,7 @@ function mapEntry(e: ApiEntry) {
     validBkzs: e.validBkzs ?? null,
     saveCount: e.saveCount ?? 0,
     isSavedByCurrentUser: e.isSavedByCurrentUser ?? false,
+    poll: e.poll ?? null,
   }
 }
 
@@ -1629,6 +1639,9 @@ export default function UserProfilePage() {
                               rendererClassName={ENTRY_BODY_RENDERER_CLASSNAME}
                               searchHighlightQuery={draftsSearchQuery}
                             />
+                            {draft.poll && (
+                              <DraftPollPreview poll={draft.poll} />
+                            )}
                           </div>
                           <div className="mb-3 flex min-w-0 w-full max-w-full flex-col gap-0.5">
                             <span className="text-[#7c8190] text-[13px] leading-tight tabular-nums">

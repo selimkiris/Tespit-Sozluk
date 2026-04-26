@@ -21,6 +21,9 @@ public class AppDbContext : DbContext
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<Report> Reports { get; set; }
     public DbSet<TrafficLog> TrafficLogs { get; set; }
+    public DbSet<Poll> Polls { get; set; }
+    public DbSet<PollOption> PollOptions { get; set; }
+    public DbSet<PollVote> PollVotes { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -82,6 +85,12 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(d => d.TopicId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // Anket taslağı: PostgreSQL jsonb kolonu. CreatePollDto JSON serileştirilip saklanır.
+        // İlişkisel Poll tablolarına yalnızca yayın anında dönüştürülür.
+        modelBuilder.Entity<DraftEntry>()
+            .Property(d => d.PollData)
+            .HasColumnType("jsonb");
 
         modelBuilder.Entity<UserSavedEntry>()
             .HasKey(s => new { s.UserId, s.EntryId });
@@ -206,5 +215,77 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<TrafficLog>()
             .HasIndex(tl => tl.IpAddress);
+
+        // ── Anket (Poll) Modülü ─────────────────────────────────────────────
+        // Her Entry en fazla 1 ankete sahip olabilir (1:1). Entry silinirse Poll
+        // ve tüm PollOption/PollVote satırları cascade ile silinir. Bu sayede
+        // entry deletion servisi veya topic cascade'i dışında ek temizlik gerekmez.
+        modelBuilder.Entity<Poll>()
+            .HasOne(p => p.Entry)
+            .WithOne(e => e.Poll)
+            .HasForeignKey<Poll>(p => p.EntryId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Poll>()
+            .HasIndex(p => p.EntryId)
+            .IsUnique();
+
+        modelBuilder.Entity<Poll>()
+            .Property(p => p.Question)
+            .HasMaxLength(500);
+
+        modelBuilder.Entity<PollOption>()
+            .HasOne(o => o.Poll)
+            .WithMany(p => p.Options)
+            .HasForeignKey(o => o.PollId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PollOption>()
+            .Property(o => o.Text)
+            .HasMaxLength(300)
+            .IsRequired();
+
+        modelBuilder.Entity<PollOption>()
+            .HasIndex(o => new { o.PollId, o.SortOrder });
+
+        // Kullanıcı silinirse, eklediği seçenek korunur (SetNull). Oylama gizliliği
+        // üzerinde etkisi yoktur; seçenek yine kimliksiz olarak sayılır.
+        modelBuilder.Entity<PollOption>()
+            .HasOne<User>()
+            .WithMany()
+            .HasForeignKey(o => o.CreatedByUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Oy: Seçenek silinirse cascade ile temizlenir; Poll→Option→Vote zinciriyle
+        // Poll silindiğinde de tüm oylar düşer.
+        modelBuilder.Entity<PollVote>()
+            .HasOne(v => v.Option)
+            .WithMany(o => o.Votes)
+            .HasForeignKey(v => v.PollOptionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Poll↔Vote: cascade zinciri yalnızca Option üzerinden gitmeli; iki yollu
+        // cascade PostgreSQL'de çoklu yol hatası verir. Poll tarafını Restrict yap
+        // (fiili silme PollOption cascade'i ile gerçekleşir).
+        modelBuilder.Entity<PollVote>()
+            .HasOne(v => v.Poll)
+            .WithMany(p => p.Votes)
+            .HasForeignKey(v => v.PollId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<PollVote>()
+            .HasOne(v => v.User)
+            .WithMany()
+            .HasForeignKey(v => v.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Çifte oy engeli (aynı seçeneğe ikinci kez oy atılamaz).
+        modelBuilder.Entity<PollVote>()
+            .HasIndex(v => new { v.PollOptionId, v.UserId })
+            .IsUnique();
+
+        // Toplam oy / "kullanıcı bu ankette oyladı mı?" sorguları için hızlı lookup.
+        modelBuilder.Entity<PollVote>()
+            .HasIndex(v => new { v.PollId, v.UserId });
     }
 }

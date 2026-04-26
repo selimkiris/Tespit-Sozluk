@@ -29,16 +29,31 @@ public class UsersController : ControllerBase
 
     private readonly AppDbContext _context;
     private readonly IEntryInteractionNotificationService _entryInteractionNotifications;
+    private readonly IPollService _pollService;
     private readonly ILogger<UsersController> _logger;
 
     public UsersController(
         AppDbContext context,
         IEntryInteractionNotificationService entryInteractionNotifications,
+        IPollService pollService,
         ILogger<UsersController> logger)
     {
         _context = context;
         _entryInteractionNotifications = entryInteractionNotifications;
+        _pollService = pollService;
         _logger = logger;
+    }
+
+    private async Task AttachPollsToEntriesAsync(IList<EntryResponseDto> dtos, Guid? requestorId)
+    {
+        if (dtos == null || dtos.Count == 0) return;
+        var ids = dtos.Select(d => d.Id).ToList();
+        var pollMap = await _pollService.BuildPollsForEntriesAsync(ids, requestorId, HttpContext.RequestAborted);
+        if (pollMap.Count == 0) return;
+        foreach (var d in dtos)
+        {
+            if (pollMap.TryGetValue(d.Id, out var p)) d.Poll = p;
+        }
     }
 
     /// <summary>
@@ -359,6 +374,8 @@ public class UsersController : ControllerBase
                 ValidBkzs = processedContents[i].ValidBkzs,
             };
         }).ToList();
+
+        await AttachPollsToEntriesAsync(entries, requestorId);
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
@@ -821,6 +838,8 @@ public class UsersController : ControllerBase
             };
         }).ToList();
 
+        await AttachPollsToEntriesAsync(entries, requestorId);
+
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
         return new PagedEntriesDto
@@ -935,6 +954,8 @@ public class UsersController : ControllerBase
                 ValidBkzs = processedSaved[i].ValidBkzs,
             };
         }).ToList();
+
+        await AttachPollsToEntriesAsync(entries, requestorId);
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 

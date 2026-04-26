@@ -19,6 +19,11 @@ import { trimComposerHtml } from "@/lib/composer-guard"
 import { UnsavedChangesAlertDialog } from "@/components/unsaved-changes-alert-dialog"
 import { useBeforeunloadWarning } from "@/hooks/use-beforeunload-warning"
 import { useInternalNavigationGuard } from "@/hooks/use-internal-navigation-guard"
+import { type PollComposerValue } from "@/components/poll-composer"
+import {
+  type EntryPollSubmission,
+  buildDraftPollPayload,
+} from "@/lib/entry-poll"
 
 type TopicSearchResult = { id: string; title: string }
 
@@ -36,6 +41,7 @@ function buildDraftSnapshot(p: {
   newTopicTitle: string
   content: string
   isAnonymous: boolean
+  poll: PollComposerValue | null
 }) {
   return JSON.stringify({
     mode: p.mode,
@@ -44,6 +50,7 @@ function buildDraftSnapshot(p: {
     newTitle: normalizeTopicTitleForApi(p.newTopicTitle),
     content: trimComposerHtml(p.content),
     isAnonymous: p.isAnonymous,
+    poll: buildDraftPollPayload(p.poll),
   })
 }
 
@@ -66,6 +73,7 @@ export function CreateDraftModal({
   const [newTopicTitle, setNewTopicTitle] = useState("")
   const [content, setContent] = useState("")
   const [isAnonymous, setIsAnonymous] = useState(false)
+  const [poll, setPoll] = useState<PollComposerValue | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [unsavedOpen, setUnsavedOpen] = useState(false)
@@ -107,10 +115,11 @@ export function CreateDraftModal({
         newTopicTitle,
         content,
         isAnonymous,
+        poll,
       })
     }
     prevOpenRef.current = open
-  }, [open, mode, topicSearch, selectedTopic, newTopicTitle, content, isAnonymous])
+  }, [open, mode, topicSearch, selectedTopic, newTopicTitle, content, isAnonymous, poll])
 
   const isDirty = open && buildDraftSnapshot({
     mode,
@@ -119,6 +128,7 @@ export function CreateDraftModal({
     newTopicTitle,
     content,
     isAnonymous,
+    poll,
   }) !== snapshotRef.current
 
   useBeforeunloadWarning(isDirty)
@@ -135,6 +145,7 @@ export function CreateDraftModal({
     setNewTopicTitle("")
     setContent("")
     setIsAnonymous(false)
+    setPoll(null)
     setError("")
   }, [])
 
@@ -154,13 +165,20 @@ export function CreateDraftModal({
   }
 
   const validateAndBuildBody = (): {
-    body: { content: string; topicId?: string; newTopicTitle?: string; isAnonymous?: boolean }
+    body: {
+      content: string
+      topicId?: string
+      newTopicTitle?: string
+      isAnonymous?: boolean
+      poll?: EntryPollSubmission
+    }
   } => {
     const finalContent = trimHtmlContent(
       (content ?? "").replace(/^[\s\n\r\u00a0\u200b]+/, "").replace(/[\s\n\r\u00a0\u200b]+$/, ""),
     )
-    if (!finalContent) {
-      throw new Error("İçerik gerekli.")
+    const draftPoll = buildDraftPollPayload(poll)
+    if (!finalContent && draftPoll === null) {
+      throw new Error("İçerik veya anket gerekli.")
     }
 
     let normalizedNewTopicTitle = ""
@@ -178,7 +196,13 @@ export function CreateDraftModal({
       }
     }
 
-    const body: { content: string; topicId?: string; newTopicTitle?: string; isAnonymous?: boolean } = {
+    const body: {
+      content: string
+      topicId?: string
+      newTopicTitle?: string
+      isAnonymous?: boolean
+      poll?: EntryPollSubmission
+    } = {
       content: finalContent,
       isAnonymous,
     }
@@ -187,6 +211,7 @@ export function CreateDraftModal({
     } else {
       body.newTopicTitle = normalizedNewTopicTitle
     }
+    if (draftPoll) body.poll = draftPoll
     return { body }
   }
 
@@ -352,6 +377,9 @@ export function CreateDraftModal({
                     placeholder="düşüncelerinizi yazın..."
                     innerContentPaddingClassName={ENTRY_BODY_EDITOR_INNER_INSET_MODAL_DRAFT}
                     toolbarStickyTopClass="top-0"
+                    poll={poll}
+                    onPollChange={setPoll}
+                    pollDisabled={isSubmitting}
                   />
                 </div>
               </div>

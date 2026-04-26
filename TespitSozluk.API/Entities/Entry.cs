@@ -14,4 +14,10 @@ public class Entry
     public DateTime? UpdatedAt { get; set; }
     /// <summary>Tam anonim modda yazar bilgisi gösterilmez.</summary>
     public bool IsAnonymous { get; set; }
+
+    /// <summary>
+    /// Opsiyonel anket. Mevcut entry akışı anketsiz şekilde çalışmaya devam eder;
+    /// yalnızca ankete sahip entry'lerde dolu olur. Entry silindiğinde cascade ile temizlenir.
+    /// </summary>
+    public Poll? Poll { get; set; }
 }

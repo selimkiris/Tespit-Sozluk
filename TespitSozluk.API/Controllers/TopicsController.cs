@@ -24,6 +24,7 @@ public class TopicsController : ControllerBase
     private readonly IRateLimitService _rateLimitService;
     private readonly IEntryMentionService _entryMentionService;
     private readonly IEntryInteractionNotificationService _entryInteractionNotifications;
+    private readonly IPollService _pollService;
     private readonly ILogger<TopicsController> _logger;
 
     public TopicsController(
@@ -31,12 +32,14 @@ public class TopicsController : ControllerBase
         IRateLimitService rateLimitService,
         IEntryMentionService entryMentionService,
         IEntryInteractionNotificationService entryInteractionNotifications,
+        IPollService pollService,
         ILogger<TopicsController> logger)
     {
         _context = context;
         _rateLimitService = rateLimitService;
         _entryMentionService = entryMentionService;
         _entryInteractionNotifications = entryInteractionNotifications;
+        _pollService = pollService;
         _logger = logger;
     }
 
@@ -58,9 +61,11 @@ public class TopicsController : ControllerBase
 
         var entryContentRaw = dto.FirstEntryContent ?? string.Empty;
         var normalizedEntry = NormalizeEntryContentForCreate(entryContentRaw);
-        if (string.IsNullOrEmpty(normalizedEntry))
+        // Yeni politika: ilk entry metni boş olabilir, ANCAK içerisinde anket varsa.
+        // Hem metin hem anket yoksa BadRequest.
+        if (string.IsNullOrEmpty(normalizedEntry) && dto.Poll == null)
         {
-            return BadRequest("İlk entry içeriği boş olamaz.");
+            return BadRequest("İlk entry içeriği veya anket gerekli.");
         }
 
         var titleExists = await _context.Topics
@@ -161,6 +166,20 @@ public class TopicsController : ControllerBase
                 normalizedEntry,
                 entryId,
                 authorId);
+
+            // Opsiyonel anket: dto.Poll doluysa atomik olarak Topic + Entry + Poll oluştur.
+            if (dto.Poll != null)
+            {
+                try
+                {
+                    _pollService.CreatePollForEntry(entry, dto.Poll, authorId);
+                }
+                catch (PollValidationException ex)
+                {
+                    await transaction.RollbackAsync();
+                    return BadRequest(new { message = ex.Message });
+                }
+            }
 
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
@@ -616,6 +635,19 @@ public class TopicsController : ControllerBase
                 userSavedIds.Contains(e.Id));
             dto.ValidBkzs = validBkzs;
             entries.Add(dto);
+        }
+
+        if (entries.Count > 0)
+        {
+            var pollMap = await _pollService.BuildPollsForEntriesAsync(
+                entries.Select(e => e.Id).ToList(), userId, HttpContext.RequestAborted);
+            if (pollMap.Count > 0)
+            {
+                foreach (var e in entries)
+                {
+                    if (pollMap.TryGetValue(e.Id, out var p)) e.Poll = p;
+                }
+            }
         }
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);

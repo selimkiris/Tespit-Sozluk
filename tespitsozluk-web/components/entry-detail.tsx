@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { EntryCard } from "@/components/entry-card"
+import type { ApiPollDto } from "@/lib/entry-poll"
 
 type ApiEntry = {
   id: string
@@ -22,6 +23,7 @@ type ApiEntry = {
   canManage?: boolean
   saveCount?: number
   isSavedByCurrentUser?: boolean
+  poll?: ApiPollDto | null
 }
 
 function mapApiEntryToCard(e: ApiEntry) {
@@ -43,6 +45,7 @@ function mapApiEntryToCard(e: ApiEntry) {
     canManage: e.canManage ?? false,
     saveCount: e.saveCount ?? 0,
     isSavedByCurrentUser: e.isSavedByCurrentUser ?? false,
+    poll: e.poll ?? null,
   }
 }
 

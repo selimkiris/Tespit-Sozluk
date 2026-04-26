@@ -19,6 +19,14 @@ import { UnsavedChangesAlertDialog } from "@/components/unsaved-changes-alert-di
 import { useBeforeunloadWarning } from "@/hooks/use-beforeunload-warning"
 import { useInternalNavigationGuard } from "@/hooks/use-internal-navigation-guard"
 import { toast } from "sonner"
+import {
+  type PollComposerValue,
+  isPollValid,
+} from "@/components/poll-composer"
+import {
+  type EntryPollSubmission,
+  buildDraftPollPayload,
+} from "@/lib/entry-poll"
 
 function trimHtmlContent(html: string): string {
   if (!html) return ""
@@ -31,7 +39,12 @@ function trimHtmlContent(html: string): string {
 interface CreateTopicModalProps {
   isOpen: boolean
   onClose: () => void
-  onCreate: (title: string, firstEntry: string, isAnonymous?: boolean) => void | Promise<string | null>
+  onCreate: (
+    title: string,
+    firstEntry: string,
+    isAnonymous?: boolean,
+    poll?: EntryPollSubmission | null,
+  ) => void | Promise<string | null>
   isLoggedIn: boolean
   onLoginClick: () => void
 }
@@ -53,12 +66,19 @@ export function CreateTopicModal({
   const [charCount, setCharCount] = useState(0)
   const [unsavedOpen, setUnsavedOpen] = useState(false)
   const [pendingNav, setPendingNav] = useState<string | null>(null)
+  const [poll, setPoll] = useState<PollComposerValue | null>(null)
 
-  const snapshotRef = useRef({ title: "", entry: "", anon: false })
+  const snapshotRef = useRef({ title: "", entry: "", anon: false, hasPoll: false })
   const prevIsOpenRef = useRef(false)
 
   const hasContent = !!firstEntry.replace(/<[^>]*>/g, "").trim()
   const isOverLimit = charCount >= 100_000
+  const pollReady = poll ? isPollValid(poll) : true
+  const pollIncomplete = poll !== null && !pollReady
+  // Anket varsa boş entry kabul edilir.
+  const canPublishContent = (hasContent || (poll !== null && pollReady)) && !pollIncomplete
+  const draftPollAvailable = buildDraftPollPayload(poll) !== null
+  const canSaveDraftContent = hasContent || draftPollAvailable
 
   useLayoutEffect(() => {
     if (isOpen && !prevIsOpenRef.current && isLoggedIn) {
@@ -66,17 +86,19 @@ export function CreateTopicModal({
         title: normalizeTopicTitleForApi(title),
         entry: firstEntry,
         anon: isAnonymous,
+        hasPoll: poll !== null,
       }
     }
     prevIsOpenRef.current = isOpen
-  }, [isOpen, isLoggedIn, title, firstEntry, isAnonymous])
+  }, [isOpen, isLoggedIn, title, firstEntry, isAnonymous, poll])
 
   const snap = snapshotRef.current
   const isDirty =
     isLoggedIn &&
     (normalizeTopicTitleForApi(title) !== snap.title ||
       trimComposerHtml(firstEntry) !== trimComposerHtml(snap.entry) ||
-      isAnonymous !== snap.anon)
+      isAnonymous !== snap.anon ||
+      (poll !== null) !== snap.hasPoll)
 
   const guardActive = isOpen && isLoggedIn && isDirty
   useBeforeunloadWarning(guardActive)
@@ -91,6 +113,7 @@ export function CreateTopicModal({
     setCharCount(0)
     setError("")
     setIsAnonymous(false)
+    setPoll(null)
   }
 
   const finalizeClose = () => {
@@ -113,12 +136,14 @@ export function CreateTopicModal({
   }
 
   const validateAndBuild = () => {
-    if (!hasContent || isOverLimit) {
-      throw new Error(
-        isOverLimit
-          ? "Entry çok uzun."
-          : "Önce entry yazın.",
-      )
+    if (isOverLimit) {
+      throw new Error("Entry çok uzun.")
+    }
+    if (!hasContent && poll === null) {
+      throw new Error("Önce entry yazın veya bir anket ekleyin.")
+    }
+    if (poll !== null && !pollReady) {
+      throw new Error("Anket eksik. Soruyu doldurun ve en az 2 farklı seçenek girin.")
     }
     const titleParsed = topicTitleSchema.safeParse(normalizeTopicTitleForApi(title))
     if (!titleParsed.success) {
@@ -127,10 +152,19 @@ export function CreateTopicModal({
     const finalContent = trimHtmlContent(
       (firstEntry ?? "").replace(/^[\s\n\r\u00a0\u200b]+/, "").replace(/[\s\n\r\u00a0\u200b]+$/, ""),
     )
-    if (!finalContent) {
+    if (!finalContent && poll === null) {
       throw new Error("İçerik boş olamaz.")
     }
-    return { titleData: titleParsed.data, finalContent }
+    const pollPayload: EntryPollSubmission | null =
+      poll !== null
+        ? {
+            question: (poll.question ?? "").trim(),
+            options: poll.options.map((o) => o.trim()).filter((o) => o.length > 0),
+            allowMultiple: poll.allowMultiple,
+            allowUserOptions: poll.allowUserOptions,
+          }
+        : null
+    return { titleData: titleParsed.data, finalContent, pollPayload }
   }
 
   const persistNewTopicDraft = async () => {
@@ -144,16 +178,24 @@ export function CreateTopicModal({
     const finalContent = trimHtmlContent(
       (firstEntry ?? "").replace(/^[\s\n\r\u00a0\u200b]+/, "").replace(/[\s\n\r\u00a0\u200b]+$/, ""),
     )
-    if (!finalContent) {
-      throw new Error("Önce entry yazın.")
+    const draftPoll = buildDraftPollPayload(poll)
+    if (!finalContent && draftPoll === null) {
+      throw new Error("Önce entry yazın veya bir anket ekleyin.")
     }
+    const body: {
+      content: string
+      newTopicTitle: string
+      isAnonymous: boolean
+      poll?: EntryPollSubmission
+    } = {
+      content: finalContent,
+      newTopicTitle: titleParsed.data,
+      isAnonymous,
+    }
+    if (draftPoll) body.poll = draftPoll
     const res = await apiFetch(getApiUrl("api/Drafts"), {
       method: "POST",
-      body: JSON.stringify({
-        content: finalContent,
-        newTopicTitle: titleParsed.data,
-        isAnonymous,
-      }),
+      body: JSON.stringify(body),
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
@@ -167,8 +209,8 @@ export function CreateTopicModal({
     setIsLoading(true)
     setError("")
     try {
-      const { titleData, finalContent } = validateAndBuild()
-      await onCreate(titleData, finalContent, isAnonymous)
+      const { titleData, finalContent, pollPayload } = validateAndBuild()
+      await onCreate(titleData, finalContent, isAnonymous, pollPayload)
       resetLocal()
       onClose()
     } catch (err) {
@@ -182,9 +224,9 @@ export function CreateTopicModal({
     setIsLoading(true)
     setError("")
     try {
-      const { titleData, finalContent } = validateAndBuild()
+      const { titleData, finalContent, pollPayload } = validateAndBuild()
       const nav = pendingNav
-      await onCreate(titleData, finalContent, isAnonymous)
+      await onCreate(titleData, finalContent, isAnonymous, pollPayload)
       setUnsavedOpen(false)
       setPendingNav(null)
       resetLocal()
@@ -311,6 +353,9 @@ export function CreateTopicModal({
                       onCharCountChange={setCharCount}
                       innerContentPaddingClassName={ENTRY_BODY_EDITOR_INNER_INSET_MODAL_NEW_TOPIC}
                       toolbarStickyTopClass="top-0"
+                      poll={poll}
+                      onPollChange={setPoll}
+                      pollDisabled={isLoading || isSavingDraft}
                     />
                   </div>
                 </div>
@@ -355,7 +400,7 @@ export function CreateTopicModal({
                     onClick={handleSaveDraft}
                     disabled={
                       !normalizeTopicTitleForApi(title) ||
-                      !hasContent ||
+                      !canSaveDraftContent ||
                       normalizeTopicTitleForApi(title).length > TOPIC_TITLE_MAX_LENGTH ||
                       isLoading ||
                       isSavingDraft ||
@@ -369,7 +414,7 @@ export function CreateTopicModal({
                     type="submit"
                     disabled={
                       !normalizeTopicTitleForApi(title) ||
-                      !hasContent ||
+                      !canPublishContent ||
                       normalizeTopicTitleForApi(title).length > TOPIC_TITLE_MAX_LENGTH ||
                       isLoading ||
                       isSavingDraft ||
@@ -394,14 +439,14 @@ export function CreateTopicModal({
         isSavingDraft={isSavingDraft}
         publishDisabled={
           !normalizeTopicTitleForApi(title) ||
-          !hasContent ||
+          !canPublishContent ||
           normalizeTopicTitleForApi(title).length > TOPIC_TITLE_MAX_LENGTH ||
           isOverLimit ||
           isSavingDraft
         }
         saveDraftDisabled={
           !normalizeTopicTitleForApi(title) ||
-          !hasContent ||
+          !canSaveDraftContent ||
           normalizeTopicTitleForApi(title).length > TOPIC_TITLE_MAX_LENGTH ||
           isOverLimit ||
           isLoading

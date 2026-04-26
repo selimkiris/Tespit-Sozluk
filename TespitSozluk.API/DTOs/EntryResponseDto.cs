@@ -31,4 +31,11 @@ public class EntryResponseDto
     public int SaveCount { get; set; }
     /// <summary>İstek yapan kullanıcı bu entry'yi kaydetmiş mi</summary>
     public bool IsSavedByCurrentUser { get; set; }
+
+    /// <summary>
+    /// Opsiyonel anket verisi. Entry'ye bağlı anket yoksa null döner. Ankete sahip
+    /// entry'lerde oy verme/yüzde görüntüleme için gerekli tüm alanları içerir.
+    /// Kimin hangi seçeneğe oy verdiği bu payload'a hiçbir yerde gömülmez (anonim).
+    /// </summary>
+    public PollResponseDto? Poll { get; set; }
 }

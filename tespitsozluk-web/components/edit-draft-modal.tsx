@@ -19,6 +19,12 @@ import { trimComposerHtml } from "@/lib/composer-guard"
 import { UnsavedChangesAlertDialog } from "@/components/unsaved-changes-alert-dialog"
 import { useBeforeunloadWarning } from "@/hooks/use-beforeunload-warning"
 import { useInternalNavigationGuard } from "@/hooks/use-internal-navigation-guard"
+import { type PollComposerValue } from "@/components/poll-composer"
+import {
+  type EntryPollSubmission,
+  buildDraftPollPayload,
+  pollFromDraftPayload,
+} from "@/lib/entry-poll"
 
 type TopicSearchResult = { id: string; title: string }
 
@@ -38,6 +44,7 @@ function buildDraftSnapshot(p: {
   newTopicTitle: string
   content: string
   isAnonymous: boolean
+  poll: PollComposerValue | null
 }) {
   return JSON.stringify({
     mode: p.mode,
@@ -46,6 +53,7 @@ function buildDraftSnapshot(p: {
     newTitle: normalizeTopicTitleForApi(p.newTopicTitle),
     content: trimComposerHtml(p.content),
     isAnonymous: p.isAnonymous,
+    poll: buildDraftPollPayload(p.poll),
   })
 }
 
@@ -70,6 +78,7 @@ export function EditDraftModal({
   const [newTopicTitle, setNewTopicTitle] = useState("")
   const [content, setContent] = useState("")
   const [isAnonymous, setIsAnonymous] = useState(false)
+  const [poll, setPoll] = useState<PollComposerValue | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [draftLoading, setDraftLoading] = useState(false)
@@ -135,6 +144,7 @@ export function EditDraftModal({
         if (cancelled) return
         setContent(typeof data.content === "string" ? data.content : "")
         setIsAnonymous(Boolean(data.isAnonymous))
+        setPoll(pollFromDraftPayload(data.poll))
         if (data.topicId && data.topicTitle) {
           setMode("existing")
           setSelectedTopic({ id: String(data.topicId), title: String(data.topicTitle) })
@@ -174,6 +184,7 @@ export function EditDraftModal({
         newTopicTitle,
         content,
         isAnonymous,
+        poll,
       })
       baselinePendingRef.current = false
     }
@@ -187,6 +198,7 @@ export function EditDraftModal({
     newTopicTitle,
     content,
     isAnonymous,
+    poll,
   ])
 
   const isDirty =
@@ -199,6 +211,7 @@ export function EditDraftModal({
       newTopicTitle,
       content,
       isAnonymous,
+      poll,
     }) !== snapshotRef.current
 
   useBeforeunloadWarning(isDirty)
@@ -229,8 +242,9 @@ export function EditDraftModal({
   const validateAndPut = async () => {
     if (!draft || draftLoading) return
     const cleanContent = content.trim()
-    if (!cleanContent.replace(/<[^>]*>/g, "").trim()) {
-      throw new Error("İçerik boş olamaz.")
+    const draftPoll = buildDraftPollPayload(poll)
+    if (!cleanContent.replace(/<[^>]*>/g, "").trim() && draftPoll === null) {
+      throw new Error("İçerik veya anket gerekli.")
     }
 
     let normalizedNewTopicTitle = ""
@@ -248,7 +262,14 @@ export function EditDraftModal({
       }
     }
 
-    const body: { content: string; topicId?: string; newTopicTitle?: string; isAnonymous?: boolean } = {
+    const body: {
+      content: string
+      topicId?: string
+      newTopicTitle?: string
+      isAnonymous?: boolean
+      poll?: EntryPollSubmission
+      removePoll?: boolean
+    } = {
       content: cleanContent,
       isAnonymous,
     }
@@ -256,6 +277,11 @@ export function EditDraftModal({
       body.topicId = selectedTopic.id
     } else {
       body.newTopicTitle = normalizedNewTopicTitle
+    }
+    if (draftPoll) {
+      body.poll = draftPoll
+    } else {
+      body.removePoll = true
     }
 
     const res = await apiFetch(getApiUrl(`api/Drafts/${draft.id}`), {
@@ -424,6 +450,9 @@ export function EditDraftModal({
                       placeholder="düşüncelerinizi yazın..."
                       innerContentPaddingClassName={ENTRY_BODY_EDITOR_INNER_INSET_MODAL_DRAFT}
                       toolbarStickyTopClass="top-0"
+                      poll={poll}
+                      onPollChange={setPoll}
+                      pollDisabled={isSubmitting}
                     />
                   )}
                 </div>

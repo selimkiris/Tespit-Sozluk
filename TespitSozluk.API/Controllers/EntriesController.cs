@@ -25,6 +25,7 @@ public class EntriesController : ControllerBase
     private readonly IEntryInteractionNotificationService _entryInteractionNotifications;
     private readonly IEntryLikesService _entryLikesService;
     private readonly IEntryMentionService _entryMentionService;
+    private readonly IPollService _pollService;
     private readonly ILogger<EntriesController> _logger;
 
     public EntriesController(
@@ -33,6 +34,7 @@ public class EntriesController : ControllerBase
         IEntryInteractionNotificationService entryInteractionNotifications,
         IEntryLikesService entryLikesService,
         IEntryMentionService entryMentionService,
+        IPollService pollService,
         ILogger<EntriesController> logger)
     {
         _context = context;
@@ -40,7 +42,40 @@ public class EntriesController : ControllerBase
         _entryInteractionNotifications = entryInteractionNotifications;
         _entryLikesService = entryLikesService;
         _entryMentionService = entryMentionService;
+        _pollService = pollService;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Entry içeriğini normalleştirir: baştaki/sondaki boş paragraf, br ve whitespace temizlenir.
+    /// </summary>
+    private static string NormalizeEntryHtml(string? content)
+    {
+        if (string.IsNullOrEmpty(content)) return string.Empty;
+        var c = System.Text.RegularExpressions.Regex.Replace(
+            content,
+            @"^(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+",
+            "",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        c = System.Text.RegularExpressions.Regex.Replace(
+            c,
+            @"(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+$",
+            "",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return c.Trim();
+    }
+
+    /// <summary>Verilen entry-DTO listesine ait anket verilerini tek batch'te iliştirir.</summary>
+    private async Task AttachPollsAsync(IList<EntryResponseDto> dtos, Guid? requestorId)
+    {
+        if (dtos == null || dtos.Count == 0) return;
+        var ids = dtos.Select(d => d.Id).ToList();
+        var pollMap = await _pollService.BuildPollsForEntriesAsync(ids, requestorId, HttpContext.RequestAborted);
+        if (pollMap.Count == 0) return;
+        foreach (var dto in dtos)
+        {
+            if (pollMap.TryGetValue(dto.Id, out var p)) dto.Poll = p;
+        }
     }
 
     [AllowAnonymous]
@@ -177,6 +212,8 @@ public class EntriesController : ControllerBase
             result.Add(dto);
         }
 
+        await AttachPollsAsync(result, userId);
+
         var totalPages = (int)Math.Ceiling(totalCount / (double)effectivePageSize);
 
         return new PagedEntriesDto
@@ -239,6 +276,9 @@ public class EntriesController : ControllerBase
             saveCounts.TryGetValue(id, out var sc) ? sc : 0,
             userSavedIds.Contains(id));
         dto.ValidBkzs = validBkzs;
+
+        var singleList = new List<EntryResponseDto> { dto };
+        await AttachPollsAsync(singleList, userId);
 
         return dto;
     }
@@ -349,6 +389,8 @@ public class EntriesController : ControllerBase
             result.Add(dto);
         }
 
+        await AttachPollsAsync(result, userId);
+
         return result;
     }
 
@@ -369,21 +411,13 @@ public class EntriesController : ControllerBase
             return NotFound("Başlık bulunamadı.");
         }
 
-        if (!string.IsNullOrEmpty(dto.Content))
+        dto.Content = NormalizeEntryHtml(dto.Content);
+
+        // Yeni politika: entry metni boş olabilir, ANCAK içerisinde anket varsa.
+        // Hem metin hem anket yoksa BadRequest.
+        if (string.IsNullOrWhiteSpace(dto.Content) && dto.Poll == null)
         {
-            dto.Content = System.Text.RegularExpressions.Regex.Replace(
-                dto.Content,
-                @"^(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+",
-                "",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase
-            );
-            dto.Content = System.Text.RegularExpressions.Regex.Replace(
-                dto.Content,
-                @"(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+$",
-                "",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase
-            );
-            dto.Content = dto.Content.Trim();
+            return BadRequest("Entry içeriği veya anket gerekli.");
         }
 
         var entry = new Entry
@@ -398,9 +432,23 @@ public class EntriesController : ControllerBase
 
         _context.Entries.Add(entry);
         entry.Content = await _entryMentionService.ApplyMentionsAndQueueNotificationsAsync(
-            dto.Content.Trim(),
+            (dto.Content ?? string.Empty).Trim(),
             entry.Id,
             authorId);
+
+        // Opsiyonel anket: yalnızca dto.Poll doluysa oluştur. Mevcut entry akışı (anketsiz)
+        // aynen korunur; Poll doğrulaması burada başarısız olursa entry de oluşturulmaz.
+        if (dto.Poll != null)
+        {
+            try
+            {
+                _pollService.CreatePollForEntry(entry, dto.Poll, authorId);
+            }
+            catch (PollValidationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
 
         await _context.SaveChangesAsync();
 
@@ -416,6 +464,15 @@ public class EntriesController : ControllerBase
         response.Content = BkzTopicHelper.ApplyBkzHtmlToContent(contentForBkzCreate, bkzMaps);
         response.SaveCount = 0;
         response.IsSavedByCurrentUser = false;
+
+        if (dto.Poll != null)
+        {
+            var pollMap = await _pollService.BuildPollsForEntriesAsync(new[] { entry.Id }, authorId, HttpContext.RequestAborted);
+            if (pollMap.TryGetValue(entry.Id, out var pollDto))
+            {
+                response.Poll = pollDto;
+            }
+        }
 
         return Created($"/api/entries/{entry.Id}", response);
     }
@@ -441,24 +498,21 @@ public class EntriesController : ControllerBase
             return StatusCode(403, "Bu içeriği düzenleme yetkiniz yok.");
         }
 
-        if (!string.IsNullOrEmpty(dto.Content))
+        dto.Content = NormalizeEntryHtml(dto.Content);
+
+        // ── Anket güncelleme/silme/oluşturma niyetini önceden ölç ──
+        // Update sonrası entry'nin ankete sahip olup olmayacağını belirlemek için.
+        var hasPollPayload = dto.Poll != null;
+        var willHavePoll = hasPollPayload // yeni anket payload'ı varsa
+            || (!dto.RemovePoll && await _context.Polls.AsNoTracking().AnyAsync(p => p.EntryId == entry.Id));
+
+        // Yeni politika: entry metni boş olabilir, ANCAK içerisinde anket olacaksa.
+        if (string.IsNullOrWhiteSpace(dto.Content) && !willHavePoll)
         {
-            dto.Content = System.Text.RegularExpressions.Regex.Replace(
-                dto.Content,
-                @"^(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+",
-                "",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase
-            );
-            dto.Content = System.Text.RegularExpressions.Regex.Replace(
-                dto.Content,
-                @"(<p>\s*</p>|<p><br\s*/?></p>|<br\s*/?>|\s)+$",
-                "",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase
-            );
-            dto.Content = dto.Content.Trim();
+            return BadRequest("Entry içeriği veya anket gerekli.");
         }
 
-        entry.Content = dto.Content.Trim();
+        entry.Content = (dto.Content ?? string.Empty).Trim();
         entry.UpdatedAt = DateTime.UtcNow;
 
         // ── Anonimlik güncellemesi (opsiyonel) ──
@@ -488,6 +542,26 @@ public class EntriesController : ControllerBase
             }
         }
 
+        // ── Anket güncelleme ──
+        // 1) dto.Poll doluysa: upsert (yeni oluştur veya mevcudu güncelle).
+        // 2) Aksi halde dto.RemovePoll true ise: mevcut anketi sil.
+        // 3) Hiçbiri yoksa: anket dokunulmaz.
+        if (dto.Poll != null)
+        {
+            try
+            {
+                await _pollService.UpdatePollForEntryAsync(entry, dto.Poll, authorId, HttpContext.RequestAborted);
+            }
+            catch (PollValidationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        else if (dto.RemovePoll)
+        {
+            await _pollService.DeletePollForEntryAsync(entry.Id, HttpContext.RequestAborted);
+        }
+
         await _context.SaveChangesAsync();
 
         var author = await _context.Users.FindAsync(entry.AuthorId);
@@ -507,6 +581,10 @@ public class EntriesController : ControllerBase
         var (saveCounts, userSavedIds) = await GetSaveDataAsync(new List<Guid> { id }, authorId);
         response.SaveCount = saveCounts.TryGetValue(id, out var sc) ? sc : 0;
         response.IsSavedByCurrentUser = userSavedIds.Contains(id);
+
+        var updateList = new List<EntryResponseDto> { response };
+        await AttachPollsAsync(updateList, authorId);
+
         return Ok(response);
     }
 

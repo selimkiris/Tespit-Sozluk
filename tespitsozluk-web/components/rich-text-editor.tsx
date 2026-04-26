@@ -17,7 +17,9 @@ import {
   Smile,
   EyeOff,
   Loader2,
+  BarChart3,
 } from "lucide-react"
+import { PollComposer, type PollComposerValue, createEmptyPoll } from "@/components/poll-composer"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import {
@@ -102,6 +104,18 @@ interface RichTextEditorProps {
    * Sayfa (navbar altı): `top-[56px]`. Modal/diyalog içi kaydırma: `top-0`.
    */
   toolbarStickyTopClass?: string
+  /**
+   * Opsiyonel anket entegrasyonu — sağlanırsa formatlama araç çubuğuna "Anket" butonu eklenir
+   * ve anket bloğu editör gövdesinin alt kısmında WYSIWYG mantığıyla satır içi olarak görüntülenir.
+   *
+   * `poll === null`: anket yok (ekleme butonu görünür).
+   * `poll !== null`: anket bloğu görünür, editör altında inline render edilir.
+   *
+   * `onPollChange` verilmezse anket özelliği bu editör örneği için tamamen devre dışıdır.
+   */
+  poll?: PollComposerValue | null
+  onPollChange?: (next: PollComposerValue | null) => void
+  pollDisabled?: boolean
 }
 
 function ensureHtml(value: string): string {
@@ -127,7 +141,20 @@ export function RichTextEditor({
   bodyScrollMaxHeightClass,
   innerContentPaddingClassName,
   toolbarStickyTopClass = "top-[56px]",
+  poll,
+  onPollChange,
+  pollDisabled,
 }: RichTextEditorProps) {
+  const pollEnabled = typeof onPollChange === "function"
+  const handleAddPoll = useCallback(() => {
+    if (!onPollChange) return
+    if (poll == null) {
+      onPollChange(createEmptyPoll())
+    }
+  }, [onPollChange, poll])
+  const handlePollRemove = useCallback(() => {
+    onPollChange?.(null)
+  }, [onPollChange])
   const [emojiOpen, setEmojiOpen] = useState(false)
   const [linkModalOpen, setLinkModalOpen] = useState(false)
   const [mediaModal, setMediaModal] = useState<{ type: "image" | "video" } | null>(null)
@@ -625,6 +652,19 @@ export function RichTextEditor({
         >
           <EyeOff className="h-4 w-4" />
         </ToolbarButton>
+        {pollEnabled && (
+          <>
+            <div className="w-px h-5 bg-border mx-0.5" />
+            <ToolbarButton
+              onClick={handleAddPoll}
+              isActive={poll != null}
+              disabled={pollDisabled || poll != null}
+              title={poll != null ? "Anket eklendi" : "Anket Ekle"}
+            >
+              <BarChart3 className="h-4 w-4" />
+            </ToolbarButton>
+          </>
+        )}
       </div>
       <div className={cn(ENTRY_BODY_OUTER_WRAPPER_CLASS, "mb-0 w-full")}>
         <div
@@ -712,6 +752,19 @@ export function RichTextEditor({
               {charCount.toLocaleString("tr-TR")}/100.000 karakter
             </div>
           </div>
+          {/* WYSIWYG: Anket bloğu editör gövdesinin içinde, metnin hemen altında —
+              paylaşıldığında görüneceği görselliğe yakın bir önizleme verir. */}
+          {pollEnabled && poll != null && onPollChange && (
+            <div className="border-t border-border/70 bg-background/30">
+              <PollComposer
+                value={poll}
+                onChange={onPollChange}
+                onRemove={handlePollRemove}
+                disabled={pollDisabled}
+                seamless
+              />
+            </div>
+          )}
         </div>
       </div>
 

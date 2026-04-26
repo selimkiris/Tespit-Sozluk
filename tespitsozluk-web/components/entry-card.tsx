@@ -28,6 +28,15 @@ import { RichTextEditor } from "@/components/rich-text-editor"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { ExpandableHtmlContent } from "@/components/expandable-html-content"
+import { PollDisplay, type ApiPoll } from "@/components/poll-display"
+import {
+  type PollComposerValue,
+  isPollValid,
+} from "@/components/poll-composer"
+import {
+  type EntryPollSubmission,
+  pollComposerValueFromApiPoll,
+} from "@/lib/entry-poll"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -76,6 +85,8 @@ interface Entry {
   canManage?: boolean
   saveCount?: number
   isSavedByCurrentUser?: boolean
+  /** Opsiyonel anket. Null/undefined ise bu entry'ye bağlı anket yoktur. */
+  poll?: ApiPoll | null
 }
 
 interface EntryCardProps {
@@ -156,6 +167,10 @@ export function EntryCard({
   // Anonimlik — edit modalı için toggle state'i ve baseline (dirty kontrolü için)
   const [editIsAnonymous, setEditIsAnonymous] = useState<boolean>(entry.isAnonymous ?? false)
   const [editAnonBaseline, setEditAnonBaseline] = useState<boolean>(entry.isAnonymous ?? false)
+  // Poll edit state — baseline (snapshot) ve canlı value
+  const [editPoll, setEditPoll] = useState<PollComposerValue | null>(null)
+  const [editPollBaseline, setEditPollBaseline] = useState<PollComposerValue | null>(null)
+  const [localPoll, setLocalPoll] = useState<ApiPoll | null>(entry.poll ?? null)
   // Anında UI güncellemesi için yerel yazar/anonim görüntü durumu
   const [localIsAnonymous, setLocalIsAnonymous] = useState<boolean>(entry.isAnonymous ?? false)
   const [localAuthor, setLocalAuthor] = useState<Entry["author"]>(entry.author)
@@ -214,12 +229,16 @@ export function EntryCard({
     setLocalUpdatedAt(entry.updatedAt ?? null)
     setLocalIsAnonymous(entry.isAnonymous ?? false)
     setLocalAuthor(entry.author)
-  }, [entry.id, entry.userVote, entry.upvotes, entry.downvotes, entry.content, entry.saveCount, entry.isSavedByCurrentUser, entry.updatedAt, entry.isAnonymous, entry.author])
+    setLocalPoll(entry.poll ?? null)
+  }, [entry.id, entry.userVote, entry.upvotes, entry.downvotes, entry.content, entry.saveCount, entry.isSavedByCurrentUser, entry.updatedAt, entry.isAnonymous, entry.author, entry.poll])
 
+  const editPollSnapshot = JSON.stringify(editPoll)
+  const editPollBaselineSnapshot = JSON.stringify(editPollBaseline)
   const isEditDirty =
     isEditOpen &&
     (trimComposerHtml(content) !== trimComposerHtml(editBaseline) ||
-      editIsAnonymous !== editAnonBaseline)
+      editIsAnonymous !== editAnonBaseline ||
+      editPollSnapshot !== editPollBaselineSnapshot)
 
   useBeforeunloadWarning(isEditDirty)
   useInternalNavigationGuard(isEditDirty, (path) => {
@@ -244,8 +263,13 @@ export function EntryCard({
   const performEditSave = async (): Promise<boolean> => {
     const trimmedContent = content.trim()
     const plainText = trimmedContent.replace(/<[^>]*>/g, "").trim()
-    if (!plainText) {
-      setEditError("İçerik boş olamaz.")
+    const hasPoll = editPoll !== null
+    if (!plainText && !hasPoll) {
+      setEditError("İçerik veya anket gerekli.")
+      return false
+    }
+    if (hasPoll && !isPollValid(editPoll)) {
+      setEditError("Anket eksik. Soruyu doldurun ve en az 2 farklı seçenek girin.")
       return false
     }
     setIsEditSaving(true)
@@ -253,12 +277,28 @@ export function EntryCard({
     const savedContent = trimmedContent
     const anonChanged = editIsAnonymous !== (entry.isAnonymous ?? false)
     try {
+      const body: {
+        content: string
+        isAnonymous: boolean
+        poll?: EntryPollSubmission
+        removePoll?: boolean
+      } = {
+        content: trimmedContent,
+        isAnonymous: editIsAnonymous,
+      }
+      if (hasPoll) {
+        body.poll = {
+          question: editPoll!.question.trim(),
+          options: editPoll!.options.map((o) => o.trim()).filter((o) => o.length > 0),
+          allowMultiple: editPoll!.allowMultiple,
+          allowUserOptions: editPoll!.allowUserOptions,
+        }
+      } else if (entry.poll) {
+        body.removePoll = true
+      }
       const res = await apiFetch(getApiUrl(`api/Entries/${entry.id}`), {
         method: "PUT",
-        body: JSON.stringify({
-          content: trimmedContent,
-          isAnonymous: editIsAnonymous,
-        }),
+        body: JSON.stringify(body),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -266,6 +306,11 @@ export function EntryCard({
       }
       setContent(data.content ?? savedContent)
       setLocalUpdatedAt(data.updatedAt ?? new Date().toISOString())
+      if (data.poll !== undefined) {
+        setLocalPoll((data.poll as ApiPoll | null) ?? null)
+      } else if (!hasPoll && entry.poll) {
+        setLocalPoll(null)
+      }
       // Anonimlik değiştiyse yazar görüntüsünü backend yanıtı + toggle değerine göre güncelle
       const nextAnon: boolean = typeof data.isAnonymous === "boolean" ? data.isAnonymous : editIsAnonymous
       setLocalIsAnonymous(nextAnon)
@@ -487,6 +532,13 @@ export function EntryCard({
           rendererClassName={ENTRY_BODY_RENDERER_CLASSNAME}
           searchHighlightQuery={searchTerm}
         />
+        {localPoll && (
+          <PollDisplay
+            poll={localPoll}
+            isLoggedIn={isLoggedIn}
+            onLoginClick={onLoginClick}
+          />
+        )}
       </div>
 
       {/* Footer */}
@@ -701,6 +753,9 @@ export function EntryCard({
                       const currentAnon = entry.isAnonymous ?? false
                       setEditIsAnonymous(currentAnon)
                       setEditAnonBaseline(currentAnon)
+                      const initialPoll = pollComposerValueFromApiPoll(localPoll ?? entry.poll ?? null)
+                      setEditPoll(initialPoll)
+                      setEditPollBaseline(initialPoll)
                       setIsEditOpen(true)
                       setEditError(null)
                     }}
@@ -780,6 +835,9 @@ export function EntryCard({
               bodyScrollMaxHeightClass="max-h-[60vh]"
               innerContentPaddingClassName="px-[14px]"
               toolbarStickyTopClass="top-0"
+              poll={editPoll}
+              onPollChange={setEditPoll}
+              pollDisabled={isEditSaving}
             />
             <div className="mt-3 space-y-1">
               <RadioGroup
@@ -820,7 +878,14 @@ export function EntryCard({
             <Button variant="outline" onClick={requestCloseEdit}>
               İptal
             </Button>
-            <Button onClick={handleEdit} disabled={isEditSaving}>
+            <Button
+              onClick={handleEdit}
+              disabled={
+                isEditSaving ||
+                (!content.trim().replace(/<[^>]*>/g, "").trim() && editPoll === null) ||
+                (editPoll !== null && !isPollValid(editPoll))
+              }
+            >
               {isEditSaving ? "Kaydediliyor..." : "Kaydet"}
             </Button>
           </DialogFooter>
@@ -832,13 +897,16 @@ export function EntryCard({
         open={editLeaveOpen}
         onOpenChange={setEditLeaveOpen}
         isPublishing={isEditSaving}
-        publishDisabled={!content.trim().replace(/<[^>]*>/g, "").trim()}
+        publishDisabled={
+          !content.trim().replace(/<[^>]*>/g, "").trim() && editPoll === null
+        }
         onPublish={saveEditFromGuard}
         onDiscard={() => {
           const nav = editPendingNav
           setEditPendingNav(null)
           setContent(editBaseline)
           setEditIsAnonymous(editAnonBaseline)
+          setEditPoll(editPollBaseline)
           setEditLeaveOpen(false)
           closeEditDialog()
           if (nav) router.push(nav)

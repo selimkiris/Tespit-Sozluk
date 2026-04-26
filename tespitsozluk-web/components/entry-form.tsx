@@ -11,6 +11,14 @@ import { hasMeaningfulComposerHtml, trimComposerHtml } from "@/lib/composer-guar
 import { UnsavedChangesAlertDialog } from "@/components/unsaved-changes-alert-dialog"
 import { useBeforeunloadWarning } from "@/hooks/use-beforeunload-warning"
 import { useInternalNavigationGuard } from "@/hooks/use-internal-navigation-guard"
+import {
+  type PollComposerValue,
+  isPollValid,
+} from "@/components/poll-composer"
+import {
+  type EntryPollSubmission,
+  buildDraftPollPayload,
+} from "@/lib/entry-poll"
 
 function trimHtmlContent(html: string): string {
   if (!html) return ""
@@ -22,7 +30,12 @@ function trimHtmlContent(html: string): string {
 interface EntryFormProps {
   topicId: string
   /** `onApiSuccess` — 200 OK anında çağrılır; navigasyon/router beklemeden loading kapatmak için. */
-  onSubmit: (content: string, isAnonymous: boolean, onApiSuccess: () => void) => void | Promise<void>
+  onSubmit: (
+    content: string,
+    isAnonymous: boolean,
+    onApiSuccess: () => void,
+    poll?: EntryPollSubmission | null,
+  ) => void | Promise<void>
   isLoggedIn: boolean
   onLoginClick: () => void
 }
@@ -37,27 +50,36 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
   const [charCount, setCharCount] = useState(0)
   const [unsavedOpen, setUnsavedOpen] = useState(false)
   const [pendingNav, setPendingNav] = useState<string | null>(null)
+  const [poll, setPoll] = useState<PollComposerValue | null>(null)
 
-  const baselineRef = useRef({ content: "", anon: false })
+  const baselineRef = useRef({ content: "", anon: false, hasPoll: false })
 
   const hasContent = !!content.replace(/<[^>]*>/g, "").trim()
   const isOverLimit = charCount >= 100_000
+  const pollReady = poll ? isPollValid(poll) : true
+  const pollIncomplete = poll !== null && !pollReady
+  // Anket varsa boş entry'ye izin verilir; yine de yayın için "anlamlı veri" gereklidir.
+  const canPublish = (hasContent || (poll !== null && pollReady)) && !pollIncomplete
 
   useEffect(() => {
     setContent("")
     setIsAnonymous(false)
-    baselineRef.current = { content: "", anon: false }
+    setPoll(null)
+    baselineRef.current = { content: "", anon: false, hasPoll: false }
     setError("")
   }, [topicId])
 
   const isDirty =
     trimComposerHtml(content) !== trimComposerHtml(baselineRef.current.content) ||
-    isAnonymous !== baselineRef.current.anon
+    isAnonymous !== baselineRef.current.anon ||
+    (poll !== null) !== baselineRef.current.hasPoll
 
   const guardActive =
     isLoggedIn &&
     isDirty &&
-    (hasMeaningfulComposerHtml(content) || hasMeaningfulComposerHtml(baselineRef.current.content))
+    (hasMeaningfulComposerHtml(content) ||
+      hasMeaningfulComposerHtml(baselineRef.current.content) ||
+      poll !== null)
 
   useBeforeunloadWarning(guardActive)
   useInternalNavigationGuard(guardActive, (path) => {
@@ -69,14 +91,32 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
     const finalContent = trimHtmlContent(
       (content ?? "").replace(/^[\s\n\r\u00a0\u200b]+/, "").replace(/[\s\n\r\u00a0\u200b]+$/, ""),
     )
-    if (!finalContent) return false
+    // Anket varsa boş entry kabul edilir.
+    if (!finalContent && poll === null) return false
+    if (poll !== null && !isPollValid(poll)) {
+      setError(
+        "Anket eksik. Soruyu doldurun ve en az 2 farklı seçenek girin (veya anketi kaldırın).",
+      )
+      return false
+    }
+
+    const pollPayload: EntryPollSubmission | null =
+      poll !== null
+        ? {
+            question: (poll.question ?? "").trim(),
+            options: poll.options.map((o) => o.trim()).filter((o) => o.length > 0),
+            allowMultiple: poll.allowMultiple,
+            allowUserOptions: poll.allowUserOptions,
+          }
+        : null
 
     setIsSubmitting(true)
     setError("")
     try {
-      await onSubmit(finalContent, isAnonymous, () => setIsSubmitting(false))
+      await onSubmit(finalContent, isAnonymous, () => setIsSubmitting(false), pollPayload)
       setContent("")
-      baselineRef.current = { content: "", anon: isAnonymous }
+      setPoll(null)
+      baselineRef.current = { content: "", anon: isAnonymous, hasPoll: false }
       return true
     } catch (err) {
       setError(err instanceof Error ? err.message : "Entry eklenemedi")
@@ -90,7 +130,9 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
   }
 
   const performSaveDraft = async (): Promise<boolean> => {
-    if (!hasContent) return false
+    // Taslak kaydı için: ya anlamlı içerik, ya da en azından kısmen doldurulmuş bir anket olmalı.
+    const draftPoll = buildDraftPollPayload(poll)
+    if (!hasContent && draftPoll === null) return false
     if (isSavingDraft) return false
 
     const validTopicId =
@@ -110,11 +152,17 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
         .replace(/\s+$/, "")
         .replace(/^\n+/, "")
         .replace(/\n+$/, "")
-      const body: { topicId: string; content: string; isAnonymous?: boolean } = {
+      const body: {
+        topicId: string
+        content: string
+        isAnonymous?: boolean
+        poll?: EntryPollSubmission
+      } = {
         topicId,
         content: cleanContent.replace(/^[\s\n\r]+|[\s\n\r]+$/g, ""),
         isAnonymous,
       }
+      if (draftPoll) body.poll = draftPoll
       const res = await apiFetch(getApiUrl("api/Drafts"), {
         method: "POST",
         body: JSON.stringify(body),
@@ -126,7 +174,8 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
       }
       if (res.status === 200 || res.status === 201) {
         setContent("")
-        baselineRef.current = { content: "", anon: isAnonymous }
+        setPoll(null)
+        baselineRef.current = { content: "", anon: isAnonymous, hasPoll: false }
         return true
       }
       return false
@@ -173,6 +222,9 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
     )
   }
 
+  const draftPollAvailable = buildDraftPollPayload(poll) !== null
+  const canSaveDraft = hasContent || draftPollAvailable
+
   return (
     <>
       <div className="bg-card border border-border rounded-lg p-5 min-w-0 w-full max-w-full">
@@ -182,6 +234,9 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
           placeholder="düşüncelerinizi yazın..."
           onCharCountChange={setCharCount}
           contentMinHeightClass="min-h-[180px]"
+          poll={poll}
+          onPollChange={setPoll}
+          pollDisabled={isSubmitting}
         />
         <div className="mt-3 space-y-1">
           <RadioGroup
@@ -208,25 +263,26 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
             </p>
           )}
         </div>
+
         {isOverLimit && (
           <p className="text-sm text-red-500 font-medium mt-2">
             Entry maksimum 100.000 karakter olabilir. Lütfen içeriği kısaltın.
           </p>
         )}
         {!isOverLimit && error && <p className="text-sm text-destructive mt-2">{error}</p>}
-        <div className="flex justify-end items-center gap-2 pt-3 border-t border-border/50 mt-3">
+        <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/50 mt-3 flex-wrap">
           <Button
             variant="outline"
             size="sm"
             onClick={handleSaveDraft}
-            disabled={!hasContent || isSavingDraft || isOverLimit}
+            disabled={!canSaveDraft || isSavingDraft || isOverLimit}
             className="text-muted-foreground hover:text-foreground"
           >
             {isSavingDraft ? "Kaydediliyor..." : "Taslak Olarak Kaydet"}
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!hasContent || isSubmitting || isOverLimit}
+            disabled={!canPublish || isSubmitting || isOverLimit}
             className="bg-foreground text-background hover:bg-foreground/90 disabled:opacity-50"
           >
             {isSubmitting ? "Gönderiliyor..." : "Gönder"}
@@ -240,8 +296,8 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
         onOpenChange={setUnsavedOpen}
         isPublishing={isSubmitting}
         isSavingDraft={isSavingDraft}
-        publishDisabled={!hasContent || isOverLimit || isSavingDraft}
-        saveDraftDisabled={!hasContent || isOverLimit || isSubmitting}
+        publishDisabled={!canPublish || isOverLimit || isSavingDraft}
+        saveDraftDisabled={!canSaveDraft || isOverLimit || isSubmitting}
         onPublish={publishFromGuard}
         onSaveDraft={draftFromGuard}
         onDiscard={() => {
@@ -249,7 +305,8 @@ export function EntryForm({ topicId, onSubmit, isLoggedIn, onLoginClick }: Entry
           setPendingNav(null)
           setContent("")
           setIsAnonymous(false)
-          baselineRef.current = { content: "", anon: false }
+          setPoll(null)
+          baselineRef.current = { content: "", anon: false, hasPoll: false }
           setUnsavedOpen(false)
           if (nav) router.push(nav)
         }}

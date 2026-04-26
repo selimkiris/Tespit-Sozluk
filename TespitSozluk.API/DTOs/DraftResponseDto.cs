@@ -12,4 +12,10 @@ public class DraftResponseDto
     public DateTime UpdatedAt { get; set; }
     /// <summary>Yayınlandığında Tam Anonim olarak paylaşılacak</summary>
     public bool IsAnonymous { get; set; }
+
+    /// <summary>
+    /// Taslakta saklı anket (varsa). Frontend, taslak listesi/edit ekranında bu veriyi
+    /// önizleme olarak göstermek ve PollComposer'a yüklemek için kullanır.
+    /// </summary>
+    public CreatePollDto? Poll { get; set; }
 }
