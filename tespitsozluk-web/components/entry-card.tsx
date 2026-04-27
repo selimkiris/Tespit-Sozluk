@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Heart, MoreHorizontal, Pencil, Trash2, User, Users, Flag, ShieldX, BadgeCheck } from "lucide-react"
+import { Heart, MoreHorizontal, Pencil, Trash2, User, Users, Flag, ShieldX, BadgeCheck, MessageCircle } from "lucide-react"
 import { ShareMenuSub } from "@/components/share-menu"
 import { getApiUrl, apiFetch, getSiteUrl } from "@/lib/api"
 import { CiviIcon } from "@/components/icons/CiviIcon"
@@ -63,6 +63,7 @@ import {
 } from "@/lib/search-highlight-html"
 import { formatTurkeyDateTime } from "@/lib/turkey-datetime"
 import { NoviceBadge, shouldShowNoviceBadge } from "@/components/novice-badge"
+import { SendMessageDialog } from "@/components/send-message-dialog"
 
 interface Entry {
   id: string
@@ -105,6 +106,8 @@ interface EntryCardProps {
   onVoteSuccess?: () => void
   currentUser?: { id: string; role?: string } | null
   onEntryChange?: () => void
+  /** Başlık detayından açıldıysa referans linki için SEO slug (opsiyonel). */
+  messageContextTopicSlug?: string | null
 }
 
 /** Düz metinde aranan kelimeyi vurgular (yazar adı); entry gövdesi HtmlRenderer ile aynı eşik ve sınıflar. */
@@ -143,6 +146,7 @@ export function EntryCard({
   onVoteSuccess,
   currentUser,
   onEntryChange,
+  messageContextTopicSlug,
 }: EntryCardProps) {
   const router = useRouter()
   const [userVote, setUserVote] = useState<"up" | "down" | null>(entry.userVote ?? null)
@@ -178,6 +182,7 @@ export function EntryCard({
   const [localIsAnonymous, setLocalIsAnonymous] = useState<boolean>(entry.isAnonymous ?? false)
   const [localAuthor, setLocalAuthor] = useState<Entry["author"]>(entry.author)
   const [localIsNovice, setLocalIsNovice] = useState(entry.isNovice ?? false)
+  const [sendMessageOpen, setSendMessageOpen] = useState(false)
 
   // --- Mikro-animasyon geçici state'leri (yalnızca görsel; API/mantık etkilenmez) ---
   const [heartAnim, setHeartAnim] = useState(false)
@@ -222,6 +227,14 @@ export function EntryCard({
   const canManage = entry.canManage ?? (!!currentUser && currentUser.id === entry.author.id)
   const isAdmin = currentUser?.role === "Admin"
   const isAnonymousEntry = localIsAnonymous || localAuthor?.nickname === "Anonim"
+  const emptyAuthorGuid = "00000000-0000-0000-0000-000000000000"
+  const showSendMessage =
+    isLoggedIn &&
+    !canManage &&
+    !!localAuthor?.id &&
+    localAuthor.id !== emptyAuthorGuid &&
+    !!currentUser?.id &&
+    currentUser.id !== localAuthor.id
 
   useEffect(() => {
     setUserVote(entry.userVote ?? null)
@@ -791,6 +804,15 @@ export function EntryCard({
                 url={`${getSiteUrl()}/entry/${entry.id}`}
                 title={`${entry.topicTitle} - ${localAuthor?.nickname ?? "Anonim"} | Tespit Sözlük`}
               />
+              {showSendMessage && (
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={() => setSendMessageOpen(true)}
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Mesaj Gönder
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => setIsReportOpen(true)}>
                 <Flag className="h-4 w-4" />
                 Şikayet Et
@@ -808,6 +830,26 @@ export function EntryCard({
           </DropdownMenu>
         </div>
       </div>
+
+      <SendMessageDialog
+        open={sendMessageOpen}
+        onOpenChange={setSendMessageOpen}
+        recipientId={localAuthor.id}
+        recipientDisplayName={localAuthor.nickname}
+        reference={
+          showSendMessage
+            ? {
+                kind: "entry",
+                entryId: entry.id,
+                topicId: entry.topicId,
+                topicTitle: entry.topicTitle,
+                topicSlug: messageContextTopicSlug,
+                bodyHtml: content,
+                hasPoll: !!(localPoll ?? entry.poll),
+              }
+            : null
+        }
+      />
 
       <ReportDialog
         open={isReportOpen}

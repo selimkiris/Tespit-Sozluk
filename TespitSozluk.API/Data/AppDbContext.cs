@@ -24,6 +24,7 @@ public class AppDbContext : DbContext
     public DbSet<Poll> Polls { get; set; }
     public DbSet<PollOption> PollOptions { get; set; }
     public DbSet<PollVote> PollVotes { get; set; }
+    public DbSet<PrivateMessage> PrivateMessages { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -287,5 +288,45 @@ public class AppDbContext : DbContext
         // Toplam oy / "kullanıcı bu ankette oyladı mı?" sorguları için hızlı lookup.
         modelBuilder.Entity<PollVote>()
             .HasIndex(v => new { v.PollId, v.UserId });
+
+        // ── Özel mesajlar (asenkron) ───────────────────────────────────────
+        modelBuilder.Entity<PrivateMessage>()
+            .HasOne(m => m.Sender)
+            .WithMany()
+            .HasForeignKey(m => m.SenderId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PrivateMessage>()
+            .HasOne(m => m.Recipient)
+            .WithMany()
+            .HasForeignKey(m => m.RecipientId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PrivateMessage>()
+            .Property(m => m.Content)
+            .HasMaxLength(10_000)
+            .IsRequired();
+
+        modelBuilder.Entity<PrivateMessage>()
+            .HasIndex(m => new { m.RecipientId, m.CreatedAtUtc });
+
+        modelBuilder.Entity<PrivateMessage>()
+            .HasIndex(m => new { m.SenderId, m.CreatedAtUtc });
+
+        modelBuilder.Entity<PrivateMessage>()
+            .HasOne(m => m.ReferencedEntry)
+            .WithMany()
+            .HasForeignKey(m => m.ReferencedEntryId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<PrivateMessage>()
+            .HasOne(m => m.ReferencedTopic)
+            .WithMany()
+            .HasForeignKey(m => m.ReferencedTopicId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<User>()
+            .Property(u => u.MessagingInboxMode)
+            .HasDefaultValue(MessagingInboxMode.Everyone);
     }
 }

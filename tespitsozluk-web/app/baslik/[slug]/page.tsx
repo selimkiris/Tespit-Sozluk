@@ -34,7 +34,6 @@ type TopicApiResponse = {
   isTopicOwner?: boolean
   canManageTopic?: boolean
   isNovice?: boolean
-  authorRole?: string | null
 }
 
 type EntriesApiResponse = {

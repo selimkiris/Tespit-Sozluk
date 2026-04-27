@@ -1002,4 +1002,81 @@ public class UsersController : ControllerBase
             HasNextPage = page < totalPages
         };
     }
+
+    [Authorize]
+    [HttpGet("settings/messaging")]
+    public async Task<ActionResult<MessagingPreferencesDto>> GetMessagingPreferences()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var row = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.Id == userId)
+            .Select(u => new { u.MessagingInboxMode, u.MessagingMinLevelThreshold })
+            .FirstOrDefaultAsync();
+
+        if (row == null)
+        {
+            return NotFound();
+        }
+
+        return new MessagingPreferencesDto
+        {
+            InboxMode = row.MessagingInboxMode,
+            MinLevelThreshold = row.MessagingMinLevelThreshold
+        };
+    }
+
+    [Authorize]
+    [HttpPut("settings/messaging")]
+    public async Task<ActionResult<MessagingPreferencesDto>> UpdateMessagingPreferences(
+        [FromBody] UpdateMessagingPreferencesRequest? request)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        if (request == null)
+        {
+            return BadRequest(new { message = "İstek gövdesi gerekli." });
+        }
+
+        if (!Enum.IsDefined(typeof(MessagingInboxMode), request.InboxMode))
+        {
+            return BadRequest(new { message = "Geçersiz mesajlaşma tercihi." });
+        }
+
+        if (request.InboxMode == MessagingInboxMode.MinimumLevel)
+        {
+            if (!request.MinLevelThreshold.HasValue || request.MinLevelThreshold.Value > 10)
+            {
+                return BadRequest(new { message = "Seviye eşiği 0 ile 10 arasında seçilmelidir." });
+            }
+        }
+
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+        {
+            return NotFound();
+        }
+
+        user.MessagingInboxMode = request.InboxMode;
+        user.MessagingMinLevelThreshold = request.InboxMode == MessagingInboxMode.MinimumLevel
+            ? request.MinLevelThreshold!.Value
+            : null;
+
+        await _context.SaveChangesAsync();
+
+        return new MessagingPreferencesDto
+        {
+            InboxMode = user.MessagingInboxMode,
+            MinLevelThreshold = user.MessagingMinLevelThreshold
+        };
+    }
 }

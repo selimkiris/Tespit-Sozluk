@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, type MouseEvent as ReactMouseEvent } from "react"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { Search, Menu, X, Hash, User, Bell, Settings, ShieldAlert, Info } from "lucide-react"
+import { Search, Menu, X, Hash, User, Bell, Settings, ShieldAlert, Info, MessageSquare } from "lucide-react"
 import DOMPurify from "isomorphic-dompurify"
 import { getApiUrl, apiFetch } from "@/lib/api"
 import {
@@ -107,6 +107,7 @@ export function Navbar({
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isSearchLoading, setIsSearchLoading] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [messageUnreadCount, setMessageUnreadCount] = useState(0)
   const [adminUnreadReports, setAdminUnreadReports] = useState(0)
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
@@ -193,6 +194,21 @@ export function Navbar({
     }
   }, [isLoggedIn])
 
+  const fetchMessageUnreadCount = useCallback(async () => {
+    if (!isLoggedIn) return
+    try {
+      const res = await apiFetch(getApiUrl("api/Messages/unread-count"))
+      if (res.ok) {
+        const n = await res.json()
+        setMessageUnreadCount(typeof n === "number" ? n : 0)
+      } else {
+        setMessageUnreadCount(0)
+      }
+    } catch {
+      setMessageUnreadCount(0)
+    }
+  }, [isLoggedIn])
+
   const fetchAdminUnreadReports = useCallback(async () => {
     if (!isLoggedIn || user?.role !== "Admin") return
     try {
@@ -233,9 +249,26 @@ export function Navbar({
   }, [isLoggedIn])
 
   useEffect(() => {
-    if (isLoggedIn) fetchUnreadCount()
-    else setUnreadCount(0)
-  }, [isLoggedIn, fetchUnreadCount])
+    if (isLoggedIn) {
+      void fetchUnreadCount()
+      void fetchMessageUnreadCount()
+    } else {
+      setUnreadCount(0)
+      setMessageUnreadCount(0)
+    }
+  }, [isLoggedIn, fetchUnreadCount, fetchMessageUnreadCount])
+
+  useEffect(() => {
+    if (isLoggedIn) void fetchMessageUnreadCount()
+  }, [pathname, isLoggedIn, fetchMessageUnreadCount])
+
+  useEffect(() => {
+    const onMessagesRefresh = () => {
+      void fetchMessageUnreadCount()
+    }
+    window.addEventListener("tespit-messages-refresh", onMessagesRefresh)
+    return () => window.removeEventListener("tespit-messages-refresh", onMessagesRefresh)
+  }, [fetchMessageUnreadCount])
 
   useEffect(() => {
     if (isLoggedIn && user?.role === "Admin") fetchAdminUnreadReports()
@@ -401,6 +434,23 @@ export function Navbar({
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2">
+          {isLoggedIn && (
+            <Button
+              variant="ghost"
+              size="icon"
+              asChild
+              className="relative h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-[#3a3b3c] rounded-full transition-colors duration-200 shrink-0"
+            >
+              <Link href="/mesajlar" aria-label="Mesajlar">
+                <MessageSquare className="h-4 w-4" />
+                {messageUnreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-semibold text-white px-1 border border-[#252728]">
+                    {messageUnreadCount > 99 ? "99+" : messageUnreadCount}
+                  </span>
+                )}
+              </Link>
+            </Button>
+          )}
           {isLoggedIn && (
             <Popover open={isNotificationsOpen} onOpenChange={handleNotificationsOpenChange}>
               <PopoverTrigger asChild>

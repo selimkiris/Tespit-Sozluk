@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, Bell, BellOff, Search, Flag, ShieldAlert, FolderOutput, User } from "lucide-react"
+import { ArrowLeft, MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, Bell, BellOff, Search, Flag, ShieldAlert, FolderOutput, User, MessageCircle } from "lucide-react"
 import { ShareMenuSub } from "@/components/share-menu"
 import { getApiUrl, apiFetch, getSiteUrl } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -56,6 +56,7 @@ import { TOPIC_TITLE_MAX_LENGTH } from "@/lib/topic.schema"
 import { topicHref, topicPageHref } from "@/lib/topic-href"
 import { DangerConfirmModal } from "@/components/admin/danger-confirm-modal"
 import type { ApiPollDto, EntryPollSubmission } from "@/lib/entry-poll"
+import { SendMessageDialog } from "@/components/send-message-dialog"
 
 interface Entry {
   id: string
@@ -183,6 +184,7 @@ export function TopicDetail({
   const [adminMoveSelectedTitle, setAdminMoveSelectedTitle] = useState("")
   const [isAdminMoving, setIsAdminMoving] = useState(false)
   const [adminMoveError, setAdminMoveError] = useState<string | null>(null)
+  const [authorMessageOpen, setAuthorMessageOpen] = useState(false)
 
   const isAdmin = currentUser?.role === "Admin"
 
@@ -743,6 +745,19 @@ export function TopicDetail({
                   url={`${getSiteUrl()}${topicHref(mergedTopic)}`}
                   title={`${mergedTopic.title} | Tespit Sözlük`}
                 />
+                {isLoggedIn &&
+                  !mergedTopic.isAnonymous &&
+                  mergedTopic.authorId &&
+                  currentUser?.id &&
+                  currentUser.id !== mergedTopic.authorId && (
+                    <DropdownMenuItem
+                      className="cursor-pointer font-normal"
+                      onClick={() => setAuthorMessageOpen(true)}
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      Mesaj Gönder
+                    </DropdownMenuItem>
+                  )}
                 <DropdownMenuItem
                   className="cursor-pointer font-normal"
                   onClick={() => setIsReportOpen(true)}
@@ -780,6 +795,21 @@ export function TopicDetail({
           </div>
         </div>
       </div>
+
+      {!mergedTopic.isAnonymous && mergedTopic.authorId && (
+        <SendMessageDialog
+          open={authorMessageOpen}
+          onOpenChange={setAuthorMessageOpen}
+          recipientId={mergedTopic.authorId}
+          recipientDisplayName={topicAuthorDisplay}
+          reference={{
+            kind: "topic",
+            topicId: mergedTopic.id,
+            title: mergedTopic.title,
+            slug: mergedTopic.slug,
+          }}
+        />
+      )}
 
       <ReportDialog
         open={isReportOpen}
@@ -1051,6 +1081,7 @@ export function TopicDetail({
                 onLoginClick={onLoginClick}
                 currentUser={currentUser ? { id: currentUser.id, role: currentUser.role } : null}
                 onEntryChange={onTopicChange}
+                messageContextTopicSlug={mergedTopic.slug}
               />
             ))
           ) : (

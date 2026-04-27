@@ -30,6 +30,25 @@ public static class UserLevelHelper
         int publicTopicCount,
         DateTime utcNow)
     {
+        var idx = GetLevelIndex(userCreatedAt, publicEntryCount, publicTopicCount, utcNow);
+        if (idx < 0)
+        {
+            return "Çömez";
+        }
+
+        return Levels[idx].Name;
+    }
+
+    /// <summary>
+    /// Profil seviyesi indeksi: 0 = Level 0 … 10 = Level 10. Hiçbir eşik
+    /// tutmazsa <c>-1</c> (çömez). <see cref="GetLevelName"/> ile aynı eşikler.
+    /// </summary>
+    public static int GetLevelIndex(
+        DateTime userCreatedAt,
+        int publicEntryCount,
+        int publicTopicCount,
+        DateTime utcNow)
+    {
         for (var i = Levels.Length - 1; i >= 0; i--)
         {
             var row = Levels[i];
@@ -37,10 +56,10 @@ public static class UserLevelHelper
                 && publicEntryCount >= row.MinEntries
                 && publicTopicCount >= row.MinTopics)
             {
-                return row.Name;
+                return i;
             }
         }
 
-        return "Çömez";
+        return -1;
     }
 }

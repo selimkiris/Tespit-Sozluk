@@ -1214,6 +1214,18 @@ export default function UserProfilePage() {
                   )}
                 </Button>
               )}
+              {!isOwnProfile && isLoggedIn && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => user?.id && router.push(`/mesajlar?chatWith=${encodeURIComponent(user.id)}`)}
+                  className="gap-1.5"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Mesaj Gönder
+                </Button>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button

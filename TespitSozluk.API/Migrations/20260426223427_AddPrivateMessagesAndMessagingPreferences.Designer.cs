@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TespitSozluk.API.Data;
@@ -11,9 +12,11 @@ using TespitSozluk.API.Data;
 namespace TespitSozluk.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260426223427_AddPrivateMessagesAndMessagingPreferences")]
+    partial class AddPrivateMessagesAndMessagingPreferences
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -278,8 +281,8 @@ namespace TespitSozluk.API.Migrations
 
                     b.Property<string>("Content")
                         .IsRequired()
-                        .HasMaxLength(10000)
-                        .HasColumnType("character varying(10000)");
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -290,20 +293,10 @@ namespace TespitSozluk.API.Migrations
                     b.Property<Guid>("RecipientId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("ReferencedEntryId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("ReferencedTopicId")
-                        .HasColumnType("uuid");
-
                     b.Property<Guid>("SenderId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("ReferencedEntryId");
-
-                    b.HasIndex("ReferencedTopicId");
 
                     b.HasIndex("RecipientId", "CreatedAtUtc");
 
@@ -705,16 +698,6 @@ namespace TespitSozluk.API.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("TespitSozluk.API.Entities.Entry", "ReferencedEntry")
-                        .WithMany()
-                        .HasForeignKey("ReferencedEntryId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("TespitSozluk.API.Entities.Topic", "ReferencedTopic")
-                        .WithMany()
-                        .HasForeignKey("ReferencedTopicId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("TespitSozluk.API.Entities.User", "Sender")
                         .WithMany()
                         .HasForeignKey("SenderId")
@@ -722,10 +705,6 @@ namespace TespitSozluk.API.Migrations
                         .IsRequired();
 
                     b.Navigation("Recipient");
-
-                    b.Navigation("ReferencedEntry");
-
-                    b.Navigation("ReferencedTopic");
 
                     b.Navigation("Sender");
                 });

@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import * as DialogPrimitive from "@radix-ui/react-dialog"
 import DOMPurify from "isomorphic-dompurify"
-import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react"
+import { EntryImageLightboxDialog } from "@/components/entry-image-lightbox-dialog"
 import { cn } from "@/lib/utils"
 import {
   applyBkzLinks,
@@ -31,13 +30,6 @@ function isEntryInlineImageLightboxAnchor(a: HTMLAnchorElement): boolean {
   }
   if (a.getAttribute("data-entry-image-lightbox")) return true
   return a.getAttribute("target") === "_blank"
-}
-
-function isLightboxNavInteractionTarget(target: EventTarget | null): boolean {
-  return (
-    target instanceof Element &&
-    !!target.closest('[data-lightbox-nav="true"]')
-  )
 }
 
 /** Harf veya rakam içeriyorsa “anlamlı metin” sayılır (spoiler / yazı sınırı). */
@@ -212,39 +204,6 @@ export function HtmlRenderer({ html, className, searchHighlightQuery }: HtmlRend
     }
   }, [displayHtml, router])
 
-  useEffect(() => {
-    if (imageLightbox == null) return
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") {
-        e.preventDefault()
-        setImageLightbox((prev) => {
-          if (!prev || prev.currentIndex <= 0) return prev
-          return { ...prev, currentIndex: prev.currentIndex - 1 }
-        })
-      } else if (e.key === "ArrowRight") {
-        e.preventDefault()
-        setImageLightbox((prev) => {
-          if (!prev || prev.currentIndex >= prev.images.length - 1) return prev
-          return { ...prev, currentIndex: prev.currentIndex + 1 }
-        })
-      }
-    }
-    window.addEventListener("keydown", onKeyDown)
-    return () => window.removeEventListener("keydown", onKeyDown)
-  }, [imageLightbox != null])
-
-  const lightboxSlide =
-    imageLightbox &&
-    imageLightbox.images[imageLightbox.currentIndex] != null
-      ? imageLightbox.images[imageLightbox.currentIndex]
-      : null
-  const galleryLen = imageLightbox?.images.length ?? 0
-  const canPrev =
-    imageLightbox != null && imageLightbox.currentIndex > 0
-  const canNext =
-    imageLightbox != null &&
-    imageLightbox.currentIndex < galleryLen - 1
-
   return (
     <>
       <div
@@ -261,118 +220,15 @@ export function HtmlRenderer({ html, className, searchHighlightQuery }: HtmlRend
         dangerouslySetInnerHTML={{ __html: displayHtml }}
       />
 
-      <DialogPrimitive.Root
-        open={imageLightbox != null}
-        onOpenChange={(open) => {
-          if (!open) setImageLightbox(null)
+      <EntryImageLightboxDialog
+        value={imageLightbox}
+        onOpenChange={(o) => {
+          if (!o) setImageLightbox(null)
         }}
-      >
-        <DialogPrimitive.Portal>
-          <DialogPrimitive.Overlay
-            className={cn(
-              "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/55 backdrop-blur-sm duration-200",
-            )}
-          />
-          <DialogPrimitive.Content
-            className={cn(
-              "fixed inset-0 z-50 flex max-h-none max-w-none w-screen items-center justify-center border-0 bg-transparent p-0 shadow-none outline-none pointer-events-none",
-              "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200",
-            )}
-            onOpenAutoFocus={(e) => e.preventDefault()}
-            onPointerDownOutside={(e) => {
-              if (isLightboxNavInteractionTarget(e.target)) e.preventDefault()
-            }}
-            onInteractOutside={(e) => {
-              if (isLightboxNavInteractionTarget(e.target)) e.preventDefault()
-            }}
-          >
-            <DialogPrimitive.Title className="sr-only">
-              Görsel önizleme
-            </DialogPrimitive.Title>
-            <DialogPrimitive.Description className="sr-only">
-              ESC veya dışarı tıklayarak kapatabilirsiniz. Birden fazla görselde
-              sol ve sağ ok tuşlarıyla gezinebilirsiniz.
-            </DialogPrimitive.Description>
-
-            {imageLightbox && lightboxSlide ? (
-              <div className="relative inline-flex max-w-[min(calc(100vw-2rem),100vw)] shrink-0 pointer-events-auto">
-                <DialogPrimitive.Close
-                  type="button"
-                  className={cn(
-                    "ring-offset-background focus-visible:ring-ring absolute -top-11 right-0 z-[60] flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/95 text-foreground shadow-md transition-opacity",
-                    "hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
-                  )}
-                  aria-label="Kapat"
-                >
-                  <XIcon className="size-4" />
-                </DialogPrimitive.Close>
-                <img
-                  key={`${imageLightbox.currentIndex}-${lightboxSlide.src}`}
-                  src={lightboxSlide.src}
-                  alt={lightboxSlide.alt}
-                  className={cn(
-                    "max-h-[min(calc(100vh-5rem),100vh)] max-w-full w-auto h-auto object-contain rounded-md shadow-2xl select-none",
-                    "animate-in fade-in-0 zoom-in-95 duration-200",
-                  )}
-                  draggable={false}
-                />
-              </div>
-            ) : null}
-
-            {imageLightbox != null && galleryLen > 1 ? (
-              <>
-                {canPrev ? (
-                  <button
-                    type="button"
-                    data-lightbox-nav="true"
-                    className={cn(
-                      "fixed left-4 top-1/2 z-[60] flex -translate-y-1/2 items-center justify-center rounded-full p-3 md:left-10",
-                      "pointer-events-auto bg-black/20 text-white/70 transition-all hover:bg-black/60 hover:text-white",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50",
-                    )}
-                    aria-label="Önceki görsel"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      setImageLightbox((prev) => {
-                        if (!prev || prev.currentIndex <= 0) return prev
-                        return { ...prev, currentIndex: prev.currentIndex - 1 }
-                      })
-                    }}
-                  >
-                    <ChevronLeftIcon className="size-6" aria-hidden />
-                  </button>
-                ) : null}
-                {canNext ? (
-                  <button
-                    type="button"
-                    data-lightbox-nav="true"
-                    className={cn(
-                      "fixed right-4 top-1/2 z-[60] flex -translate-y-1/2 items-center justify-center rounded-full p-3 md:right-10",
-                      "pointer-events-auto bg-black/20 text-white/70 transition-all hover:bg-black/60 hover:text-white",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50",
-                    )}
-                    aria-label="Sonraki görsel"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      setImageLightbox((prev) => {
-                        if (!prev || prev.currentIndex >= prev.images.length - 1)
-                          return prev
-                        return { ...prev, currentIndex: prev.currentIndex + 1 }
-                      })
-                    }}
-                  >
-                    <ChevronRightIcon className="size-6" aria-hidden />
-                  </button>
-                ) : null}
-              </>
-            ) : null}
-          </DialogPrimitive.Content>
-        </DialogPrimitive.Portal>
-      </DialogPrimitive.Root>
+        onIndexChange={(idx) =>
+          setImageLightbox((prev) => (prev ? { ...prev, currentIndex: idx } : null))
+        }
+      />
     </>
   )
 }

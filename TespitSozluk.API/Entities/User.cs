@@ -20,6 +20,16 @@ public class User
     /// <summary>Kullanıcı rolü: "User" (varsayılan) veya "Admin".</summary>
     public string Role { get; set; } = "User";
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>Özel mesaj gelen kutusu kuralı. Varsayılan: herkes.</summary>
+    public MessagingInboxMode MessagingInboxMode { get; set; } = MessagingInboxMode.Everyone;
+
+    /// <summary>
+    /// <see cref="MessagingInboxMode.MinimumLevel"/> seçildiğinde: kabul edilen asgari
+    /// seviye indeksi 0–10 (UserLevelHelper ile aynı ölçek). Diğer modlarda yok sayılır.
+    /// </summary>
+    public byte? MessagingMinLevelThreshold { get; set; }
+
     public ICollection<Topic> Topics { get; set; } = new List<Topic>();
     public ICollection<Entry> Entries { get; set; } = new List<Entry>();
 }
