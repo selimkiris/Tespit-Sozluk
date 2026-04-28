@@ -41,6 +41,7 @@ public class SearchController : ControllerBase
 
         var users = await _context.Users
             .Where(u =>
+                EF.Functions.ILike(u.Username, searchPattern) ||
                 EF.Functions.ILike(u.FirstName, searchPattern) ||
                 EF.Functions.ILike(u.LastName, searchPattern) ||
                 EF.Functions.ILike(u.FirstName + " " + u.LastName, searchPattern) ||
@@ -49,6 +50,7 @@ public class SearchController : ControllerBase
             {
                 Id = u.Id,
                 Name = (u.FirstName + " " + u.LastName).Trim(),
+                Username = u.Username,
                 Avatar = u.Avatar
             })
             .Take(10)

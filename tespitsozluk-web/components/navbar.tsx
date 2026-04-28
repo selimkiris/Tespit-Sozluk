@@ -35,7 +35,17 @@ const NAVBAR_LIST_FETCH_ERROR =
   "Tüh! Verileri yolda düşürdük galiba... Sayfayı yenileyip tekrar dener misin?"
 
 type SearchTopic = { id: string; title: string }
-type SearchUser = { id: string; name: string }
+type SearchUser = { id: string; name: string; username?: string | null; avatar?: string | null }
+
+/** Görsel URL'si (http/https/data veya API köküne göre / ile başlayan yol); emoji metin için null döner. */
+function searchResultAvatarImageSrc(raw: string | null | undefined): string | null {
+  if (raw == null) return null
+  const a = raw.trim()
+  if (a === "") return null
+  if (a.startsWith("http://") || a.startsWith("https://") || a.startsWith("data:")) return a
+  if (a.startsWith("/")) return getApiUrl(a.replace(/^\//, ""))
+  return null
+}
 
 interface NavbarProps {
   isLoggedIn: boolean
@@ -136,7 +146,12 @@ export function Navbar({
       const data = await res.json().catch(() => ({}))
       setSearchResults({
         topics: (data.topics ?? []).map((t: { id: string; title: string }) => ({ id: String(t.id), title: t.title ?? "" })),
-        users: (data.users ?? []).map((u: { id: string; name: string }) => ({ id: String(u.id), name: u.name ?? "" })),
+        users: (data.users ?? []).map((u: { id: string; name?: string; username?: string | null; avatar?: string | null }) => ({
+          id: String(u.id),
+          name: u.name ?? "",
+          username: u.username ?? null,
+          avatar: u.avatar ?? null,
+        })),
       })
     } catch {
       toast.error(NAVBAR_LIST_FETCH_ERROR)
@@ -322,6 +337,38 @@ export function Navbar({
       .toUpperCase()
   }
 
+  const searchUserLabel = (u: SearchUser) => u.name?.trim() || u.username || "İsimsiz"
+
+  const renderSearchUserAvatar = (u: SearchUser) => {
+    const label = searchUserLabel(u)
+    const imgSrc = searchResultAvatarImageSrc(u.avatar)
+    if (imgSrc) {
+      return (
+        <img
+          src={imgSrc}
+          alt=""
+          referrerPolicy="no-referrer"
+          className="h-7 w-7 shrink-0 rounded-full object-cover border border-border/60"
+        />
+      )
+    }
+    if (u.avatar?.trim()) {
+      return (
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary/80 text-[15px] border border-border/60 leading-none">
+          {u.avatar.trim()}
+        </span>
+      )
+    }
+    const initialsSource = label !== "İsimsiz" ? label : u.username || "?"
+    return (
+      <Avatar className="h-7 w-7 shrink-0">
+        <AvatarFallback className="bg-muted text-muted-foreground text-[10px] font-medium">
+          {(initialsSource ? getInitials(initialsSource) : "?").slice(0, 2) || "?"}
+        </AvatarFallback>
+      </Avatar>
+    )
+  }
+
   const handleLogoClick = useCallback(() => {
     const isCleanHome = pathname === "/" && !searchParams.has("topic")
     if (isCleanHome) {
@@ -408,11 +455,13 @@ export function Navbar({
                         {searchResults.users.map((u) => (
                           <button
                             key={u.id}
-                            onClick={() => handleUserClick(u.id, u.name || "İsimsiz")}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm rounded-md hover:bg-accent transition-colors"
+                            onClick={() => handleUserClick(u.id, searchUserLabel(u))}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm rounded-md hover:bg-accent transition-colors"
                           >
-                            <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap inline-block">{u.name || "İsimsiz"}</span>
+                            {renderSearchUserAvatar(u)}
+                            <span className="max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap inline-block">
+                              {searchUserLabel(u)}
+                            </span>
                           </button>
                         ))}
                       </div>
@@ -923,11 +972,13 @@ export function Navbar({
                       {searchResults.users.map((u) => (
                         <button
                           key={u.id}
-                          onClick={() => handleUserClick(u.id, u.name || "İsimsiz")}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm rounded-md hover:bg-accent transition-colors"
+                          onClick={() => handleUserClick(u.id, searchUserLabel(u))}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm rounded-md hover:bg-accent transition-colors"
                         >
-                          <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span className="max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap inline-block">{u.name || "İsimsiz"}</span>
+                          {renderSearchUserAvatar(u)}
+                          <span className="max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap inline-block">
+                            {searchUserLabel(u)}
+                          </span>
                         </button>
                       ))}
                     </div>
