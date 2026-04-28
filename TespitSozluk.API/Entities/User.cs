@@ -21,6 +21,12 @@ public class User
     public string Role { get; set; } = "User";
     public DateTime CreatedAt { get; set; }
 
+    /// <summary>Admin uçurma (yasal saklama) sonrası normal sorgularda gizlenir.</summary>
+    public bool IsDeleted { get; set; } = false;
+
+    /// <summary>Uçurulma zamanı (UTC). Saklama süresi sonunda kalıcı silinir.</summary>
+    public DateTime? DeletedAtUtc { get; set; }
+
     /// <summary>Özel mesaj gelen kutusu kuralı. Varsayılan: herkes.</summary>
     public MessagingInboxMode MessagingInboxMode { get; set; } = MessagingInboxMode.Everyone;
 

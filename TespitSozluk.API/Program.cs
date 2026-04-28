@@ -49,6 +49,7 @@ builder.Services.AddScoped<IPollService, PollService>();
 builder.Services.AddScoped<INoviceStatusService, NoviceStatusService>();
 builder.Services.AddScoped<IMessagingPermissionService, MessagingPermissionService>();
 builder.Services.AddHostedService<LogCleanupBackgroundService>();
+builder.Services.AddHostedService<DataRetentionCleanupService>();
 
 builder.Services.AddControllers()
     .AddJsonOptions(x =>

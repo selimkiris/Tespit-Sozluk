@@ -15,6 +15,12 @@ public class Entry
     /// <summary>Tam anonim modda yazar bilgisi gösterilmez.</summary>
     public bool IsAnonymous { get; set; }
 
+    /// <summary>Yazar uçurulduğunda içerik yasal saklama için gizlenir; süre dolunca kalıcı silinir.</summary>
+    public bool IsDeleted { get; set; } = false;
+
+    /// <summary>Yazar uçurulduğunda işaretlenir (UTC).</summary>
+    public DateTime? DeletedAtUtc { get; set; }
+
     /// <summary>
     /// Opsiyonel anket. Mevcut entry akışı anketsiz şekilde çalışmaya devam eder;
     /// yalnızca ankete sahip entry'lerde dolu olur. Entry silindiğinde cascade ile temizlenir.

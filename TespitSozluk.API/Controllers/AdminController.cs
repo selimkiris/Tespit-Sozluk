@@ -147,11 +147,9 @@ public class AdminController : ControllerBase
     // ─────────────────────────────────────────────
 
     /// <summary>
-    /// Kullanıcıyı tüm bağlı verileriyle akıllıca siler:
-    /// - Oylar, kaydedilenler, takipler, bildirimler, taslaklar silinir.
-    /// - Entry'ler silinir.
-    /// - Kullanıcının açtığı başlıklarda YALNIZCA kendi entry'leri varsa başlık silinir;
-    ///   başka yazarların entry'leri de varsa AuthorId null yapılır (anonim başlık).
+    /// Kullanıcıyı "uçurur": sosyal etkileşimler kalıcı silinir; kullanıcı ve entry içeriği
+    /// yasal saklama için soft-delete edilir (IsDeleted / DeletedAtUtc). Süre sonunda
+    /// arka plan servisi kalıcı siler.
     /// </summary>
     [HttpDelete("users/{userId:guid}")]
     public async Task<IActionResult> DeleteUser(Guid userId)
@@ -166,80 +164,91 @@ public class AdminController : ControllerBase
         if (user.Role == "Admin")
             return BadRequest("Başka bir admin hesabı silinemez.");
 
-        // Kullanıcının açtığı başlıkları, tüm entry'leriyle birlikte yükle
-        var ownedTopics = await _context.Topics
-            .Where(t => t.AuthorId == userId)
-            .Include(t => t.Entries)
+        var entryIds = await _context.Entries
+            .Where(e => e.AuthorId == userId)
+            .Select(e => e.Id)
             .ToListAsync();
 
-        foreach (var topic in ownedTopics)
-        {
-            var hasOtherAuthors = topic.Entries.Any(e => e.AuthorId != userId);
-            if (hasOtherAuthors)
-            {
-                topic.AuthorId = null; // Anonim başlık
-            }
-            else
-            {
-                // Sadece bu kullanıcının entry'leri var → başlığı sil
-                _context.Topics.Remove(topic);
-            }
-        }
+        var ownedTopicIds = await _context.Topics
+            .Where(t => t.AuthorId == userId)
+            .Select(t => t.Id)
+            .ToListAsync();
 
-        // Kullanıcının oylarını sil
+        // ── A) Etkileşim temizliği (kalıcı) ──────────────────────────────────
+        var badges = await _context.EntryBadges
+            .Where(b => b.GiverUserId == userId || entryIds.Contains(b.EntryId))
+            .ToListAsync();
+        _context.EntryBadges.RemoveRange(badges);
+
+        var pollVotes = await _context.PollVotes
+            .Where(v => v.UserId == userId)
+            .ToListAsync();
+        _context.PollVotes.RemoveRange(pollVotes);
+
+        var privateMessages = await _context.PrivateMessages
+            .Where(m => m.SenderId == userId || m.RecipientId == userId)
+            .ToListAsync();
+        _context.PrivateMessages.RemoveRange(privateMessages);
+
+        var reportsToRemove = await _context.Reports
+            .Where(r =>
+                r.ReporterId == userId ||
+                r.ReportedUserId == userId ||
+                (r.ReportedEntryId != null && entryIds.Contains(r.ReportedEntryId.Value)) ||
+                (r.ReportedTopicId != null && ownedTopicIds.Contains(r.ReportedTopicId.Value)))
+            .ToListAsync();
+        _context.Reports.RemoveRange(reportsToRemove);
+
         var votes = await _context.EntryVotes
             .Where(v => v.UserId == userId)
             .ToListAsync();
         _context.EntryVotes.RemoveRange(votes);
 
-        // Kullanıcının kaydettiklerini sil
         var savedEntries = await _context.UserSavedEntries
             .Where(s => s.UserId == userId)
             .ToListAsync();
         _context.UserSavedEntries.RemoveRange(savedEntries);
 
-        // Takip ilişkilerini sil (hem follower hem following tarafı)
         var follows = await _context.UserFollows
             .Where(f => f.FollowerId == userId || f.FollowingId == userId)
             .ToListAsync();
         _context.UserFollows.RemoveRange(follows);
 
-        // Konu takiplerini sil
         var topicFollows = await _context.UserTopicFollows
             .Where(tf => tf.UserId == userId)
             .ToListAsync();
         _context.UserTopicFollows.RemoveRange(topicFollows);
 
-        // Bildirimleri sil (hem alınan hem gönderilen)
         var notifications = await _context.Notifications
             .Where(n => n.UserId == userId || n.SenderId == userId)
             .ToListAsync();
         _context.Notifications.RemoveRange(notifications);
 
-        // Taslakları sil
         var drafts = await _context.DraftEntries
             .Where(d => d.AuthorId == userId)
             .ToListAsync();
         _context.DraftEntries.RemoveRange(drafts);
 
-        // Şikayetlerini sil (reporter olduğu)
-        var reports = await _context.Reports
-            .Where(r => r.ReporterId == userId)
+        // Başlık sahibi anonimleştirme (entry'ler soft-delete ile gizlenir; başlık satırı kalır)
+        var ownedTopics = await _context.Topics
+            .Where(t => t.AuthorId == userId)
             .ToListAsync();
-        _context.Reports.RemoveRange(reports);
+        foreach (var topic in ownedTopics)
+            topic.AuthorId = null;
 
-        // Entry'leri sil
-        var entries = await _context.Entries
+        // ── B) Yasal saklama (soft delete) ───────────────────────────────────
+        var utcNow = DateTime.UtcNow;
+        await _context.Entries
             .Where(e => e.AuthorId == userId)
-            .ToListAsync();
-        _context.Entries.RemoveRange(entries);
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(e => e.IsDeleted, true)
+                .SetProperty(e => e.DeletedAtUtc, utcNow));
 
-        // Kullanıcıyı sil
-        _context.Users.Remove(user);
-
+        user.IsDeleted = true;
+        user.DeletedAtUtc = utcNow;
         await _context.SaveChangesAsync();
 
-        return Ok("Kullanıcı ve tüm bağlı verileri başarıyla silindi.");
+        return Ok("Kullanıcı ve entry'leri yasal saklamaya alındı; etkileşim verileri silindi.");
     }
 
     // ─────────────────────────────────────────────

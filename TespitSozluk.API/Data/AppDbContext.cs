@@ -29,6 +29,12 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<User>()
+            .HasQueryFilter(u => !u.IsDeleted);
+
+        modelBuilder.Entity<Entry>()
+            .HasQueryFilter(e => !e.IsDeleted);
+
         modelBuilder.Entity<Topic>()
             .HasOne(t => t.Author)
             .WithMany(u => u.Topics)
