@@ -1147,49 +1147,47 @@ export default function UserProfilePage() {
                 <button
                   type="button"
                   onClick={() => setAvatarDialogOpen(true)}
-                  className="relative group flex h-16 w-16 rounded-full overflow-hidden border-2 border-border shadow-sm transition-opacity hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  className="relative group flex h-24 w-24 shrink-0 rounded-full overflow-hidden border-2 border-border shadow-sm transition-opacity hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 >
                   {user.avatar ? (
-                    user.avatar.startsWith("http") ? (
+                    user.avatar.startsWith("http") || user.avatar.startsWith("data:image") ? (
                       <img
                         src={user.avatar}
                         alt=""
                         referrerPolicy="no-referrer"
-                        className="h-16 w-16 object-cover"
+                        className="h-24 w-24 object-cover"
                       />
                     ) : (
-                      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary/80 text-4xl w-full">
+                      <span className="flex h-24 w-24 items-center justify-center rounded-full bg-secondary/80 text-5xl w-full">
                         {user.avatar}
                       </span>
                     )
                   ) : (
-                    <span className="flex h-16 w-16 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                      <PencilLine className="h-8 w-8" />
+                    <span className="flex h-24 w-24 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                      <PencilLine className="h-10 w-10" />
                     </span>
                   )}
                   <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-                    <PencilLine className="h-7 w-7 text-white" />
+                    <PencilLine className="h-8 w-8 text-white" />
                   </span>
                 </button>
-              ) : (
-                user.avatar ? (
-                  user.avatar.startsWith("http") ? (
-                    <img
-                      src={user.avatar}
-                      alt=""
-                      referrerPolicy="no-referrer"
-                      className="h-16 w-16 rounded-full object-cover border-2 border-border shadow-sm"
-                    />
-                  ) : (
-                    <span className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary/80 text-4xl border-2 border-border shadow-sm">
-                      {user.avatar}
-                    </span>
-                  )
+              ) : user.avatar ? (
+                user.avatar.startsWith("http") || user.avatar.startsWith("data:image") ? (
+                  <img
+                    src={user.avatar}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="h-24 w-24 rounded-full object-cover border-2 border-border shadow-sm"
+                  />
                 ) : (
-                  <span className="flex h-16 w-16 items-center justify-center rounded-full bg-muted text-muted-foreground border-2 border-border shadow-sm">
-                    <User className="h-8 w-8" />
+                  <span className="flex h-24 w-24 items-center justify-center rounded-full bg-secondary/80 text-5xl border-2 border-border shadow-sm">
+                    {user.avatar}
                   </span>
                 )
+              ) : (
+                <span className="flex h-24 w-24 items-center justify-center rounded-full bg-muted text-muted-foreground border-2 border-border shadow-sm">
+                  <User className="h-10 w-10" />
+                </span>
               )}
             </div>
             <div className="flex items-start justify-between gap-3 mb-0.5 w-full min-w-0">
