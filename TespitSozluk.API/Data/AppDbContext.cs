@@ -25,6 +25,7 @@ public class AppDbContext : DbContext
     public DbSet<PollOption> PollOptions { get; set; }
     public DbSet<PollVote> PollVotes { get; set; }
     public DbSet<PrivateMessage> PrivateMessages { get; set; }
+    public DbSet<EntryBadge> EntryBadges { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -328,5 +329,36 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>()
             .Property(u => u.MessagingInboxMode)
             .HasDefaultValue(MessagingInboxMode.Everyone);
+
+        // ── Entry Rozetleri (EntryBadges) ───────────────────────────────────
+        // Entry silindiğinde rozet kayıtları cascade ile temizlenir; bu sayede
+        // EntryDeletionService ya da topic cascade'i dışında ek temizlik gerekmez.
+        modelBuilder.Entity<EntryBadge>()
+            .HasOne(b => b.Entry)
+            .WithMany()
+            .HasForeignKey(b => b.EntryId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Rozeti TAKAN kullanıcı silinirse, taktığı tüm rozetler de silinir.
+        // Bu mevcut "anonim entry" gizliliğini bozmaz; aksine yetim kayıt
+        // bırakmadığı için profil tarafındaki rozet sayımları tutarlı kalır.
+        modelBuilder.Entity<EntryBadge>()
+            .HasOne(b => b.Giver)
+            .WithMany()
+            .HasForeignKey(b => b.GiverUserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Aynı kullanıcı bir entry'ye, aynı türden 2. kez rozet takamasın.
+        modelBuilder.Entity<EntryBadge>()
+            .HasIndex(b => new { b.EntryId, b.GiverUserId, b.BadgeType })
+            .IsUnique();
+
+        // Aylık kota sorgusu: GiverUserId + BadgeType + AssignedAt prefix-tarama.
+        modelBuilder.Entity<EntryBadge>()
+            .HasIndex(b => new { b.GiverUserId, b.BadgeType, b.AssignedAt });
+
+        // Entry başına rozet sayma / "MostBadged" sıralaması için.
+        modelBuilder.Entity<EntryBadge>()
+            .HasIndex(b => b.EntryId);
     }
 }

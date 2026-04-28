@@ -3,7 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo } from "react"
 import type { ReactNode } from "react"
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, Lock, FileText, Pencil, Trash2, Send, Plus, User, UserPlus, UserMinus, CalendarDays, Heart, Save, PencilLine, ShieldX, CheckCircle2, Clock, AlertTriangle, RotateCcw, Flag, Trash, BadgeCheck, Mail, ShieldAlert, MessageCircle, FileEdit, Share2, Search, BookOpen } from "lucide-react"
+import { ArrowLeft, Lock, FileText, Pencil, Trash2, Send, Plus, User, UserPlus, UserMinus, CalendarDays, Heart, Save, PencilLine, ShieldX, CheckCircle2, Clock, AlertTriangle, RotateCcw, Flag, Trash, BadgeCheck, Mail, ShieldAlert, MessageCircle, FileEdit, Share2, Search, BookOpen, Medal } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
 import { Navbar } from "@/components/navbar"
@@ -63,6 +63,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { DangerConfirmModal } from "@/components/admin/danger-confirm-modal"
 import { ReportDialog } from "@/components/report-dialog"
+import { ProfileBadgeCollection } from "@/components/profile-badge-collection"
 import { HtmlRenderer } from "@/components/html-renderer"
 import { ExpandableHtmlContent } from "@/components/expandable-html-content"
 import { Input } from "@/components/ui/input"
@@ -106,6 +107,12 @@ type UserProfile = {
   savedEntriesCount?: number
   likedEntriesCount?: number
   draftsCount?: number
+  /** Anonim hariç alınan rozet ataması sayısı (profil vitrin / sekmeler). */
+  badgesReceivedNonAnonymousCount?: number
+  /** Anonim dahil toplam alınan rozet (yalnızca kendi profil metni için). */
+  badgesReceivedTotalCount?: number
+  /** Verilen toplam rozet ataması */
+  badgesGivenTotalCount?: number
   isNovice?: boolean
   /** Backend `levelName` — örn. "Çömez", "Level 4" */
   levelName?: string
@@ -195,7 +202,7 @@ function normalizeProfileTabFromQuery(
   isOwnProfile: boolean,
 ): string {
   const t = (raw && raw.trim()) || "entries"
-  if (t === "entries" || t === "liked") return t
+  if (t === "entries" || t === "liked" || t === "badges") return t
   if (isOwnProfile && (t === "saved" || t === "drafts")) return t
   return "entries"
 }
@@ -325,6 +332,22 @@ export default function UserProfilePage() {
   const [likedHasNextPage, setLikedHasNextPage] = useState(false)
   const [likedHasPreviousPage, setLikedHasPreviousPage] = useState(false)
   const [likedLoading, setLikedLoading] = useState(false)
+  const [badgesSubTab, setBadgesSubTab] = useState<"received" | "given">("received")
+  const [badgeReceivedEntries, setBadgeReceivedEntries] = useState<ReturnType<typeof mapEntry>[]>(
+    [],
+  )
+  const [badgeReceivedPage, setBadgeReceivedPage] = useState(1)
+  const [badgeReceivedTotalPages, setBadgeReceivedTotalPages] = useState(1)
+  const [badgeReceivedHasNextPage, setBadgeReceivedHasNextPage] = useState(false)
+  const [badgeReceivedHasPreviousPage, setBadgeReceivedHasPreviousPage] = useState(false)
+  const [badgeReceivedLoading, setBadgeReceivedLoading] = useState(false)
+  const [receivedBadgesIncludeAnonymous, setReceivedBadgesIncludeAnonymous] = useState(false)
+  const [badgeGivenEntries, setBadgeGivenEntries] = useState<ReturnType<typeof mapEntry>[]>([])
+  const [badgeGivenPage, setBadgeGivenPage] = useState(1)
+  const [badgeGivenTotalPages, setBadgeGivenTotalPages] = useState(1)
+  const [badgeGivenHasNextPage, setBadgeGivenHasNextPage] = useState(false)
+  const [badgeGivenHasPreviousPage, setBadgeGivenHasPreviousPage] = useState(false)
+  const [badgeGivenLoading, setBadgeGivenLoading] = useState(false)
   const [entriesSortBy, setEntriesSortBy] = useState<string>("newest")
   const [followersModalOpen, setFollowersModalOpen] = useState(false)
   const [followingModalOpen, setFollowingModalOpen] = useState(false)
@@ -381,6 +404,7 @@ export default function UserProfilePage() {
       if (
         newTab === "entries" ||
         newTab === "liked" ||
+        newTab === "badges" ||
         newTab === "saved" ||
         newTab === "drafts"
       ) {
@@ -394,14 +418,29 @@ export default function UserProfilePage() {
 
   /** Aynı içerik sekmesine tekrar tıklanınca: sadece sayfa > 1 ise 1'e dön; aksi halde no-op (tam yenileme yok). */
   const handleProfileContentTabTriggerClick = useCallback(
-    (tab: "entries" | "liked" | "saved" | "drafts") => {
+    (tab: "entries" | "liked" | "badges" | "saved" | "drafts") => {
       if (profileTab !== tab) return
       if (tab === "entries" && page > 1) setPage(1)
       else if (tab === "liked" && likedPage > 1) setLikedPage(1)
+      else if (
+        tab === "badges" &&
+        (badgeReceivedPage > 1 || badgeGivenPage > 1)
+      ) {
+        setBadgeReceivedPage(1)
+        setBadgeGivenPage(1)
+      }
       else if (tab === "saved" && savedPage > 1) setSavedPage(1)
       else if (tab === "drafts" && draftsPage > 1) setDraftsPage(1)
     },
-    [profileTab, page, likedPage, savedPage, draftsPage],
+    [
+      profileTab,
+      page,
+      likedPage,
+      savedPage,
+      draftsPage,
+      badgeReceivedPage,
+      badgeGivenPage,
+    ],
   )
 
   const fetchUser = useCallback(async (userId: string) => {
@@ -431,6 +470,9 @@ export default function UserProfilePage() {
         savedEntriesCount: data.savedEntriesCount ?? 0,
         likedEntriesCount: data.likedEntriesCount ?? 0,
         draftsCount: data.draftsCount ?? 0,
+        badgesReceivedNonAnonymousCount: data.badgesReceivedNonAnonymousCount ?? 0,
+        badgesReceivedTotalCount: data.badgesReceivedTotalCount ?? 0,
+        badgesGivenTotalCount: data.badgesGivenTotalCount ?? 0,
         isNovice: data.isNovice === true,
         levelName:
           typeof data.levelName === "string" && data.levelName.trim().length > 0
@@ -538,6 +580,56 @@ export default function UserProfilePage() {
     }
   }, [])
 
+  const fetchBadgeReceivedEntries = useCallback(
+    async (userId: string, pageNum: number, includeAnonim: boolean) => {
+      setBadgeReceivedLoading(true)
+      try {
+        const qs = new URLSearchParams({
+          page: String(pageNum),
+          pageSize: "20",
+        })
+        if (includeAnonim) qs.set("includeAnonymous", "true")
+        const res = await apiFetch(
+          getApiUrl(`api/Badges/received-entries/${userId}?${qs}`),
+        )
+        if (!res.ok) throw new Error("Alınan rozetler yüklenemedi")
+        const data = await res.json()
+        const items = (data.items ?? []).map(mapEntry)
+        setBadgeReceivedEntries(items)
+        setBadgeReceivedTotalPages(data.totalPages ?? 1)
+        setBadgeReceivedHasNextPage(data.hasNextPage ?? false)
+        setBadgeReceivedHasPreviousPage(data.hasPreviousPage ?? false)
+      } catch {
+        setBadgeReceivedEntries([])
+      } finally {
+        setBadgeReceivedLoading(false)
+      }
+    },
+    [],
+  )
+
+  const fetchBadgeGivenEntries = useCallback(async (userId: string, pageNum: number) => {
+    setBadgeGivenLoading(true)
+    try {
+      const res = await apiFetch(
+        getApiUrl(
+          `api/Badges/given-entries/${userId}?page=${pageNum}&pageSize=20`,
+        ),
+      )
+      if (!res.ok) throw new Error("Takılan rozetler yüklenemedi")
+      const data = await res.json()
+      const items = (data.items ?? []).map(mapEntry)
+      setBadgeGivenEntries(items)
+      setBadgeGivenTotalPages(data.totalPages ?? 1)
+      setBadgeGivenHasNextPage(data.hasNextPage ?? false)
+      setBadgeGivenHasPreviousPage(data.hasPreviousPage ?? false)
+    } catch {
+      setBadgeGivenEntries([])
+    } finally {
+      setBadgeGivenLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     setAuth(getAuth())
   }, [])
@@ -582,6 +674,30 @@ export default function UserProfilePage() {
     if (isOwnProfile && id && auth?.token) fetchSavedEntries(id, savedPage)
   }, [isOwnProfile, id, auth?.token, savedPage, fetchSavedEntries])
 
+  useEffect(() => {
+    if (!id || profileTab !== "badges" || !user) return
+    if (badgesSubTab === "received") {
+      void fetchBadgeReceivedEntries(
+        id,
+        badgeReceivedPage,
+        isOwnProfile && receivedBadgesIncludeAnonymous,
+      )
+    } else {
+      void fetchBadgeGivenEntries(id, badgeGivenPage)
+    }
+  }, [
+    id,
+    user,
+    profileTab,
+    badgesSubTab,
+    badgeReceivedPage,
+    badgeGivenPage,
+    receivedBadgesIncludeAnonymous,
+    isOwnProfile,
+    fetchBadgeReceivedEntries,
+    fetchBadgeGivenEntries,
+  ])
+
   const handleTopicClick = useCallback((topicId: string) => {
     router.push(`/?topic=${topicId}`)
   }, [router])
@@ -591,8 +707,40 @@ export default function UserProfilePage() {
     if (id) fetchEntries(id, page, includeAnonymous, entriesSortBy)
     if (id) fetchLikedEntries(id, likedPage)
     if (isOwnProfile && id) fetchSavedEntries(id, savedPage)
+    if (id && profileTab === "badges") {
+      if (badgesSubTab === "received") {
+        void fetchBadgeReceivedEntries(
+          id,
+          badgeReceivedPage,
+          isOwnProfile && receivedBadgesIncludeAnonymous,
+        )
+      } else {
+        void fetchBadgeGivenEntries(id, badgeGivenPage)
+      }
+    }
     if (id) fetchUser(id).then((u) => u && setUser(u))
-  }, [isOwnProfile, auth?.token, id, page, savedPage, likedPage, includeAnonymous, entriesSortBy, fetchDrafts, fetchEntries, fetchLikedEntries, fetchSavedEntries, fetchUser])
+  }, [
+    isOwnProfile,
+    auth?.token,
+    id,
+    page,
+    savedPage,
+    likedPage,
+    includeAnonymous,
+    entriesSortBy,
+    fetchDrafts,
+    fetchEntries,
+    fetchLikedEntries,
+    fetchSavedEntries,
+    fetchUser,
+    profileTab,
+    badgesSubTab,
+    badgeReceivedPage,
+    badgeGivenPage,
+    receivedBadgesIncludeAnonymous,
+    fetchBadgeReceivedEntries,
+    fetchBadgeGivenEntries,
+  ])
 
   const handleSaveBio = useCallback(async () => {
     if (!auth?.token || bioSaving) return
@@ -931,7 +1079,7 @@ export default function UserProfilePage() {
     profileLevelLabel.length > 0 && profileLevelLabel !== "Çömez"
   const showProfileNoviceBadge = shouldShowNoviceBadge(user.isNovice, undefined)
   const showProfileHeaderRightColumn =
-    showProfileNoviceBadge || showAuthorLevelBadge
+    !!id || showProfileNoviceBadge || showAuthorLevelBadge
 
   return (
     <div className="min-h-screen bg-background">
@@ -1049,7 +1197,8 @@ export default function UserProfilePage() {
                 {user.nickname}
               </h1>
               {showProfileHeaderRightColumn && (
-                <div className="flex flex-col items-end gap-2 shrink-0 pt-0.5">
+                <div className="flex flex-col items-end gap-2 shrink-0 pt-0.5 max-w-[min(50%,280px)]">
+                  {id && <ProfileBadgeCollection userId={id} />}
                   {showProfileNoviceBadge && (
                     <NoviceBadge variant="profile" className="shrink-0" />
                   )}
@@ -1310,34 +1459,34 @@ export default function UserProfilePage() {
           </div>
         </div>
 
-        {/* Tabs: Yazılan Entryler / Kalplenenler / Çivilenenler / Taslaklar */}
+        {/* Tabs: Entryler / Kalpler / Çiviler / Rozetler / Taslaklar */}
         <div className="w-full max-w-2xl mx-auto px-4 py-6 lg:max-w-[786px] lg:px-6">
           <Tabs value={profileTab} onValueChange={handleProfileTabChange} className="w-full">
-            <div className="-mx-4 px-4 lg:-mx-6 lg:px-6 mb-8 overflow-x-auto scrollbar-hide">
+            <div className="-mx-4 px-4 lg:-mx-6 lg:px-6 mb-8 flex overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-hide">
               <TabsList
                 className="flex w-max min-w-full flex-nowrap justify-start bg-transparent p-0 h-auto rounded-none border-b-2 border-border gap-0"
               >
-              {/* ─── Yazılan Entryler ─── */}
+              {/* ─── Entryler ─── */}
               <TabsTrigger
                 value="entries"
                 onClick={() => handleProfileContentTabTriggerClick("entries")}
                 className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent flex-none flex-shrink-0 text-muted-foreground font-semibold text-sm hover:text-foreground hover:bg-muted/25 data-[state=active]:text-foreground data-[state=active]:border-foreground data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
               >
                 <PencilLine className="h-[18px] w-[18px] shrink-0 transition-all duration-200 group-data-[state=active]:scale-110" />
-                <span className="tracking-tight">Yazılan Entryler</span>
+                <span className="tracking-tight">Entryler</span>
                 <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold bg-muted/70 text-muted-foreground group-data-[state=active]:bg-foreground group-data-[state=active]:text-background transition-all duration-200">
                   {user.writtenEntriesCount ?? 0}
                 </span>
               </TabsTrigger>
 
-              {/* ─── Kalplenenler ─── */}
+              {/* ─── Kalpler ─── */}
               <TabsTrigger
                 value="liked"
                 onClick={() => handleProfileContentTabTriggerClick("liked")}
                 className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent flex-none flex-shrink-0 text-muted-foreground font-semibold text-sm hover:text-rose-500 hover:bg-rose-500/5 data-[state=active]:text-rose-500 data-[state=active]:border-rose-500 data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
               >
                 <Heart className="h-[18px] w-[18px] shrink-0 transition-all duration-200 group-data-[state=active]:fill-rose-500/20 group-data-[state=active]:scale-110" />
-                <span className="tracking-tight">Kalplenenler</span>
+                <span className="tracking-tight">Kalpler</span>
                 <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold bg-muted/70 text-muted-foreground group-data-[state=active]:bg-rose-500 group-data-[state=active]:text-white transition-all duration-200">
                   {user.likedEntriesCount ?? 0}
                 </span>
@@ -1345,19 +1494,35 @@ export default function UserProfilePage() {
 
               {isOwnProfile && (
                 <>
-                  {/* ─── Çivilenenler ─── */}
+                  {/* ─── Çiviler ─── */}
                   <TabsTrigger
                     value="saved"
                     onClick={() => handleProfileContentTabTriggerClick("saved")}
                     className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent flex-none flex-shrink-0 text-muted-foreground font-semibold text-sm hover:text-purple-400 hover:bg-purple-500/5 data-[state=active]:text-purple-500 data-[state=active]:border-purple-500 data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
                   >
                     <CiviIcon className="h-[18px] w-[18px] shrink-0 text-inherit transition-all duration-200 group-data-[state=active]:scale-110" />
-                    <span className="tracking-tight">Çivilenenler</span>
+                    <span className="tracking-tight">Çiviler</span>
                     <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold bg-muted/70 text-muted-foreground group-data-[state=active]:bg-purple-500 group-data-[state=active]:text-white transition-all duration-200">
                       {user.savedEntriesCount ?? 0}
                     </span>
                   </TabsTrigger>
+                </>
+              )}
 
+              <TabsTrigger
+                value="badges"
+                onClick={() => handleProfileContentTabTriggerClick("badges")}
+                className="group relative flex items-center gap-2.5 px-5 py-[15px] rounded-none border-b-[3px] border-transparent -mb-px bg-transparent flex-none flex-shrink-0 text-muted-foreground font-semibold text-sm hover:text-amber-500 hover:bg-amber-500/5 data-[state=active]:text-amber-600 data-[state=active]:border-amber-500 data-[state=active]:bg-transparent transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-0"
+              >
+                <Medal className="h-[18px] w-[18px] shrink-0 transition-all duration-200 group-data-[state=active]:scale-110" />
+                <span className="tracking-tight">Rozetler</span>
+                <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold tabular-nums bg-muted/70 text-muted-foreground transition-all duration-200 group-data-[state=active]:bg-yellow-500 group-data-[state=active]:text-white">
+                  {user.badgesReceivedNonAnonymousCount ?? 0}
+                </span>
+              </TabsTrigger>
+
+              {isOwnProfile && (
+                <>
                   {/* ─── Taslaklar ─── */}
                   <TabsTrigger
                     value="drafts"
@@ -1366,7 +1531,7 @@ export default function UserProfilePage() {
                   >
                     <FileEdit className="h-[18px] w-[18px] shrink-0 transition-all duration-200 group-data-[state=active]:scale-110" />
                     <span className="tracking-tight">Taslaklar</span>
-                    <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold bg-muted/70 text-muted-foreground group-data-[state=active]:bg-amber-500 group-data-[state=active]:text-white transition-all duration-200">
+                    <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold tabular-nums bg-muted/70 text-muted-foreground transition-all duration-200 group-data-[state=active]:bg-blue-500 group-data-[state=active]:text-white">
                       {user.draftsCount ?? 0}
                     </span>
                   </TabsTrigger>
@@ -1398,8 +1563,8 @@ export default function UserProfilePage() {
 
             <TabsContent value="entries">
               <div className="mb-4">
-                <h2 className="text-base md:text-lg font-extrabold text-foreground uppercase tracking-tight">
-                  {isOwnProfile ? "ENTRYLERİNİZ" : "ENTRYLER"}
+                <h2 className="text-base md:text-lg font-extrabold text-foreground tracking-tight">
+                  {isOwnProfile ? "Yazdığınız Entryler" : "Yazdığı Entryler"}
                 </h2>
               </div>
               <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -1413,6 +1578,7 @@ export default function UserProfilePage() {
                     <SelectItem value="most_liked">En çok kalp alan</SelectItem>
                     <SelectItem value="most_disliked">En çok ayak alan</SelectItem>
                     <SelectItem value="most_saved">En çok çivilenen</SelectItem>
+                    <SelectItem value="most_badged">En çok rozet alan</SelectItem>
                   </SelectContent>
                 </Select>
                 {isOwnProfile && (
@@ -1502,12 +1668,12 @@ export default function UserProfilePage() {
 
             <TabsContent value="liked">
               <div className="mb-4">
-                <h2 className="text-base md:text-lg font-extrabold text-foreground uppercase tracking-tight">
-                  {isOwnProfile ? "KALPLENENLERİNİZ" : "KALPLENENLER"}
+                <h2 className="text-base md:text-lg font-extrabold text-foreground tracking-tight">
+                  {isOwnProfile ? "Kalp Attığınız Entryler" : "Kalp Attığı Entryler"}
                 </h2>
                 {isOwnProfile && (
                   <p className="text-sm text-muted-foreground mt-1">
-                    Kalplenenlerinizi herkes görebilir.
+                    Bu kısmı herkes görebilir.
                   </p>
                 )}
               </div>
@@ -1558,14 +1724,200 @@ export default function UserProfilePage() {
               )}
             </TabsContent>
 
+            <TabsContent value="badges" className="space-y-4">
+              <div className="mb-4 space-y-1">
+                <h2 className="text-base md:text-lg font-extrabold text-foreground uppercase tracking-tight">
+                  ROZETLER
+                </h2>
+              </div>
+
+              <Tabs
+                value={badgesSubTab}
+                onValueChange={(v) =>
+                  setBadgesSubTab(v === "given" ? "given" : "received")
+                }
+                className="w-full space-y-4"
+              >
+                <TabsList className="flex w-full max-w-md flex-wrap justify-start rounded-lg border border-border bg-muted/30 p-1 h-auto">
+                  <TabsTrigger
+                    value="received"
+                    className="group rounded-md px-4 py-2 text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-sm inline-flex flex-wrap items-center gap-2 gap-y-1"
+                  >
+                    <span>Alınan Rozetler</span>
+                    <span className="inline-flex min-h-[22px] min-w-[26px] items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-bold tabular-nums bg-muted/70 text-muted-foreground transition-colors group-data-[state=active]:bg-yellow-500 group-data-[state=active]:text-white">
+                      {user.badgesReceivedNonAnonymousCount ?? 0}
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="given"
+                    className="group rounded-md px-4 py-2 text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-sm inline-flex flex-wrap items-center gap-2 gap-y-1"
+                  >
+                    <span>Takılan Rozetler</span>
+                    <span className="inline-flex min-h-[22px] min-w-[26px] items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-bold tabular-nums bg-muted/70 text-muted-foreground transition-colors group-data-[state=active]:bg-yellow-500 group-data-[state=active]:text-white">
+                      {user.badgesGivenTotalCount ?? 0}
+                    </span>
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="received" className="space-y-4 mt-4">
+                  <div className="mb-4 flex flex-wrap items-center gap-3">
+                    {isOwnProfile && (
+                      <TooltipProvider delayDuration={300}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center gap-2">
+                              <Switch
+                                id="badge-received-anonymous"
+                                checked={receivedBadgesIncludeAnonymous}
+                                onCheckedChange={(checked) => {
+                                  setReceivedBadgesIncludeAnonymous(checked)
+                                  setBadgeReceivedPage(1)
+                                }}
+                                className="data-[state=checked]:bg-foreground"
+                              />
+                              <Label
+                                htmlFor="badge-received-anonymous"
+                                className="text-sm font-medium cursor-pointer"
+                              >
+                                Senin Anonim
+                              </Label>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            Rozet alan anonim entrylerini göster (yalnızca kendi profilinizde).
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                    {receivedBadgesIncludeAnonymous && isOwnProfile && (
+                      <div className="text-xs text-muted-foreground flex flex-col gap-1">
+                        <p>Anonim entryleri başkası göremez.</p>
+                        <p>
+                          Anonim entryleri de dahil edince toplam rozet sayınız:{" "}
+                          {user.badgesReceivedTotalCount ?? 0}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {badgeReceivedLoading ? (
+                    <div className="py-12 text-center text-muted-foreground">Yükleniyor...</div>
+                  ) : badgeReceivedEntries.length === 0 ? (
+                    <div className="py-12 text-center text-muted-foreground">
+                      Henüz rozet alınmış entry yok.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {badgeReceivedEntries.map((entry) => (
+                        <EntryCard
+                          key={entry.id}
+                          entry={entry}
+                          showTopicTitle={true}
+                          onTopicClick={handleTopicClick}
+                          isLoggedIn={isLoggedIn}
+                          onLoginClick={() => router.push("/?login=1")}
+                          currentUser={auth?.user ? { id: auth.user.id } : null}
+                          onEntryChange={() => {
+                            setBadgeReceivedEntries((prev) =>
+                              prev.filter((e) => e.id !== entry.id),
+                            )
+                            if (id)
+                              fetchUser(id).then((u) => u && setUser(u))
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {(badgeReceivedHasPreviousPage || badgeReceivedHasNextPage) && (
+                    <div className="flex items-center justify-center gap-3 mt-8 pb-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!badgeReceivedHasPreviousPage}
+                        onClick={() =>
+                          setBadgeReceivedPage((p) => Math.max(1, p - 1))
+                        }
+                      >
+                        Önceki Sayfa
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        Sayfa {badgeReceivedPage} / {badgeReceivedTotalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!badgeReceivedHasNextPage}
+                        onClick={() => setBadgeReceivedPage((p) => p + 1)}
+                      >
+                        Sonraki Sayfa
+                      </Button>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="given" className="space-y-4 mt-4">
+                  {badgeGivenLoading ? (
+                    <div className="py-12 text-center text-muted-foreground">Yükleniyor...</div>
+                  ) : badgeGivenEntries.length === 0 ? (
+                    <div className="py-12 text-center text-muted-foreground">
+                      Henüz rozet takılmış entry yok.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {badgeGivenEntries.map((entry) => (
+                        <EntryCard
+                          key={entry.id}
+                          entry={entry}
+                          showTopicTitle={true}
+                          onTopicClick={handleTopicClick}
+                          isLoggedIn={isLoggedIn}
+                          onLoginClick={() => router.push("/?login=1")}
+                          currentUser={auth?.user ? { id: auth.user.id } : null}
+                          onEntryChange={() => {
+                            setBadgeGivenEntries((prev) =>
+                              prev.filter((e) => e.id !== entry.id),
+                            )
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {(badgeGivenHasPreviousPage || badgeGivenHasNextPage) && (
+                    <div className="flex items-center justify-center gap-3 mt-8 pb-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!badgeGivenHasPreviousPage}
+                        onClick={() =>
+                          setBadgeGivenPage((p) => Math.max(1, p - 1))
+                        }
+                      >
+                        Önceki Sayfa
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        Sayfa {badgeGivenPage} / {badgeGivenTotalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!badgeGivenHasNextPage}
+                        onClick={() => setBadgeGivenPage((p) => p + 1)}
+                      >
+                        Sonraki Sayfa
+                      </Button>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </TabsContent>
+
             {isOwnProfile && (
               <TabsContent value="saved">
                 <div className="mb-4">
-                  <h2 className="text-base md:text-lg font-extrabold text-foreground uppercase tracking-tight">
-                    ÇİVİLENENLERİNİZ
+                  <h2 className="text-base md:text-lg font-extrabold text-foreground tracking-tight">
+                    Çivilenen Entryleriniz
                   </h2>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Çivilenenlerinizi diğer kullanıcılar göremez.
+                    Bu kısmı diğer kullanıcılar göremez.
                   </p>
                 </div>
                 {savedLoading ? (
@@ -1633,7 +1985,7 @@ export default function UserProfilePage() {
                     </Button>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Taslaklarınızı diğer kullanıcılar göremez.
+                    Bu kısmı diğer kullanıcılar göremez.
                   </p>
                 </div>
 

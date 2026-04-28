@@ -1061,6 +1061,7 @@ export function TopicDetail({
             <SelectItem value="most_liked">En çok kalp alan</SelectItem>
             <SelectItem value="most_disliked">En çok ayak alan</SelectItem>
             <SelectItem value="most_saved">En çok çivilenen</SelectItem>
+            <SelectItem value="most_badged">En çok rozet alan</SelectItem>
           </SelectContent>
         </Select>
       </div>

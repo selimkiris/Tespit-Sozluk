@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, type MouseEvent as ReactMouseEvent } from "react"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { Search, Menu, X, Hash, User, Bell, Settings, ShieldAlert, Info, MessageSquare } from "lucide-react"
+import { Search, Menu, X, Hash, User, Bell, Settings, ShieldAlert, Info, MessageSquare, Medal } from "lucide-react"
 import DOMPurify from "isomorphic-dompurify"
 import { getApiUrl, apiFetch } from "@/lib/api"
 import {
@@ -715,6 +715,39 @@ export function Navbar({
                               <NotificationCopy
                                 notification={n}
                                 variant="save"
+                                userLinkClass={userLinkClass}
+                                inlineEntryLinkClass={inlineEntryLinkClass}
+                                onLinkClick={markReadOnLinkClick}
+                              />
+                            </p>
+                            {timeRow}
+                          </div>
+                        )
+                      }
+
+                      if (n.type === NotificationType.Badge) {
+                        return (
+                          <div
+                            key={n.id}
+                            role="presentation"
+                            onClick={() => {
+                              closeNotificationsMenu()
+                              if (!n.isRead) void handleMarkAsRead(n.id)
+                            }}
+                            className={`w-full flex flex-col gap-0.5 px-3 py-2.5 text-left cursor-pointer hover:bg-accent transition-colors border-b border-border last:border-b-0 ${!n.isRead ? "bg-accent/50" : ""}`}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/25 text-amber-600 dark:text-amber-400 font-semibold tracking-wide">
+                                <Medal className="h-2.5 w-2.5" /> ROZET
+                              </span>
+                              {!n.isRead && (
+                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                              )}
+                            </div>
+                            <p className="text-sm text-foreground leading-snug">
+                              <NotificationCopy
+                                notification={n}
+                                variant="badge"
                                 userLinkClass={userLinkClass}
                                 inlineEntryLinkClass={inlineEntryLinkClass}
                                 onLinkClick={markReadOnLinkClick}

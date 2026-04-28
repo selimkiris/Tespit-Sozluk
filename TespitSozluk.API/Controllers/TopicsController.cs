@@ -603,6 +603,12 @@ public class TopicsController : ControllerBase
             "most_disliked" => query.OrderByDescending(e => e.Downvotes).ThenBy(e => e.Upvotes),
             "most_saved" => query
                 .OrderByDescending(e => _context.UserSavedEntries.Count(s => s.EntryId == e.Id)),
+            // "most_badged" / "mostbadged": önce toplam rozet sayısı DESC, eşitlikte upvote DESC.
+            // Sayma DB tarafında korelasyonlu alt sorgu olarak çevrilir; rozet kayıtları
+            // (EntryId) üzerinde indekslidir, böylece N+1 yaratmaz.
+            "most_badged" or "mostbadged" => query
+                .OrderByDescending(e => _context.EntryBadges.Count(b => b.EntryId == e.Id))
+                .ThenByDescending(e => e.Upvotes),
             _ => query.OrderBy(e => e.CreatedAt) // oldest (varsayılan)
         };
 

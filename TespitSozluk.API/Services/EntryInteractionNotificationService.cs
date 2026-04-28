@@ -12,6 +12,7 @@ public static class EntryInteractionNotificationTypes
     public const string Follow = "Follow";
     public const string Mention = "Mention";
     public const string TopicFollow = "TopicFollow";
+    public const string Badge = "Badge";
 }
 
 public class EntryInteractionNotificationService : IEntryInteractionNotificationService

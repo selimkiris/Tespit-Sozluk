@@ -210,7 +210,14 @@ function buildNodesFromTemplate(
   return nodes
 }
 
-export type NotificationCopyVariant = "like" | "dislike" | "save" | "follow" | "topicFollow" | "mention"
+export type NotificationCopyVariant =
+  | "like"
+  | "dislike"
+  | "save"
+  | "follow"
+  | "topicFollow"
+  | "mention"
+  | "badge"
 
 export function renderNotificationCopy({
   notification,
@@ -229,6 +236,30 @@ export function renderNotificationCopy({
   const authorProfileId = (notification.actorId || notification.senderId).trim() || null
   const senderProfileId = notification.senderId.trim() || null
   const entryId = notification.entryId
+
+  if (variant === "badge") {
+    if (!entryId) {
+      return (
+        <span className="text-muted-foreground">{notification.message || "Rozet bildirimi."}</span>
+      )
+    }
+    return (
+      <>
+        🏅
+        <Link href={`/entry/${entryId}`} className={inlineEntryLinkClass} onClick={onLinkClick}>
+          Eserinize
+        </Link>{" "}
+        {authorProfileId ? (
+          <Link href={`/user/${authorProfileId}`} className={userLinkClass} onClick={onLinkClick}>
+            {authorLabel}
+          </Link>
+        ) : (
+          <span className="font-medium">{authorLabel}</span>
+        )}{" "}
+        tarafından Rozet takıldı.
+      </>
+    )
+  }
 
   let templates: readonly string[]
   switch (variant) {

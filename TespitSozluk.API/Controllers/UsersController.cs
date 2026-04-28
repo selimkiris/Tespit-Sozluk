@@ -172,6 +172,18 @@ public class UsersController : ControllerBase
         var likedEntriesCount = await _context.EntryVotes.CountAsync(v => v.UserId == id && v.IsUpvote);
         var draftsCount = await _context.DraftEntries.CountAsync(d => d.AuthorId == id);
 
+        var badgesReceivedNonAnonymousCount = await _context.EntryBadges
+            .AsNoTracking()
+            .CountAsync(b => b.Entry.AuthorId == id && !b.Entry.IsAnonymous);
+
+        var badgesReceivedTotalCount = await _context.EntryBadges
+            .AsNoTracking()
+            .CountAsync(b => b.Entry.AuthorId == id);
+
+        var badgesGivenTotalCount = await _context.EntryBadges
+            .AsNoTracking()
+            .CountAsync(b => b.GiverUserId == id);
+
         var nickname = (user.FirstName + " " + user.LastName).Trim();
         if (string.IsNullOrEmpty(nickname))
         {
@@ -224,6 +236,9 @@ public class UsersController : ControllerBase
             SavedEntriesCount = savedEntriesCount,
             LikedEntriesCount = likedEntriesCount,
             DraftsCount = draftsCount,
+            BadgesReceivedNonAnonymousCount = badgesReceivedNonAnonymousCount,
+            BadgesReceivedTotalCount = badgesReceivedTotalCount,
+            BadgesGivenTotalCount = badgesGivenTotalCount,
             IsNovice = isNovice
         };
     }
@@ -777,6 +792,11 @@ public class UsersController : ControllerBase
             "most_disliked" => query.OrderByDescending(e => e.Downvotes).ThenBy(e => e.Upvotes),
             "most_saved" => query
                 .OrderByDescending(e => _context.UserSavedEntries.Count(s => s.EntryId == e.Id)),
+            // "most_badged" / "mostbadged": önce toplam rozet sayısı DESC, eşitlikte upvote DESC.
+            // TopicsController.GetEntriesByTopic ile aynı semantik.
+            "most_badged" or "mostbadged" => query
+                .OrderByDescending(e => _context.EntryBadges.Count(b => b.EntryId == e.Id))
+                .ThenByDescending(e => e.Upvotes),
             _ => query.OrderByDescending(e => e.CreatedAt)
         };
 

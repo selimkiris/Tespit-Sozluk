@@ -25,6 +25,7 @@ export const NotificationType = {
   Dislike: "Dislike",
   Save: "Save",
   Mention: "Mention",
+  Badge: "Badge",
   OfficialWarning: "OfficialWarning",
   AdminMessage: "AdminMessage",
   SystemAlert: "SystemAlert",

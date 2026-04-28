@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Heart, MoreHorizontal, Pencil, Trash2, User, Users, Flag, ShieldX, BadgeCheck, MessageCircle } from "lucide-react"
+import { Heart, MoreHorizontal, Pencil, Trash2, User, Users, Flag, ShieldX, BadgeCheck, MessageCircle, Medal } from "lucide-react"
 import { ShareMenuSub } from "@/components/share-menu"
 import { getApiUrl, apiFetch, getSiteUrl } from "@/lib/api"
 import { CiviIcon } from "@/components/icons/CiviIcon"
@@ -64,6 +64,9 @@ import {
 import { formatTurkeyDateTime } from "@/lib/turkey-datetime"
 import { NoviceBadge, shouldShowNoviceBadge } from "@/components/novice-badge"
 import { SendMessageDialog } from "@/components/send-message-dialog"
+import { BadgeDialog } from "@/components/badge-dialog"
+import { EntryBadgePills } from "@/components/entry-badge-pills"
+import { normalizeEntryBadgeSummary } from "@/lib/badge-config"
 
 interface Entry {
   id: string
@@ -183,6 +186,14 @@ export function EntryCard({
   const [localAuthor, setLocalAuthor] = useState<Entry["author"]>(entry.author)
   const [localIsNovice, setLocalIsNovice] = useState(entry.isNovice ?? false)
   const [sendMessageOpen, setSendMessageOpen] = useState(false)
+  const [isBadgeOpen, setIsBadgeOpen] = useState(false)
+  const [badgeSummaryOverride, setBadgeSummaryOverride] = useState<ReturnType<
+    typeof normalizeEntryBadgeSummary
+  > | null>(null)
+
+  useEffect(() => {
+    setBadgeSummaryOverride(null)
+  }, [entry.id])
 
   // --- Mikro-animasyon geçici state'leri (yalnızca görsel; API/mantık etkilenmez) ---
   const [heartAnim, setHeartAnim] = useState(false)
@@ -529,23 +540,31 @@ export function EntryCard({
     <article
       id={`entry-${entry.id}`}
       className={cn(
-        "group bg-card border border-border border-l-2 rounded-lg p-5 transition-all duration-200 hover:bg-[#2a2b2e] min-w-0 w-full max-w-full",
+        "group relative overflow-visible bg-card border border-border border-l-2 rounded-lg p-5 transition-all duration-200 hover:bg-[#2a2b2e] min-w-0 w-full max-w-full",
         accentBorderColor
       )}
       style={{ backgroundColor: '#252728' }}
     >
-      {/* Topic Title */}
-      {showTopicTitle && (
-        <div className="mb-4 min-w-0 w-full max-w-full">
-          <button
-            type="button"
-            onClick={() => onTopicClick?.(entry.topicId)}
-            className="select-text text-slate-200 dark:text-slate-300 text-xl font-bold leading-[1.35] tracking-[-0.01em] block text-left w-full min-w-0 max-w-full break-words whitespace-pre-wrap transition-opacity hover:opacity-75"
-          >
-            {entry.topicTitle}
-          </button>
+      {/* Topic başlığı + sağ üst rozet hapları — overflow kesmesin */}
+      <div className="relative z-[4] mb-4 min-w-0 w-full max-w-full flex flex-row items-start justify-between gap-2 overflow-visible">
+        <div className="min-w-0 flex-1 pr-2">
+          {showTopicTitle && (
+            <button
+              type="button"
+              onClick={() => onTopicClick?.(entry.topicId)}
+              className="select-text text-slate-200 dark:text-slate-300 text-xl font-bold leading-[1.35] tracking-[-0.01em] block text-left w-full min-w-0 max-w-full break-words whitespace-pre-wrap transition-opacity hover:opacity-75"
+            >
+              {entry.topicTitle}
+            </button>
+          )}
         </div>
-      )}
+        <div className="shrink-0 max-w-[min(52%,280px)] pt-0.5 pointer-events-auto">
+          <EntryBadgePills
+            entryId={entry.id}
+            optimisticSummary={badgeSummaryOverride}
+          />
+        </div>
+      </div>
 
       {/* Content */}
       <div className="entry-content mb-4 min-w-0 w-full max-w-full">
@@ -685,6 +704,18 @@ export function EntryCard({
             </span>
             <span className={cn("tabular-nums text-[13px]", isSaved && "font-semibold")}>{saveCount}</span>
           </button>
+
+          {/* Rozet butonu — kendi entry'sine takılamaz, bu yüzden canManage ise gizlenir */}
+          {!canManage && (
+            <button
+              onClick={() => setIsBadgeOpen(true)}
+              title="Rozet tak"
+              className="flex items-center justify-center px-2.5 py-1.5 rounded-lg text-[13px] text-[#7c8190] hover:text-amber-400 hover:bg-amber-400/10 transition-all duration-150"
+              aria-label="Rozet tak"
+            >
+              <Medal className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         {/* RIGHT GROUP: Author info + date + share + options — sıra: rozet (çömez) | avatar | ad */}
@@ -848,6 +879,18 @@ export function EntryCard({
                 hasPoll: !!(localPoll ?? entry.poll),
               }
             : null
+        }
+      />
+
+      <BadgeDialog
+        open={isBadgeOpen}
+        onOpenChange={setIsBadgeOpen}
+        entryId={entry.id}
+        isLoggedIn={isLoggedIn}
+        onLoginClick={onLoginClick}
+        onEntryBadgeSummaryUpdated={setBadgeSummaryOverride}
+        currentUserBadgeGiver={
+          currentUser ? { id: currentUser.id, nickname: "", avatar: null } : null
         }
       />
 

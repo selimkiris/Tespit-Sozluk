@@ -33,6 +33,15 @@ public class UserProfileResponseDto
     /// <summary>Taslak sayısı</summary>
     public int DraftsCount { get; set; }
 
+    /// <summary>Anonim olmayan entry'lerde alınan toplam rozet (rozet satırı sayısı).</summary>
+    public int BadgesReceivedNonAnonymousCount { get; set; }
+
+    /// <summary>Tüm entry'lerde (anonim dahil) alınan toplam rozet — profil özeti / anonim filtresi metni için.</summary>
+    public int BadgesReceivedTotalCount { get; set; }
+
+    /// <summary>Verilen rozet ataması sayısı (<c>EntryBadges</c> satırı).</summary>
+    public int BadgesGivenTotalCount { get; set; }
+
     /// <summary>Profil sahibi çömez (novice) statüsünde mi (20 gün + 20 entry + 3 başlık şartları).</summary>
     public bool IsNovice { get; set; }
 }

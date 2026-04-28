@@ -56,7 +56,7 @@ export function UserTopicsModal({
   open,
   onOpenChange,
   userId,
-  nickname,
+  nickname: _nickname,
   isOwnProfile = false,
 }: UserTopicsModalProps) {
   const [topics, setTopics] = React.useState<UserTopic[]>([])
@@ -102,7 +102,7 @@ export function UserTopicsModal({
     return () => controller.abort()
   }, [open, userId, isOwnProfile])
 
-  const title = nickname ? `${nickname} · Açtığı Başlıklar` : "Açtığı Başlıklar"
+  const title = isOwnProfile ? "Açtığınız başlıklar" : "Açtığı Başlıklar"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
