@@ -16,11 +16,16 @@ public class AdminController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly IEntryDeletionService _entryDeletionService;
+    private readonly IUserSoftDeletionService _userSoftDeletion;
 
-    public AdminController(AppDbContext context, IEntryDeletionService entryDeletionService)
+    public AdminController(
+        AppDbContext context,
+        IEntryDeletionService entryDeletionService,
+        IUserSoftDeletionService userSoftDeletion)
     {
         _context = context;
         _entryDeletionService = entryDeletionService;
+        _userSoftDeletion = userSoftDeletion;
     }
 
     // ─────────────────────────────────────────────
@@ -164,89 +169,12 @@ public class AdminController : ControllerBase
         if (user.Role == "Admin")
             return BadRequest("Başka bir admin hesabı silinemez.");
 
-        var entryIds = await _context.Entries
-            .Where(e => e.AuthorId == userId)
-            .Select(e => e.Id)
-            .ToListAsync();
+        if (user.IsDeleted)
+            return BadRequest("Bu hesap zaten silinmiş.");
 
-        var ownedTopicIds = await _context.Topics
-            .Where(t => t.AuthorId == userId)
-            .Select(t => t.Id)
-            .ToListAsync();
-
-        // ── A) Etkileşim temizliği (kalıcı) ──────────────────────────────────
-        var badges = await _context.EntryBadges
-            .Where(b => b.GiverUserId == userId || entryIds.Contains(b.EntryId))
-            .ToListAsync();
-        _context.EntryBadges.RemoveRange(badges);
-
-        var pollVotes = await _context.PollVotes
-            .Where(v => v.UserId == userId)
-            .ToListAsync();
-        _context.PollVotes.RemoveRange(pollVotes);
-
-        var privateMessages = await _context.PrivateMessages
-            .Where(m => m.SenderId == userId || m.RecipientId == userId)
-            .ToListAsync();
-        _context.PrivateMessages.RemoveRange(privateMessages);
-
-        var reportsToRemove = await _context.Reports
-            .Where(r =>
-                r.ReporterId == userId ||
-                r.ReportedUserId == userId ||
-                (r.ReportedEntryId != null && entryIds.Contains(r.ReportedEntryId.Value)) ||
-                (r.ReportedTopicId != null && ownedTopicIds.Contains(r.ReportedTopicId.Value)))
-            .ToListAsync();
-        _context.Reports.RemoveRange(reportsToRemove);
-
-        var votes = await _context.EntryVotes
-            .Where(v => v.UserId == userId)
-            .ToListAsync();
-        _context.EntryVotes.RemoveRange(votes);
-
-        var savedEntries = await _context.UserSavedEntries
-            .Where(s => s.UserId == userId)
-            .ToListAsync();
-        _context.UserSavedEntries.RemoveRange(savedEntries);
-
-        var follows = await _context.UserFollows
-            .Where(f => f.FollowerId == userId || f.FollowingId == userId)
-            .ToListAsync();
-        _context.UserFollows.RemoveRange(follows);
-
-        var topicFollows = await _context.UserTopicFollows
-            .Where(tf => tf.UserId == userId)
-            .ToListAsync();
-        _context.UserTopicFollows.RemoveRange(topicFollows);
-
-        var notifications = await _context.Notifications
-            .Where(n => n.UserId == userId || n.SenderId == userId)
-            .ToListAsync();
-        _context.Notifications.RemoveRange(notifications);
-
-        var drafts = await _context.DraftEntries
-            .Where(d => d.AuthorId == userId)
-            .ToListAsync();
-        _context.DraftEntries.RemoveRange(drafts);
-
-        // Başlık sahibi anonimleştirme (entry'ler soft-delete ile gizlenir; başlık satırı kalır)
-        var ownedTopics = await _context.Topics
-            .Where(t => t.AuthorId == userId)
-            .ToListAsync();
-        foreach (var topic in ownedTopics)
-            topic.AuthorId = null;
-
-        // ── B) Yasal saklama (soft delete) ───────────────────────────────────
-        var utcNow = DateTime.UtcNow;
-        await _context.Entries
-            .Where(e => e.AuthorId == userId)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(e => e.IsDeleted, true)
-                .SetProperty(e => e.DeletedAtUtc, utcNow));
-
-        user.IsDeleted = true;
-        user.DeletedAtUtc = utcNow;
-        await _context.SaveChangesAsync();
+        var deleted = await _userSoftDeletion.SoftDeleteUserAsync(userId);
+        if (!deleted)
+            return NotFound("Kullanıcı bulunamadı.");
 
         return Ok("Kullanıcı ve entry'leri yasal saklamaya alındı; etkileşim verileri silindi.");
     }

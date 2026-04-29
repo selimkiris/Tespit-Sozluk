@@ -32,19 +32,22 @@ public class UsersController : ControllerBase
     private readonly IPollService _pollService;
     private readonly INoviceStatusService _noviceStatus;
     private readonly ILogger<UsersController> _logger;
+    private readonly IUserSoftDeletionService _userSoftDeletion;
 
     public UsersController(
         AppDbContext context,
         IEntryInteractionNotificationService entryInteractionNotifications,
         IPollService pollService,
         INoviceStatusService noviceStatus,
-        ILogger<UsersController> logger)
+        ILogger<UsersController> logger,
+        IUserSoftDeletionService userSoftDeletion)
     {
         _context = context;
         _entryInteractionNotifications = entryInteractionNotifications;
         _pollService = pollService;
         _noviceStatus = noviceStatus;
         _logger = logger;
+        _userSoftDeletion = userSoftDeletion;
     }
 
     private async Task AttachPollsToEntriesAsync(IList<EntryResponseDto> dtos, Guid? requestorId)
@@ -428,6 +431,30 @@ public class UsersController : ControllerBase
             HasPreviousPage = page > 1,
             HasNextPage = page < totalPages
         };
+    }
+
+    /// <summary>Oturumdaki kullanıcının hesabını (Admin ile aynı soft-delete sürecini) başlatır.</summary>
+    [Authorize]
+    [HttpDelete("me")]
+    public async Task<IActionResult> DeleteMyAccount(CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var existing = await _context.Users.AsNoTracking()
+            .Select(u => new { u.Id, u.IsDeleted })
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        if (existing == null)
+            return NotFound();
+        if (existing.IsDeleted)
+            return BadRequest(new { message = "Hesap zaten silinmiş." });
+
+        var ok = await _userSoftDeletion.SoftDeleteUserAsync(userId, cancellationToken);
+        if (!ok)
+            return NotFound();
+
+        return Ok(new { message = "Hesabınız ve içerikleriniz saklamaya alındı; etkileşim verileri silindi." });
     }
 
     [Authorize]

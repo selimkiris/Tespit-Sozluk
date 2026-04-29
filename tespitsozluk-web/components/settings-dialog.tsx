@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Settings, User, Lock, Eye, EyeOff, MessageCircle } from "lucide-react"
 import { toast } from "sonner"
 import { getApiUrl, apiFetch } from "@/lib/api"
+import { clearAuth } from "@/lib/auth"
 import { validateNicknameTrimmed } from "@/lib/nickname.schema"
 import { isReservedNickname } from "@/lib/reserved-usernames"
 import {
@@ -24,6 +25,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface SettingsDialogProps {
   open: boolean
@@ -63,6 +73,13 @@ export function SettingsDialog({
   const [messagingSaving, setMessagingSaving] = useState(false)
   const [messagingError, setMessagingError] = useState<string | null>(null)
 
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  /** 1: uyarı, 2: mahlas doğrulama */
+  const [deleteStep, setDeleteStep] = useState<1 | 2>(1)
+  const [deleteAccountLoading, setDeleteAccountLoading] = useState(false)
+  /** Hesap silme modalında mahlas doğrulaması */
+  const [confirmDeleteNickname, setConfirmDeleteNickname] = useState("")
+
   const hasChangedUsername = user.hasChangedUsername ?? false
   const usernameTrimmed = username.trim()
   const usernameReservedBlocked =
@@ -77,6 +94,9 @@ export function SettingsDialog({
       setConfirmPassword("")
       setPasswordError(null)
       setMessagingError(null)
+      setConfirmDeleteOpen(false)
+      setDeleteStep(1)
+      setConfirmDeleteNickname("")
 
       let cancelled = false
       setMessagingLoading(true)
@@ -209,7 +229,44 @@ export function SettingsDialog({
     }
   }
 
+  const expectedMahlasForDelete = user.name.trim()
+  const deleteNicknameMatchesConfirmation =
+    confirmDeleteNickname.trim() === expectedMahlasForDelete &&
+    expectedMahlasForDelete.length > 0
+
+  const handleConfirmDeleteAccount = async () => {
+    if (!deleteNicknameMatchesConfirmation) return
+    setDeleteAccountLoading(true)
+    try {
+      const res = await apiFetch(getApiUrl("api/Users/me"), {
+        method: "DELETE",
+      })
+      const data = (await res.json().catch(() => ({}))) as { message?: string }
+      if (!res.ok) {
+        throw new Error(
+          typeof data?.message === "string"
+            ? data.message
+            : "Hesabınız silinemedi."
+        )
+      }
+      toast.success("Hesabınız başarıyla silindi.")
+      setConfirmDeleteOpen(false)
+      setDeleteStep(1)
+      setConfirmDeleteNickname("")
+      onOpenChange(false)
+      clearAuth()
+      window.location.href = "/"
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Hesabınız silinemedi."
+      )
+    } finally {
+      setDeleteAccountLoading(false)
+    }
+  }
+
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[min(90vh,720px)] overflow-y-auto">
         <DialogHeader>
@@ -235,58 +292,88 @@ export function SettingsDialog({
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="account" className="mt-4 space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Mahlasınızı değiştirin
-            </p>
-            {hasChangedUsername ? (
-              <div className="space-y-2">
-                <Input
-                  id="new-username"
-                  value={user.name}
-                  disabled
-                  className="h-10 bg-muted cursor-not-allowed"
-                />
-                <p className="text-sm font-medium text-destructive">
-                  Zaten 1 defa değiştirdiniz, başka hakkınız yok
+          <TabsContent value="account" className="mt-4">
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold tracking-tight">
+                  Mahlas Değiştirme
+                </h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Mahlasınızı değiştirin
                 </p>
               </div>
-            ) : (
-              <form onSubmit={handleUsernameSubmit} className="space-y-3">
-                <div className="space-y-2">
-                  <Label htmlFor="new-username">Yeni Mahlas</Label>
+
+              {hasChangedUsername ? (
+                <div className="space-y-2 pt-1">
+                  <Label htmlFor="new-username-display">Mahlas</Label>
                   <Input
-                    id="new-username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value.slice(0, 20))}
-                    maxLength={20}
-                    className="h-10"
-                    disabled={usernameSaving}
+                    id="new-username-display"
+                    value={user.name}
+                    disabled
+                    className="h-10 bg-muted cursor-not-allowed"
                   />
-                  <p className="text-sm font-semibold text-red-600 dark:text-red-400">
-                    Mahlasını sadece 1 defa değiştirebilirsin. İyi düşünün :)
+                  <p className="text-sm font-medium text-destructive">
+                    Zaten 1 defa değiştirdiniz, başka hakkınız yok
                   </p>
                 </div>
-                {(usernameReservedBlocked || usernameError) && (
-                  <p className="text-sm text-destructive" role="alert">
-                    {usernameReservedBlocked
-                      ? "Bu isim kullanılamaz"
-                      : usernameError}
-                  </p>
-                )}
-                <Button
-                  type="submit"
-                  disabled={
-                    !username.trim() ||
-                    usernameSaving ||
-                    usernameReservedBlocked
-                  }
-                  className="w-full sm:w-auto"
-                >
-                  {usernameSaving ? "Kaydediliyor..." : "Mahlası Güncelle"}
-                </Button>
-              </form>
-            )}
+              ) : (
+                <form onSubmit={handleUsernameSubmit} className="space-y-3 pt-1">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-username">Yeni Mahlas</Label>
+                    <Input
+                      id="new-username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value.slice(0, 20))}
+                      maxLength={20}
+                      className="h-10"
+                      disabled={usernameSaving}
+                    />
+                    <p className="text-xs font-light leading-relaxed text-red-500/90 dark:text-red-400/90">
+                      Mahlasını sadece 1 defa değiştirebilirsin. İyi düşünün :)
+                    </p>
+                  </div>
+                  {(usernameReservedBlocked || usernameError) && (
+                    <p className="text-sm text-destructive" role="alert">
+                      {usernameReservedBlocked
+                        ? "Bu isim kullanılamaz"
+                        : usernameError}
+                    </p>
+                  )}
+                  <Button
+                    type="submit"
+                    disabled={
+                      !username.trim() ||
+                      usernameSaving ||
+                      usernameReservedBlocked
+                    }
+                    className="w-full sm:w-auto"
+                  >
+                    {usernameSaving ? "Kaydediliyor..." : "Mahlası Güncelle"}
+                  </Button>
+                </form>
+              )}
+            </div>
+
+            <div className="mt-14 space-y-3 border-t border-border/60 pt-12">
+              <h3 className="text-lg font-semibold tracking-tight">
+                Hesap Silme
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Hesabınız kalıcı olarak tüm verileriyle silinir.
+              </p>
+              <Button
+                type="button"
+                variant="destructive"
+                className="w-full sm:w-auto"
+                onClick={() => {
+                  setDeleteStep(1)
+                  setConfirmDeleteNickname("")
+                  setConfirmDeleteOpen(true)
+                }}
+              >
+                Hesabımı Sil
+              </Button>
+            </div>
           </TabsContent>
 
           <TabsContent value="security" className="mt-4 space-y-4">
@@ -466,5 +553,107 @@ export function SettingsDialog({
         </Tabs>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog
+      open={confirmDeleteOpen}
+      onOpenChange={(next) => {
+        setConfirmDeleteOpen(next)
+        if (!next) {
+          setDeleteStep(1)
+          setConfirmDeleteNickname("")
+        }
+      }}
+    >
+      <AlertDialogContent className="sm:max-w-md">
+        {deleteStep === 1 ? (
+          <>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Hesabınızı silmek istediğinize emin misiniz?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-muted-foreground">
+                Bu işlem geri alınamaz. Profiliniz, entryleriniz ve tüm etkileşimleriniz
+                platformdan anında ve kalıcı olarak kaldırılacaktır.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="gap-2">
+              <AlertDialogCancel
+                disabled={deleteAccountLoading}
+                className="mt-0"
+              >
+                Vazgeç
+              </AlertDialogCancel>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={deleteAccountLoading}
+                onClick={() => setDeleteStep(2)}
+              >
+                Hesabımı Sil
+              </Button>
+            </AlertDialogFooter>
+          </>
+        ) : (
+          <>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-base sm:text-lg">
+                İşlemi onaylamak için kullanıcı adınızı (mahlasınızı) yazın.
+              </AlertDialogTitle>
+              <AlertDialogDescription className="sr-only">
+                Mahlasınızı aşağıdaki alana girin ve Hesabımı Sil ile doğrulayın.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="grid gap-2 py-1">
+              <Label htmlFor="confirm-delete-nickname">
+                Mahlas
+              </Label>
+              <Input
+                id="confirm-delete-nickname"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                value={confirmDeleteNickname}
+                onChange={(e) =>
+                  setConfirmDeleteNickname(e.target.value.slice(0, 20))
+                }
+                maxLength={20}
+                className="h-10"
+                disabled={deleteAccountLoading}
+              />
+            </div>
+            <AlertDialogFooter className="gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={deleteAccountLoading}
+                onClick={() => {
+                  setDeleteStep(1)
+                  setConfirmDeleteNickname("")
+                }}
+              >
+                Geri
+              </Button>
+              <AlertDialogCancel
+                disabled={deleteAccountLoading}
+                className="mt-0"
+              >
+                Vazgeç
+              </AlertDialogCancel>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={
+                  deleteAccountLoading || !deleteNicknameMatchesConfirmation
+                }
+                onClick={() => void handleConfirmDeleteAccount()}
+              >
+                {deleteAccountLoading ? "Siliniyor…" : "Hesabımı Sil"}
+              </Button>
+            </AlertDialogFooter>
+          </>
+        )}
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   )
 }

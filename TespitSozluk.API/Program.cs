@@ -42,6 +42,7 @@ builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IRateLimitService, RateLimitService>();
 builder.Services.AddHttpClient<ITurnstileService, TurnstileService>();
 builder.Services.AddScoped<IEntryDeletionService, EntryDeletionService>();
+builder.Services.AddScoped<IUserSoftDeletionService, UserSoftDeletionService>();
 builder.Services.AddScoped<IEntryInteractionNotificationService, EntryInteractionNotificationService>();
 builder.Services.AddScoped<IEntryLikesService, EntryLikesService>();
 builder.Services.AddScoped<IEntryMentionService, EntryMentionService>();
