@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, Bell, BellOff, Search, Flag, ShieldAlert, FolderOutput, User, MessageCircle } from "lucide-react"
+import { ArrowLeft, MoreHorizontal, Pencil, Trash2, ChevronLeft, ChevronRight, Bell, BellOff, Search, Flag, ShieldAlert, FolderOutput, User, MessageCircle, Ban } from "lucide-react"
+import { toast } from "sonner"
 import { ShareMenuSub } from "@/components/share-menu"
 import { getApiUrl, apiFetch, getSiteUrl } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -170,6 +171,8 @@ export function TopicDetail({
   const [isFollowLoading, setIsFollowLoading] = useState(false)
   const [topicDetail, setTopicDetail] = useState<Partial<Topic>>({})
   const [isReportOpen, setIsReportOpen] = useState(false)
+  const [isBlockTopicOpen, setIsBlockTopicOpen] = useState(false)
+  const [isBlockingTopic, setIsBlockingTopic] = useState(false)
   // Admin state
   const [isAdminDeleteOpen, setIsAdminDeleteOpen] = useState(false)
   const [isAdminDeleting, setIsAdminDeleting] = useState(false)
@@ -236,6 +239,28 @@ export function TopicDetail({
   useEffect(() => {
     void fetchTopicFromApi()
   }, [topic.id, refreshTrigger, fetchTopicFromApi])
+
+  const handleBlockTopicConfirm = useCallback(async () => {
+    if (!isLoggedIn || isBlockingTopic) return
+    setIsBlockingTopic(true)
+    try {
+      const res = await apiFetch(getApiUrl(`api/blocks/topics/${topic.id}`), {
+        method: "POST",
+      })
+      if (!res.ok && res.status !== 200) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(typeof data === "string" ? data : (data?.message ?? "Başlık engellenemedi."))
+        return
+      }
+      toast.success("Başlık engellendi. Artık feed'inizde görünmeyecek.")
+      setIsBlockTopicOpen(false)
+      router.push("/")
+    } catch {
+      toast.error("Başlık engellenemedi.")
+    } finally {
+      setIsBlockingTopic(false)
+    }
+  }, [topic.id, isLoggedIn, isBlockingTopic, router])
 
   const handleToggleFollow = useCallback(async () => {
     if (!isLoggedIn || isFollowLoading) return
@@ -765,6 +790,16 @@ export function TopicDetail({
                   <Flag className="h-4 w-4" />
                   Şikayet Et
                 </DropdownMenuItem>
+                {isLoggedIn && !canManage && (
+                  <DropdownMenuItem
+                    className="cursor-pointer font-normal"
+                    variant="destructive"
+                    onClick={() => setIsBlockTopicOpen(true)}
+                  >
+                    <Ban className="h-4 w-4" />
+                    Başlığı Engelle
+                  </DropdownMenuItem>
+                )}
                 {canManage && (
                   <>
                     <DropdownMenuSeparator />
@@ -817,6 +852,44 @@ export function TopicDetail({
         targetId={topic.id}
         targetType="topic"
       />
+
+      {/* Başlığı engelleme onayı */}
+      <AlertDialog
+        open={isBlockTopicOpen}
+        onOpenChange={(o) => !isBlockingTopic && setIsBlockTopicOpen(o)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+                <Ban className="h-4 w-4" />
+              </span>
+              Başlığı Engelle
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="font-semibold text-foreground">
+                &quot;{mergedTopic.title}&quot;
+              </span>{" "}
+              başlığını engellemek üzeresiniz. Bundan sonra anasayfa, keşfet ve listeler dahil
+              hiçbir feed&apos;de size gösterilmeyecek. İstediğiniz zaman ayarlardan engeli
+              kaldırabilirsiniz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBlockingTopic}>İptal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleBlockTopicConfirm()
+              }}
+              disabled={isBlockingTopic}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBlockingTopic ? "Engelleniyor..." : "Başlığı Engelle"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Admin: Başlık Kalıcı Silme */}
       <DangerConfirmModal

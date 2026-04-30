@@ -44,4 +44,15 @@ public class UserProfileResponseDto
 
     /// <summary>Profil sahibi çömez (novice) statüsünde mi (20 gün + 20 entry + 3 başlık şartları).</summary>
     public bool IsNovice { get; set; }
+
+    /// <summary>
+    /// İstemcinin profil sahibiyle olan engelleme ilişkisi. Üç değerden biri:
+    /// <list type="bullet">
+    ///   <item><c>"None"</c> — engel yok, tüm profil verisi döner.</item>
+    ///   <item><c>"BlockedByMe"</c> — istemci profili engellemiş; yalnızca <see cref="Id"/> ve <see cref="Nickname"/> doludur.</item>
+    ///   <item><c>"BlockedByThem"</c> — profil sahibi istemciyi engellemiş; yalnızca <see cref="Id"/> ve <see cref="Nickname"/> doludur.</item>
+    /// </list>
+    /// İki yönlü engelleme varsa <c>"BlockedByMe"</c> tercih edilir (kullanıcının kaldırma yetkisi vardır).
+    /// </summary>
+    public string BlockStatus { get; set; } = "None";
 }

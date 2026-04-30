@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using TespitSozluk.API.Data;
 using TespitSozluk.API.DTOs;
 using TespitSozluk.API.Entities;
+using TespitSozluk.API.Filters;
 using TespitSozluk.API.Helpers;
 using TespitSozluk.API.Services;
 
@@ -135,6 +136,58 @@ public class UsersController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<UserProfileResponseDto>> GetUser(Guid id)
     {
+        Guid? requestorIdEarly = null;
+        if (User.Identity?.IsAuthenticated == true && Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var earlyUid))
+        {
+            requestorIdEarly = earlyUid;
+        }
+
+        // ── Profil gizliliği (Block Privacy) ─────────────────────────────────
+        // İstemci-hedef arasında herhangi bir yönde engelleme varsa: yalnızca
+        // Id + Nickname + BlockStatus döndürülür; Avatar, Bio, sayaç, e-posta vb.
+        // HİÇBİR alan sızdırılmaz. Frontend, BlockStatus'a göre uygun mesajı
+        // gösterir ("Bu kişiyi engellediniz." / "Bu kişi sizi engelledi.").
+        // Karşılıklı engellemede "BlockedByMe" tercih edilir; çünkü engeli
+        // kaldırma yetkisi kullanıcının kendisindedir.
+        if (requestorIdEarly.HasValue && requestorIdEarly.Value != id)
+        {
+            var relationship = await _context.GetBlockRelationshipAsync(
+                requestorIdEarly.Value, id, HttpContext.RequestAborted);
+            if (relationship != BlockRelationship.None)
+            {
+                var stub = await _context.Users
+                    .AsNoTracking()
+                    .Where(u => u.Id == id)
+                    .Select(u => new
+                    {
+                        u.Id,
+                        u.FirstName,
+                        u.LastName,
+                        u.Username
+                    })
+                    .FirstOrDefaultAsync();
+                if (stub == null)
+                {
+                    return NotFound();
+                }
+
+                var stubName = (stub.FirstName + " " + stub.LastName).Trim();
+                if (string.IsNullOrEmpty(stubName))
+                {
+                    stubName = string.IsNullOrWhiteSpace(stub.Username) ? "Anonim" : stub.Username;
+                }
+
+                return new UserProfileResponseDto
+                {
+                    Id = stub.Id,
+                    Nickname = stubName,
+                    BlockStatus = relationship == BlockRelationship.BlockedByMe
+                        ? "BlockedByMe"
+                        : "BlockedByThem",
+                };
+            }
+        }
+
         var user = await _context.Users
             .Where(u => u.Id == id)
             .Select(u => new
@@ -277,6 +330,7 @@ public class UsersController : ControllerBase
 
         var query = _context.Topics
             .AsNoTracking()
+            .ApplyBlockFilter(_context, requestorId)
             .Where(t => t.AuthorId == id);
 
         if (!isOwnProfile || !includeAnonymous)
@@ -327,6 +381,7 @@ public class UsersController : ControllerBase
         var query = _context.Entries
             .Include(e => e.Author)
             .Include(e => e.Topic)
+            .ApplyBlockFilter(_context, requestorId)
             .Where(e => !e.IsAnonymous
                 && _context.EntryVotes.Any(v => v.UserId == id && v.IsUpvote && v.EntryId == e.Id))
             .OrderByDescending(e => e.CreatedAt);
@@ -802,6 +857,7 @@ public class UsersController : ControllerBase
         var query = _context.Entries
             .Include(e => e.Author)
             .Include(e => e.Topic)
+            .ApplyBlockFilter(_context, requestorId)
             .Where(e => e.AuthorId == id)
             .AsQueryable();
 
@@ -951,10 +1007,14 @@ public class UsersController : ControllerBase
         if (pageSize < 1) pageSize = 20;
         if (pageSize > 100) pageSize = 100;
 
+        // Engelleme filtresi: kullanıcı önceden kaydettiği bir entry'nin yazarını
+        // sonradan engellemiş olabilir; bu listede bile o entry görünmemelidir.
+        var visibleEntries = _context.Entries.ApplyBlockFilter(_context, requestorId);
+
         var query = _context.UserSavedEntries
             .Where(s => s.UserId == id)
             .OrderByDescending(s => s.SavedAt)
-            .Join(_context.Entries, s => s.EntryId, e => e.Id, (s, e) => new { Saved = s, Entry = e })
+            .Join(visibleEntries, s => s.EntryId, e => e.Id, (s, e) => new { Saved = s, Entry = e })
             .Join(_context.Topics, x => x.Entry.TopicId, t => t.Id, (x, t) => new { x.Saved, x.Entry, Topic = t })
             .Join(_context.Users, x => x.Entry.AuthorId, u => u.Id, (x, u) => new { x.Saved, x.Entry, x.Topic, Author = u });
 

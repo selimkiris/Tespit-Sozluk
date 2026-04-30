@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Settings, User, Lock, Eye, EyeOff, MessageCircle } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import Link from "next/link"
+import { Settings, User, Lock, Eye, EyeOff, MessageCircle, Ban, RotateCcw } from "lucide-react"
 import { toast } from "sonner"
 import { getApiUrl, apiFetch } from "@/lib/api"
 import { clearAuth } from "@/lib/auth"
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/select"
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -80,6 +82,17 @@ export function SettingsDialog({
   /** Hesap silme modalında mahlas doğrulaması */
   const [confirmDeleteNickname, setConfirmDeleteNickname] = useState("")
 
+  /** Engellenenler sekmesi state'i */
+  type BlockedUserItem = { id: string; username: string; avatar?: string | null; blockedAtUtc: string }
+  type BlockedTopicItem = { id: string; title: string; slug: string; blockedAtUtc: string }
+  const [blockedUsers, setBlockedUsers] = useState<BlockedUserItem[]>([])
+  const [blockedTopics, setBlockedTopics] = useState<BlockedTopicItem[]>([])
+  const [blockedLoading, setBlockedLoading] = useState(false)
+  const [blockedLoaded, setBlockedLoaded] = useState(false)
+  const [unblockUserTarget, setUnblockUserTarget] = useState<BlockedUserItem | null>(null)
+  const [unblockTopicTarget, setUnblockTopicTarget] = useState<BlockedTopicItem | null>(null)
+  const [unblockSubmitting, setUnblockSubmitting] = useState(false)
+
   const hasChangedUsername = user.hasChangedUsername ?? false
   const usernameTrimmed = username.trim()
   const usernameReservedBlocked =
@@ -97,6 +110,9 @@ export function SettingsDialog({
       setConfirmDeleteOpen(false)
       setDeleteStep(1)
       setConfirmDeleteNickname("")
+      setBlockedLoaded(false)
+      setBlockedUsers([])
+      setBlockedTopics([])
 
       let cancelled = false
       setMessagingLoading(true)
@@ -229,6 +245,117 @@ export function SettingsDialog({
     }
   }
 
+  const fetchBlockedLists = useCallback(async () => {
+    setBlockedLoading(true)
+    try {
+      const [usersRes, topicsRes] = await Promise.all([
+        apiFetch(getApiUrl("api/blocks/users")),
+        apiFetch(getApiUrl("api/blocks/topics")),
+      ])
+      if (usersRes.ok) {
+        const data = await usersRes.json()
+        const items: BlockedUserItem[] = Array.isArray(data)
+          ? data.map((d: { id: string; username?: string; avatar?: string | null; blockedAtUtc?: string }) => ({
+              id: String(d.id),
+              username: d.username ?? "Anonim",
+              avatar: d.avatar ?? null,
+              blockedAtUtc: d.blockedAtUtc ?? "",
+            }))
+          : []
+        setBlockedUsers(items)
+      } else {
+        setBlockedUsers([])
+      }
+      if (topicsRes.ok) {
+        const data = await topicsRes.json()
+        const items: BlockedTopicItem[] = Array.isArray(data)
+          ? data.map((d: { id: string; title?: string; slug?: string; blockedAtUtc?: string }) => ({
+              id: String(d.id),
+              title: d.title ?? "(başlıksız)",
+              slug: d.slug ?? "",
+              blockedAtUtc: d.blockedAtUtc ?? "",
+            }))
+          : []
+        setBlockedTopics(items)
+      } else {
+        setBlockedTopics([])
+      }
+      setBlockedLoaded(true)
+    } catch {
+      setBlockedUsers([])
+      setBlockedTopics([])
+      setBlockedLoaded(true)
+    } finally {
+      setBlockedLoading(false)
+    }
+  }, [])
+
+  const handleConfirmUnblockUser = useCallback(async () => {
+    if (!unblockUserTarget || unblockSubmitting) return
+    setUnblockSubmitting(true)
+    const target = unblockUserTarget
+    // Optimistic UI: önce listeden çıkar; başarısız olursa geri ekle.
+    setBlockedUsers((prev) => prev.filter((u) => u.id !== target.id))
+    try {
+      const res = await apiFetch(getApiUrl(`api/blocks/users/${target.id}`), {
+        method: "DELETE",
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(typeof data === "string" ? data : (data?.message ?? "Engel kaldırılamadı."))
+        setBlockedUsers((prev) => [target, ...prev])
+        return
+      }
+      toast.success(`${target.username} üzerindeki engel kaldırıldı.`)
+      setUnblockUserTarget(null)
+    } catch {
+      toast.error("Engel kaldırılamadı.")
+      setBlockedUsers((prev) => [target, ...prev])
+    } finally {
+      setUnblockSubmitting(false)
+    }
+  }, [unblockUserTarget, unblockSubmitting])
+
+  const handleConfirmUnblockTopic = useCallback(async () => {
+    if (!unblockTopicTarget || unblockSubmitting) return
+    setUnblockSubmitting(true)
+    const target = unblockTopicTarget
+    setBlockedTopics((prev) => prev.filter((t) => t.id !== target.id))
+    try {
+      const res = await apiFetch(getApiUrl(`api/blocks/topics/${target.id}`), {
+        method: "DELETE",
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(typeof data === "string" ? data : (data?.message ?? "Engel kaldırılamadı."))
+        setBlockedTopics((prev) => [target, ...prev])
+        return
+      }
+      toast.success(`"${target.title}" başlığındaki engel kaldırıldı.`)
+      setUnblockTopicTarget(null)
+    } catch {
+      toast.error("Engel kaldırılamadı.")
+      setBlockedTopics((prev) => [target, ...prev])
+    } finally {
+      setUnblockSubmitting(false)
+    }
+  }, [unblockTopicTarget, unblockSubmitting])
+
+  const formatBlockedAt = (iso: string) => {
+    if (!iso) return ""
+    try {
+      const d = new Date(iso)
+      if (Number.isNaN(d.getTime())) return ""
+      return d.toLocaleDateString("tr-TR", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    } catch {
+      return ""
+    }
+  }
+
   const expectedMahlasForDelete = user.name.trim()
   const deleteNicknameMatchesConfirmation =
     confirmDeleteNickname.trim() === expectedMahlasForDelete &&
@@ -276,8 +403,16 @@ export function SettingsDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="account" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 h-auto sm:h-9 gap-0.5 p-1">
+        <Tabs
+          defaultValue="account"
+          className="w-full"
+          onValueChange={(value) => {
+            if (value === "blocked" && !blockedLoaded && !blockedLoading) {
+              void fetchBlockedLists()
+            }
+          }}
+        >
+          <TabsList className="grid w-full grid-cols-4 h-auto sm:h-9 gap-0.5 p-1">
             <TabsTrigger value="account" className="gap-1 text-[11px] sm:text-sm px-1 sm:px-2">
               <User className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">Hesap</span>
@@ -289,6 +424,10 @@ export function SettingsDialog({
             <TabsTrigger value="messaging" className="gap-1 text-[11px] sm:text-sm px-1 sm:px-2">
               <MessageCircle className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">Mesaj</span>
+            </TabsTrigger>
+            <TabsTrigger value="blocked" className="gap-1 text-[11px] sm:text-sm px-1 sm:px-2">
+              <Ban className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Engellenenler</span>
             </TabsTrigger>
           </TabsList>
 
@@ -550,6 +689,143 @@ export function SettingsDialog({
               </form>
             )}
           </TabsContent>
+
+          <TabsContent value="blocked" className="mt-4 space-y-6">
+            {blockedLoading && !blockedLoaded ? (
+              <p className="py-12 text-center text-sm text-muted-foreground">Yükleniyor…</p>
+            ) : (
+              <>
+                {/* Engellenen Kullanıcılar */}
+                <section className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-semibold tracking-tight flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      Engellenen Kullanıcılar
+                      <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold tabular-nums bg-muted text-muted-foreground">
+                        {blockedUsers.length}
+                      </span>
+                    </h3>
+                  </div>
+                  {blockedUsers.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-8 text-center">
+                      <p className="text-sm text-muted-foreground">
+                        Engellediğiniz bir kullanıcı yok.
+                      </p>
+                    </div>
+                  ) : (
+                    <ul className="divide-y divide-border/60 rounded-lg border border-border/70 bg-card/40">
+                      {blockedUsers.map((u) => (
+                        <li
+                          key={u.id}
+                          className="flex items-center gap-3 px-3 py-2.5 sm:px-4"
+                        >
+                          <Link
+                            href={`/user/${u.id}`}
+                            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/60 bg-muted text-muted-foreground hover:opacity-90 transition-opacity"
+                            onClick={() => onOpenChange(false)}
+                            aria-label={`${u.username} profiline git`}
+                          >
+                            {u.avatar &&
+                            (u.avatar.startsWith("http") || u.avatar.startsWith("data:image")) ? (
+                              <img
+                                src={u.avatar}
+                                alt=""
+                                referrerPolicy="no-referrer"
+                                className="h-9 w-9 object-cover"
+                              />
+                            ) : u.avatar ? (
+                              <span className="text-base">{u.avatar}</span>
+                            ) : (
+                              <User className="h-4 w-4" />
+                            )}
+                          </Link>
+                          <div className="flex-1 min-w-0">
+                            <Link
+                              href={`/user/${u.id}`}
+                              onClick={() => onOpenChange(false)}
+                              className="text-sm font-medium text-foreground truncate block hover:underline underline-offset-2"
+                            >
+                              {u.username}
+                            </Link>
+                            {u.blockedAtUtc && (
+                              <p className="text-[11px] text-muted-foreground">
+                                Engellendi: {formatBlockedAt(u.blockedAtUtc)}
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 shrink-0"
+                            onClick={() => setUnblockUserTarget(u)}
+                            disabled={unblockSubmitting}
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            Engeli Kaldır
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+
+                {/* Engellenen başlıklar */}
+                <section className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-semibold tracking-tight flex items-center gap-2">
+                      <Ban className="h-4 w-4 text-muted-foreground" />
+                      Engellenen Başlıklar
+                      <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold tabular-nums bg-muted text-muted-foreground">
+                        {blockedTopics.length}
+                      </span>
+                    </h3>
+                  </div>
+                  {blockedTopics.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 py-8 text-center">
+                      <p className="text-sm text-muted-foreground">
+                        Engellediğiniz bir başlık yok.
+                      </p>
+                    </div>
+                  ) : (
+                    <ul className="divide-y divide-border/60 rounded-lg border border-border/70 bg-card/40">
+                      {blockedTopics.map((t) => (
+                        <li
+                          key={t.id}
+                          className="flex items-center gap-3 px-3 py-2.5 sm:px-4"
+                        >
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted text-muted-foreground">
+                            <Ban className="h-4 w-4" />
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm font-medium text-foreground truncate block">
+                              {t.title}
+                            </span>
+                            {t.blockedAtUtc && (
+                              <p className="text-[11px] text-muted-foreground">
+                                Engellendi: {formatBlockedAt(t.blockedAtUtc)}
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 shrink-0"
+                            onClick={() => setUnblockTopicTarget(t)}
+                            disabled={unblockSubmitting}
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            Engeli Kaldır
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              </>
+            )}
+          </TabsContent>
         </Tabs>
       </DialogContent>
     </Dialog>
@@ -652,6 +928,80 @@ export function SettingsDialog({
             </AlertDialogFooter>
           </>
         )}
+      </AlertDialogContent>
+    </AlertDialog>
+
+    <AlertDialog
+      open={!!unblockUserTarget}
+      onOpenChange={(next) => {
+        if (!next && !unblockSubmitting) setUnblockUserTarget(null)
+      }}
+    >
+      <AlertDialogContent className="sm:max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <RotateCcw className="h-4 w-4" />
+            </span>
+            Engeli Kaldır
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            <span className="font-semibold text-foreground">
+              {unblockUserTarget?.username}
+            </span>{" "}
+            kullanıcısı üzerindeki engeli kaldırmak istiyor musunuz? Profili
+            ve entryleri yeniden size görünür olacak.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={unblockSubmitting}>İptal</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => {
+              e.preventDefault()
+              void handleConfirmUnblockUser()
+            }}
+            disabled={unblockSubmitting}
+          >
+            {unblockSubmitting ? "Kaldırılıyor…" : "Engeli Kaldır"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    <AlertDialog
+      open={!!unblockTopicTarget}
+      onOpenChange={(next) => {
+        if (!next && !unblockSubmitting) setUnblockTopicTarget(null)
+      }}
+    >
+      <AlertDialogContent className="sm:max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <RotateCcw className="h-4 w-4" />
+            </span>
+            Engeli Kaldır
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            <span className="font-semibold text-foreground">
+              &quot;{unblockTopicTarget?.title}&quot;
+            </span>{" "}
+            başlığı üzerindeki engeli kaldırmak istiyor musunuz? Başlık tüm
+            feed&apos;lerde tekrar size görünür olacak.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={unblockSubmitting}>İptal</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => {
+              e.preventDefault()
+              void handleConfirmUnblockTopic()
+            }}
+            disabled={unblockSubmitting}
+          >
+            {unblockSubmitting ? "Kaldırılıyor…" : "Engeli Kaldır"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
     </>

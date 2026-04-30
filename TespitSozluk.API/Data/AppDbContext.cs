@@ -26,6 +26,8 @@ public class AppDbContext : DbContext
     public DbSet<PollVote> PollVotes { get; set; }
     public DbSet<PrivateMessage> PrivateMessages { get; set; }
     public DbSet<EntryBadge> EntryBadges { get; set; }
+    public DbSet<UserBlock> UserBlocks { get; set; }
+    public DbSet<TopicBlock> TopicBlocks { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -366,5 +368,56 @@ public class AppDbContext : DbContext
         // Entry başına rozet sayma / "MostBadged" sıralaması için.
         modelBuilder.Entity<EntryBadge>()
             .HasIndex(b => b.EntryId);
+
+        // ── Kullanıcı Engelleme (UserBlocks) ────────────────────────────────
+        // Composite key: aynı (Blocker, Blocked) çifti iki kez eklenemez.
+        // Cascade stratejisi: PostgreSQL'in "multiple cascade paths" hatasını
+        // engellemek için yalnızca BlockerId tarafı Cascade; BlockedId Restrict.
+        // Hard-delete edilen kullanıcı için kalan UserBlock satırları
+        // UserSoftDeletionService tarafından önceden temizlenir, dolayısıyla
+        // Restrict kuralı pratikte hiçbir zaman tetiklenmez.
+        modelBuilder.Entity<UserBlock>()
+            .HasKey(b => new { b.BlockerId, b.BlockedId });
+
+        modelBuilder.Entity<UserBlock>()
+            .HasOne(b => b.Blocker)
+            .WithMany()
+            .HasForeignKey(b => b.BlockerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<UserBlock>()
+            .HasOne(b => b.Blocked)
+            .WithMany()
+            .HasForeignKey(b => b.BlockedId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // "Beni kim engellemiş?" sorgusu için ters yön index.
+        modelBuilder.Entity<UserBlock>()
+            .HasIndex(b => b.BlockedId);
+
+        // ── Başlık Engelleme (TopicBlocks) ──────────────────────────────────
+        // Tek cascade yolu (User & Topic ayrı kökler), dolayısıyla iki taraf da
+        // Cascade olarak güvenle bırakılabilir.
+        modelBuilder.Entity<TopicBlock>()
+            .HasKey(tb => new { tb.UserId, tb.TopicId });
+
+        modelBuilder.Entity<TopicBlock>()
+            .HasOne(tb => tb.User)
+            .WithMany()
+            .HasForeignKey(tb => tb.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<TopicBlock>()
+            .HasOne(tb => tb.Topic)
+            .WithMany()
+            .HasForeignKey(tb => tb.TopicId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // "Şu başlığı kimler engellemiş?" değil; "Bu kullanıcının engelledikleri"
+        // sorgusu öncelikli — primary key zaten UserId-prefix; ek index ETKİLEMEZ.
+        // Filtreleme tarafında IQueryable.ApplyBlockFilter, TopicId üzerinden
+        // EXISTS subquery üreteceği için TopicId üzerine reverse-index ekliyoruz.
+        modelBuilder.Entity<TopicBlock>()
+            .HasIndex(tb => tb.TopicId);
     }
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo } from "react"
 import type { ReactNode } from "react"
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, Lock, FileText, Pencil, Trash2, Send, Plus, User, UserPlus, UserMinus, CalendarDays, Heart, Save, PencilLine, ShieldX, CheckCircle2, Clock, AlertTriangle, RotateCcw, Flag, Trash, BadgeCheck, Mail, ShieldAlert, MessageCircle, FileEdit, Share2, Search, BookOpen, Medal } from "lucide-react"
+import { ArrowLeft, Lock, FileText, Pencil, Trash2, Send, Plus, User, UserPlus, UserMinus, CalendarDays, Heart, Save, PencilLine, ShieldX, CheckCircle2, Clock, AlertTriangle, RotateCcw, Flag, Trash, BadgeCheck, Mail, ShieldAlert, MessageCircle, FileEdit, Share2, Search, BookOpen, Medal, Ban, MoreHorizontal } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
 import { Navbar } from "@/components/navbar"
@@ -59,6 +59,8 @@ import { ShareMenuItems } from "@/components/share-menu"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { DangerConfirmModal } from "@/components/admin/danger-confirm-modal"
@@ -116,6 +118,15 @@ type UserProfile = {
   isNovice?: boolean
   /** Backend `levelName` — örn. "Çömez", "Level 4" */
   levelName?: string
+  /**
+   * Aktif istemcinin profil sahibiyle olan engelleme ilişkisi:
+   * <ul>
+   *   <li><code>"None"</code>: engel yok, tüm profil verisi mevcut.</li>
+   *   <li><code>"BlockedByMe"</code>: istemci profili engellemiş; sadece <code>id</code> ve <code>nickname</code> dolu.</li>
+   *   <li><code>"BlockedByThem"</code>: profil sahibi istemciyi engellemiş; sadece <code>id</code> ve <code>nickname</code> dolu.</li>
+   * </ul>
+   */
+  blockStatus?: "None" | "BlockedByMe" | "BlockedByThem"
 }
 
 type ApiEntry = {
@@ -355,6 +366,9 @@ export default function UserProfilePage() {
   const [avatarDialogOpen, setAvatarDialogOpen] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
   const [profileReportOpen, setProfileReportOpen] = useState(false)
+  const [blockUserConfirmOpen, setBlockUserConfirmOpen] = useState(false)
+  const [unblockUserConfirmOpen, setUnblockUserConfirmOpen] = useState(false)
+  const [blockActionLoading, setBlockActionLoading] = useState(false)
   const [bioEditing, setBioEditing] = useState(false)
   const [bioDraft, setBioDraft] = useState("")
   const [bioSaving, setBioSaving] = useState(false)
@@ -478,6 +492,10 @@ export default function UserProfilePage() {
           typeof data.levelName === "string" && data.levelName.trim().length > 0
             ? data.levelName.trim()
             : "Çömez",
+        blockStatus:
+          data.blockStatus === "BlockedByMe" || data.blockStatus === "BlockedByThem"
+            ? data.blockStatus
+            : "None",
       }
     } catch {
       return null
@@ -800,6 +818,70 @@ export default function UserProfilePage() {
     }
   }, [id, auth?.token, followLoading])
 
+  const handleBlockUser = useCallback(async () => {
+    if (!id || !auth?.token || blockActionLoading) return
+    setBlockActionLoading(true)
+    try {
+      const res = await apiFetch(getApiUrl(`api/blocks/users/${id}`), {
+        method: "POST",
+      })
+      if (!res.ok && res.status !== 200) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data?.message ?? "Kullanıcı engellenemedi.")
+        return
+      }
+      setBlockUserConfirmOpen(false)
+      toast.success("Kullanıcı engellendi.")
+      setUser((prev) =>
+        prev
+          ? {
+              id: prev.id,
+              nickname: prev.nickname,
+              avatar: null,
+              bio: null,
+              totalEntryCount: 0,
+              totalTopicCount: 0,
+              blockStatus: "BlockedByMe",
+            }
+          : null,
+      )
+      setEntries([])
+      setLikedEntries([])
+      setSavedEntries([])
+      setBadgeReceivedEntries([])
+      setBadgeGivenEntries([])
+    } catch {
+      toast.error("Kullanıcı engellenemedi.")
+    } finally {
+      setBlockActionLoading(false)
+    }
+  }, [id, auth?.token, blockActionLoading])
+
+  const handleUnblockUser = useCallback(async () => {
+    if (!id || !auth?.token || blockActionLoading) return
+    setBlockActionLoading(true)
+    try {
+      const res = await apiFetch(getApiUrl(`api/blocks/users/${id}`), {
+        method: "DELETE",
+      })
+      if (!res.ok && res.status !== 200) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data?.message ?? "Engel kaldırılamadı.")
+        return
+      }
+      setUnblockUserConfirmOpen(false)
+      toast.success("Engel kaldırıldı. Profil yenileniyor…")
+      const fresh = await fetchUser(id)
+      if (fresh) {
+        setUser(fresh)
+      }
+    } catch {
+      toast.error("Engel kaldırılamadı.")
+    } finally {
+      setBlockActionLoading(false)
+    }
+  }, [id, auth?.token, blockActionLoading, fetchUser])
+
   const handleDeleteDraft = async (draftId: string) => {
     try {
       const res = await apiFetch(getApiUrl(`api/Drafts/${draftId}`), {
@@ -1075,11 +1157,18 @@ export default function UserProfilePage() {
   }
 
   const profileLevelLabel = (user.levelName ?? "").trim()
+  const blockStatus: "None" | "BlockedByMe" | "BlockedByThem" = user.blockStatus ?? "None"
+  const isBlockedByMe = blockStatus === "BlockedByMe"
+  const isBlockedByThem = blockStatus === "BlockedByThem"
+  const isBlockedAny = isBlockedByMe || isBlockedByThem
   const showAuthorLevelBadge =
-    profileLevelLabel.length > 0 && profileLevelLabel !== "Çömez"
-  const showProfileNoviceBadge = shouldShowNoviceBadge(user.isNovice, undefined)
+    !isBlockedAny &&
+    profileLevelLabel.length > 0 &&
+    profileLevelLabel !== "Çömez"
+  const showProfileNoviceBadge =
+    !isBlockedAny && shouldShowNoviceBadge(user.isNovice, undefined)
   const showProfileHeaderRightColumn =
-    !!id || showProfileNoviceBadge || showAuthorLevelBadge
+    !isBlockedAny && (!!id || showProfileNoviceBadge || showAuthorLevelBadge)
 
   return (
     <div className="min-h-screen bg-background">
@@ -1143,7 +1232,14 @@ export default function UserProfilePage() {
               </Button>
             </Link>
             <div className="flex justify-start mb-3">
-              {isOwnProfile ? (
+              {isBlockedAny ? (
+                <span
+                  className="flex h-24 w-24 items-center justify-center rounded-full bg-muted text-muted-foreground border-2 border-border shadow-sm"
+                  aria-label="Engellenmiş kullanıcı"
+                >
+                  <Ban className="h-10 w-10" />
+                </span>
+              ) : isOwnProfile ? (
                 <button
                   type="button"
                   onClick={() => setAvatarDialogOpen(true)}
@@ -1216,43 +1312,97 @@ export default function UserProfilePage() {
                 </div>
               )}
             </div>
-            {isAdmin && !isOwnProfile && viewedUserEmail && (
+            {!isBlockedAny && isAdmin && !isOwnProfile && viewedUserEmail && (
               <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm">
                 <Mail className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                 <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Admin Görünümü:</span>
                 <span className="text-foreground font-medium">{viewedUserEmail}</span>
               </div>
             )}
-            {user.createdAt && (
+            {isBlockedAny && (
+              <div className="mt-6 flex flex-col items-center justify-center gap-4 rounded-xl border border-border/70 bg-muted/30 px-6 py-10 text-center">
+                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                  <Ban className="h-7 w-7" />
+                </span>
+                <div className="space-y-1">
+                  <p className="text-base font-semibold text-foreground">
+                    {isBlockedByMe ? "Bu kişiyi engellediniz." : "Bu kişi sizi engelledi."}
+                  </p>
+                  <p className="text-sm text-muted-foreground max-w-md">
+                    {isBlockedByMe
+                      ? "Profili, entryleri ve etkileşimleri size gösterilmiyor. Engeli istediğiniz zaman kaldırabilirsiniz."
+                      : "Profili, entryleri ve etkileşimleri size gösterilmiyor."}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {isBlockedByMe && (
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={() => setUnblockUserConfirmOpen(true)}
+                      disabled={blockActionLoading}
+                      className="gap-1.5"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Engeli Kaldır
+                    </Button>
+                  )}
+                  {isLoggedIn && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9 shrink-0"
+                          aria-label="Daha fazla"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="min-w-[160px]">
+                        <DropdownMenuItem onClick={() => setProfileReportOpen(true)}>
+                          <Flag className="h-4 w-4" />
+                          Şikayet Et
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+              </div>
+            )}
+            {!isBlockedAny && user.createdAt && (
               <p className="flex items-center gap-2 mt-1.5 text-sm text-muted-foreground">
                 <CalendarDays className="h-4 w-4 shrink-0" />
                 {formatMemberSince(user.createdAt)}
               </p>
             )}
-            <div className="grid grid-cols-3 gap-3 mt-4 max-w-sm">
-              <div className="flex items-center gap-2.5 rounded-lg border border-border bg-muted/30 px-4 py-3">
-                <Heart className="h-5 w-5 text-rose-500 shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground tracking-tight">Toplam Kalp</p>
-                  <p className="text-lg font-semibold text-foreground">{user.totalUpvotesReceived ?? 0}</p>
+            {!isBlockedAny && (
+              <div className="grid grid-cols-3 gap-3 mt-4 max-w-sm">
+                <div className="flex items-center gap-2.5 rounded-lg border border-border bg-muted/30 px-4 py-3">
+                  <Heart className="h-5 w-5 text-rose-500 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground tracking-tight">Toplam Kalp</p>
+                    <p className="text-lg font-semibold text-foreground">{user.totalUpvotesReceived ?? 0}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5 rounded-lg border border-border bg-muted/30 px-4 py-3">
+                  <AyakIcon className="h-5 w-5 text-amber-600 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground tracking-tight">Toplam Ayak</p>
+                    <p className="text-lg font-semibold text-foreground">{user.totalDownvotesReceived ?? 0}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5 rounded-lg border border-border bg-muted/30 px-4 py-3">
+                  <CiviIcon className="h-5 w-5 text-purple-500 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground tracking-tight">Toplam Çivileme</p>
+                    <p className="text-lg font-semibold text-foreground">{user.totalSavesReceived ?? 0}</p>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2.5 rounded-lg border border-border bg-muted/30 px-4 py-3">
-                <AyakIcon className="h-5 w-5 text-amber-600 shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground tracking-tight">Toplam Ayak</p>
-                  <p className="text-lg font-semibold text-foreground">{user.totalDownvotesReceived ?? 0}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5 rounded-lg border border-border bg-muted/30 px-4 py-3">
-                <CiviIcon className="h-5 w-5 text-purple-500 shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground tracking-tight">Toplam Çivileme</p>
-                  <p className="text-lg font-semibold text-foreground">{user.totalSavesReceived ?? 0}</p>
-                </div>
-              </div>
-            </div>
-            {((user.bio && user.bio.trim()) || isOwnProfile) && (
+            )}
+            {!isBlockedAny && ((user.bio && user.bio.trim()) || isOwnProfile) && (
               <div className="mt-4 space-y-2">
                 <h3 className="text-sm font-medium text-muted-foreground">Yazıt</h3>
                 {bioEditing ? (
@@ -1323,6 +1473,7 @@ export default function UserProfilePage() {
                 )}
               </div>
             )}
+            {!isBlockedAny && (
             <div className="flex flex-wrap items-center gap-3 mt-4">
               <button
                 type="button"
@@ -1393,23 +1544,33 @@ export default function UserProfilePage() {
                 </DropdownMenuContent>
               </DropdownMenu>
               {!isOwnProfile && isLoggedIn && (
-                <TooltipProvider delayDuration={300}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8 shrink-0"
-                        aria-label="Şikayet et"
-                        onClick={() => setProfileReportOpen(true)}
-                      >
-                        <Flag className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Şikayet Et</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      aria-label="Daha fazla"
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-[180px]">
+                    <DropdownMenuItem onClick={() => setProfileReportOpen(true)}>
+                      <Flag className="h-4 w-4" />
+                      Şikayet Et
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onClick={() => setBlockUserConfirmOpen(true)}
+                    >
+                      <Ban className="h-4 w-4" />
+                      Kullanıcıyı Engelle
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
               {isAdmin && !isOwnProfile && (
                 <>
@@ -1454,10 +1615,12 @@ export default function UserProfilePage() {
                 </span>
               )}
             </div>
+            )}
           </div>
         </div>
 
         {/* Tabs: Entryler / Kalpler / Çiviler / Rozetler / Taslaklar */}
+        {!isBlockedAny && (
         <div className="w-full max-w-2xl mx-auto px-4 py-6 lg:max-w-[786px] lg:px-6">
           <Tabs value={profileTab} onValueChange={handleProfileTabChange} className="w-full">
             <div className="-mx-4 px-4 lg:-mx-6 lg:px-6 mb-8 flex overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-hide">
@@ -2489,6 +2652,7 @@ export default function UserProfilePage() {
             )}
           </Tabs>
         </div>
+        )}
       </main>
 
       {/* Admin: İletişime Geç — Kullanıcıya Mesaj Gönder */}
@@ -2746,6 +2910,76 @@ export default function UserProfilePage() {
           targetType="user"
         />
       )}
+
+      {/* Engelleme Onayı */}
+      <AlertDialog
+        open={blockUserConfirmOpen}
+        onOpenChange={(o) => !blockActionLoading && setBlockUserConfirmOpen(o)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+                <Ban className="h-4 w-4" />
+              </span>
+              Kullanıcıyı Engelle
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="font-semibold text-foreground">{user?.nickname}</span>{" "}
+              kullanıcısını engellemek istiyor musunuz? Karşılıklı tüm etkileşimler
+              (oylar, takipleşme, mesajlar, çiviler, rozetler) kaldırılacak ve bu
+              kişinin entryleri size hiçbir feed&apos;de görünmeyecek.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={blockActionLoading}>İptal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleBlockUser()
+              }}
+              disabled={blockActionLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {blockActionLoading ? "Engelleniyor..." : "Engelle"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Engeli Kaldırma Onayı */}
+      <AlertDialog
+        open={unblockUserConfirmOpen}
+        onOpenChange={(o) => !blockActionLoading && setUnblockUserConfirmOpen(o)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <RotateCcw className="h-4 w-4" />
+              </span>
+              Engeli Kaldır
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="font-semibold text-foreground">{user?.nickname}</span>{" "}
+              kullanıcısı üzerindeki engeli kaldırmak istiyor musunuz? Profili ve
+              entryleri yeniden size görünür olacak.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={blockActionLoading}>İptal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleUnblockUser()
+              }}
+              disabled={blockActionLoading}
+            >
+              {blockActionLoading ? "Kaldırılıyor..." : "Engeli Kaldır"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

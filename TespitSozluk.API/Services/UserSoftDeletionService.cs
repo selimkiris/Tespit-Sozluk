@@ -84,6 +84,20 @@ public class UserSoftDeletionService : IUserSoftDeletionService
             .ToListAsync(cancellationToken);
         _context.DraftEntries.RemoveRange(drafts);
 
+        // ── Engelleme (Block) satırları ──────────────────────────────────────
+        // UserBlock.BlockedId üzerinde Restrict FK olduğu için hard-delete fazına
+        // kadar bu satırlar mutlaka temizlenmiş olmalıdır. Aynı zamanda kullanıcının
+        // engellediği/engelleyen olduğu hiçbir kayıt kalmasın diye iki yönlü temizlik.
+        var userBlocks = await _context.UserBlocks
+            .Where(b => b.BlockerId == userId || b.BlockedId == userId)
+            .ToListAsync(cancellationToken);
+        _context.UserBlocks.RemoveRange(userBlocks);
+
+        var topicBlocks = await _context.TopicBlocks
+            .Where(tb => tb.UserId == userId)
+            .ToListAsync(cancellationToken);
+        _context.TopicBlocks.RemoveRange(topicBlocks);
+
         // ── B) Yasal saklama (soft delete) öncesi: etkilenecek başlık Id'leri ───
         var affectedTopicIds = await _context.Entries
             .Where(e => e.AuthorId == userId)

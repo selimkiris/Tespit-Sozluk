@@ -1,8 +1,10 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TespitSozluk.API.Data;
 using TespitSozluk.API.DTOs;
+using TespitSozluk.API.Filters;
 
 namespace TespitSozluk.API.Controllers;
 
@@ -29,7 +31,15 @@ public class SearchController : ControllerBase
         var searchTerm = q.Trim().ToLowerInvariant();
         var searchPattern = $"%{searchTerm}%";
 
+        Guid? userId = null;
+        if (User.Identity?.IsAuthenticated == true
+            && Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var uid))
+        {
+            userId = uid;
+        }
+
         var topics = await _context.Topics
+            .ApplyBlockFilter(_context, userId)
             .Where(t => EF.Functions.ILike(t.Title, searchPattern))
             .Select(t => new TopicSearchResultDto
             {

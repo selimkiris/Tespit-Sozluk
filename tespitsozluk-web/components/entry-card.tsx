@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Heart, MoreHorizontal, Pencil, Trash2, User, Users, Flag, ShieldX, BadgeCheck, MessageCircle, Medal } from "lucide-react"
+import { Heart, MoreHorizontal, Pencil, Trash2, User, Users, Flag, ShieldX, BadgeCheck, MessageCircle, Medal, Ban } from "lucide-react"
+import { toast } from "sonner"
 import { ShareMenuSub } from "@/components/share-menu"
 import { getApiUrl, apiFetch, getSiteUrl } from "@/lib/api"
 import { CiviIcon } from "@/components/icons/CiviIcon"
@@ -168,6 +169,8 @@ export function EntryCard({
   const [isSaved, setIsSaved] = useState(entry.isSavedByCurrentUser ?? false)
   const [isSaving, setIsSaving] = useState(false)
   const [isReportOpen, setIsReportOpen] = useState(false)
+  const [isBlockUserOpen, setIsBlockUserOpen] = useState(false)
+  const [isBlockingUser, setIsBlockingUser] = useState(false)
   const [isAdminDeleteOpen, setIsAdminDeleteOpen] = useState(false)
   const [isAdminDeleting, setIsAdminDeleting] = useState(false)
   const [isLikersOpen, setIsLikersOpen] = useState(false)
@@ -246,6 +249,36 @@ export function EntryCard({
     localAuthor.id !== emptyAuthorGuid &&
     !!currentUser?.id &&
     currentUser.id !== localAuthor.id
+  const canBlockUser =
+    isLoggedIn &&
+    !isAnonymousEntry &&
+    !canManage &&
+    !!localAuthor?.id &&
+    localAuthor.id !== emptyAuthorGuid &&
+    !!currentUser?.id &&
+    currentUser.id !== localAuthor.id
+
+  const handleBlockUserConfirm = async () => {
+    if (!canBlockUser || isBlockingUser) return
+    setIsBlockingUser(true)
+    try {
+      const res = await apiFetch(getApiUrl(`api/blocks/users/${localAuthor.id}`), {
+        method: "POST",
+      })
+      if (!res.ok && res.status !== 200) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(typeof data === "string" ? data : (data?.message ?? "Kullanıcı engellenemedi."))
+        return
+      }
+      toast.success(`${localAuthor.nickname} engellendi.`)
+      setIsBlockUserOpen(false)
+      onEntryChange?.()
+    } catch {
+      toast.error("Kullanıcı engellenemedi.")
+    } finally {
+      setIsBlockingUser(false)
+    }
+  }
 
   useEffect(() => {
     setUserVote(entry.userVote ?? null)
@@ -848,6 +881,15 @@ export function EntryCard({
                 <Flag className="h-4 w-4" />
                 Şikayet Et
               </DropdownMenuItem>
+              {canBlockUser && (
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => setIsBlockUserOpen(true)}
+                >
+                  <Ban className="h-4 w-4" />
+                  Kullanıcıyı Engelle
+                </DropdownMenuItem>
+              )}
               {isAdmin && (
                 <DropdownMenuItem
                   variant="destructive"
@@ -1052,6 +1094,42 @@ export function EntryCard({
         onOpenChange={setIsLikersOpen}
         entryId={entry.id}
       />
+
+      {/* Kullanıcıyı Engelleme Onayı */}
+      <AlertDialog
+        open={isBlockUserOpen}
+        onOpenChange={(o) => !isBlockingUser && setIsBlockUserOpen(o)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+                <Ban className="h-4 w-4" />
+              </span>
+              Kullanıcıyı Engelle
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="font-semibold text-foreground">{localAuthor.nickname}</span>{" "}
+              kullanıcısını engellemek istiyor musunuz? Karşılıklı oylar, takipler,
+              mesajlar ve etkileşimler kaldırılacak; bu kişinin entryleri size hiçbir
+              feed&apos;de görünmeyecek.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBlockingUser}>İptal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleBlockUserConfirm()
+              }}
+              disabled={isBlockingUser}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBlockingUser ? "Engelleniyor..." : "Engelle"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </article>
   )
 }

@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using TespitSozluk.API.Data;
 using TespitSozluk.API.DTOs;
 using TespitSozluk.API.Entities;
+using TespitSozluk.API.Filters;
 using TespitSozluk.API.Helpers;
 using TespitSozluk.API.Services;
 
@@ -286,6 +287,16 @@ public class MessagesController : ControllerBase
         if (request.RecipientId == Guid.Empty)
         {
             return BadRequest(new { message = "Geçerli bir alıcı gerekli." });
+        }
+
+        if (request.RecipientId == userId)
+        {
+            return BadRequest(new { message = "Kendinize mesaj gönderemezsiniz." });
+        }
+
+        if (await _context.AreEitherBlockedAsync(userId, request.RecipientId, HttpContext.RequestAborted))
+        {
+            return StatusCode(403, new { message = "Bu kullanıcıyla mesajlaşamazsınız." });
         }
 
         if (request.ReferencedEntryId is not null && request.ReferencedTopicId is not null)

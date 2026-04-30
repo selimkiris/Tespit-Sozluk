@@ -49,6 +49,7 @@ builder.Services.AddScoped<IEntryMentionService, EntryMentionService>();
 builder.Services.AddScoped<IPollService, PollService>();
 builder.Services.AddScoped<INoviceStatusService, NoviceStatusService>();
 builder.Services.AddScoped<IMessagingPermissionService, MessagingPermissionService>();
+builder.Services.AddScoped<IBlockingService, BlockingService>();
 builder.Services.AddHostedService<LogCleanupBackgroundService>();
 builder.Services.AddHostedService<DataRetentionCleanupService>();
 

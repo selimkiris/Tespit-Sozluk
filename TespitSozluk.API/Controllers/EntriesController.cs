@@ -99,7 +99,8 @@ public class EntriesController : ControllerBase
 
         IQueryable<Entry> baseQuery = _context.Entries
             .Include(e => e.Author)
-            .Include(e => e.Topic);
+            .Include(e => e.Topic)
+            .ApplyBlockFilter(_context, userId);
 
         List<FeedEntryData> entries;
         int totalCount;
@@ -240,20 +241,23 @@ public class EntriesController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<EntryResponseDto>> GetEntryById(Guid id)
     {
+        var userId = User.Identity?.IsAuthenticated == true
+            && Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var uid)
+            ? (Guid?)uid
+            : null;
+
+        // Engelleme filtresi tek bir entry sorgusunda da uygulanır: yazarı karşılıklı
+        // engelliyse veya başlığı engelliyse 404 döneriz (varlığını sızdırmamak için).
         var entry = await _context.Entries
             .Include(e => e.Author)
             .Include(e => e.Topic)
+            .ApplyBlockFilter(_context, userId)
             .FirstOrDefaultAsync(e => e.Id == id);
 
         if (entry == null)
         {
             return NotFound();
         }
-
-        var userId = User.Identity?.IsAuthenticated == true
-            && Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var uid)
-            ? (Guid?)uid
-            : null;
 
         Dictionary<Guid, int> userVotes = new();
         var (saveCounts, userSavedIds) = await GetSaveDataAsync(new List<Guid> { id }, userId);
@@ -332,7 +336,7 @@ public class EntriesController : ControllerBase
         var query = _context.Entries
             .Include(e => e.Author)
             .Include(e => e.Topic)
-            .AsQueryable();
+            .ApplyBlockFilter(_context, userId);
 
         if (topicId.HasValue)
         {

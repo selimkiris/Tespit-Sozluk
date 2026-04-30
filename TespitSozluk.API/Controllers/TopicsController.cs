@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using TespitSozluk.API.Data;
 using TespitSozluk.API.DTOs;
 using TespitSozluk.API.Entities;
+using TespitSozluk.API.Filters;
 using TespitSozluk.API.Helpers;
 using TespitSozluk.API.Services;
 
@@ -344,6 +345,7 @@ public class TopicsController : ControllerBase
         var followedIds = userId.HasValue ? await GetFollowedTopicIdsAsync(userId.Value) : new HashSet<Guid>();
 
         var query = _context.Topics.AsNoTracking()
+            .ApplyBlockFilter(_context, userId)
             .OrderByDescending(t =>
                 t.Entries.Select(e => (DateTime?)e.CreatedAt).Max() ?? t.CreatedAt);
 
@@ -433,7 +435,9 @@ public class TopicsController : ControllerBase
         if (limit < 1 || limit > 50) limit = 10;
         var pattern = $"%{q.Trim()}%";
 
+        var userId = GetCurrentUserId();
         var results = await _context.Topics
+            .ApplyBlockFilter(_context, userId)
             .Where(t => EF.Functions.ILike(t.Title, pattern))
             .OrderBy(t => t.Title)
             .Take(limit)
@@ -484,6 +488,7 @@ public class TopicsController : ControllerBase
         var followedIds = userId.HasValue ? await GetFollowedTopicIdsAsync(userId.Value) : new HashSet<Guid>();
 
         var query = _context.Topics.AsNoTracking()
+            .ApplyBlockFilter(_context, userId)
             .OrderBy(t => t.Title);
 
         var totalCount = await query.CountAsync();
@@ -583,6 +588,7 @@ public class TopicsController : ControllerBase
         var query = _context.Entries
             .Include(e => e.Author)
             .Include(e => e.Topic)
+            .ApplyBlockFilter(_context, userId)
             .Where(e => e.TopicId == id);
 
         // Arama: Content VEYA Author (FirstName + LastName) içinde kelime geçenler (case insensitive)
@@ -721,6 +727,7 @@ public class TopicsController : ControllerBase
         var followedIds = userId.HasValue ? await GetFollowedTopicIdsAsync(userId.Value) : new HashSet<Guid>();
 
         var recentTopics = await _context.Topics.AsNoTracking()
+            .ApplyBlockFilter(_context, userId)
             .OrderByDescending(t => t.CreatedAt)
             .Take(50)
             .Select(t => new
@@ -782,7 +789,10 @@ public class TopicsController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<TopicResponseDto>> GetById(Guid id)
     {
+        var userId = GetCurrentUserId();
+
         var row = await _context.Topics.AsNoTracking()
+            .ApplyBlockFilter(_context, userId)
             .Where(t => t.Id == id)
             .Select(t => new
             {
@@ -803,7 +813,6 @@ public class TopicsController : ControllerBase
             .FirstOrDefaultAsync();
         if (row == null) return NotFound();
 
-        var userId = GetCurrentUserId();
         var isFollowed = userId.HasValue && await _context.UserTopicFollows
             .AsNoTracking()
             .AnyAsync(utf => utf.UserId == userId.Value && utf.TopicId == id);
@@ -854,7 +863,10 @@ public class TopicsController : ControllerBase
 
         var normalizedSlug = slug.Trim().ToLowerInvariant();
 
+        var userId = GetCurrentUserId();
+
         var row = await _context.Topics.AsNoTracking()
+            .ApplyBlockFilter(_context, userId)
             .Where(t => t.Slug == normalizedSlug)
             .Select(t => new
             {
@@ -875,7 +887,6 @@ public class TopicsController : ControllerBase
             .FirstOrDefaultAsync();
         if (row == null) return NotFound();
 
-        var userId = GetCurrentUserId();
         var isFollowed = userId.HasValue && await _context.UserTopicFollows
             .AsNoTracking()
             .AnyAsync(utf => utf.UserId == userId.Value && utf.TopicId == row.Id);
