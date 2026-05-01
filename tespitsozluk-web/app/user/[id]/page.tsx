@@ -3,7 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo } from "react"
 import type { ReactNode } from "react"
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, Lock, FileText, Pencil, Trash2, Send, Plus, User, UserPlus, UserMinus, CalendarDays, Heart, Save, PencilLine, ShieldX, CheckCircle2, Clock, AlertTriangle, RotateCcw, Flag, Trash, BadgeCheck, Mail, ShieldAlert, MessageCircle, FileEdit, Share2, Search, BookOpen, Medal, Ban, MoreHorizontal } from "lucide-react"
+import { ArrowLeft, Lock, Pencil, Trash2, Send, Plus, User, UserPlus, UserMinus, Users, UserCheck, MessageSquare, Hash, CalendarDays, Heart, Save, PencilLine, ShieldX, CheckCircle2, Clock, AlertTriangle, RotateCcw, Flag, Trash, BadgeCheck, Mail, ShieldAlert, MessageCircle, FileEdit, Search, Medal, Ban, MoreHorizontal } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
 import { Navbar } from "@/components/navbar"
@@ -55,7 +55,7 @@ import {
   ENTRY_SEARCH_HIGHLIGHT_MARK_CLASS,
   shouldApplyEntrySearchHighlight,
 } from "@/lib/search-highlight-html"
-import { ShareMenuItems } from "@/components/share-menu"
+import { ShareMenuSub } from "@/components/share-menu"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1167,9 +1167,6 @@ export default function UserProfilePage() {
     profileLevelLabel !== "Çömez"
   const showProfileNoviceBadge =
     !isBlockedAny && shouldShowNoviceBadge(user.isNovice, undefined)
-  const showProfileHeaderRightColumn =
-    !isBlockedAny && (!!id || showProfileNoviceBadge || showAuthorLevelBadge)
-
   return (
     <div className="min-h-screen bg-background">
       <Navbar
@@ -1231,6 +1228,8 @@ export default function UserProfilePage() {
                 Ana Sayfa
               </Button>
             </Link>
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch">
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
             <div className="flex justify-start mb-3">
               {isBlockedAny ? (
                 <span
@@ -1286,32 +1285,17 @@ export default function UserProfilePage() {
                 </span>
               )}
             </div>
-            <div className="flex items-start justify-between gap-3 mb-0.5 w-full min-w-0">
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground min-w-0 flex-1 break-words">
-                {user.nickname}
-              </h1>
-              {showProfileHeaderRightColumn && (
-                <div className="flex flex-col items-end gap-2 shrink-0 pt-0.5 max-w-[min(50%,280px)]">
-                  {id && <ProfileBadgeCollection userId={id} />}
-                  {showProfileNoviceBadge && (
-                    <NoviceBadge variant="profile" className="shrink-0" />
-                  )}
-                  {showAuthorLevelBadge && (
-                    <div
-                      className="flex flex-col items-center justify-center text-center gap-0 rounded-md border border-blue-500/20 bg-blue-50/30 px-2 py-0.5 dark:bg-blue-900/10"
-                      aria-label={`${profileLevelLabel}, yazar`}
-                    >
-                      <p className="text-[12px] font-semibold leading-none tracking-tight text-blue-600 dark:text-blue-400">
-                        {profileLevelLabel}
-                      </p>
-                      <p className="mt-0.5 text-[10px] font-normal leading-none tracking-wide text-blue-500/70 dark:text-blue-300/70">
-                        yazar
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            <div className="flex items-baseline gap-3 min-w-0">
+                <h1 className="text-2xl md:text-3xl font-bold text-foreground min-w-0 break-words">
+                  {user.nickname}
+                </h1>
+                {!isBlockedAny && user.createdAt && (
+                  <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                    <CalendarDays className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    {formatMemberSince(user.createdAt)}
+                  </span>
+                )}
+              </div>
             {!isBlockedAny && isAdmin && !isOwnProfile && viewedUserEmail && (
               <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm">
                 <Mail className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
@@ -1371,40 +1355,8 @@ export default function UserProfilePage() {
                 </div>
               </div>
             )}
-            {!isBlockedAny && user.createdAt && (
-              <p className="flex items-center gap-2 mt-1.5 text-sm text-muted-foreground">
-                <CalendarDays className="h-4 w-4 shrink-0" />
-                {formatMemberSince(user.createdAt)}
-              </p>
-            )}
-            {!isBlockedAny && (
-              <div className="grid grid-cols-3 gap-3 mt-4 max-w-sm">
-                <div className="flex items-center gap-2.5 rounded-lg border border-border bg-muted/30 px-4 py-3">
-                  <Heart className="h-5 w-5 text-rose-500 shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground tracking-tight">Toplam Kalp</p>
-                    <p className="text-lg font-semibold text-foreground">{user.totalUpvotesReceived ?? 0}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2.5 rounded-lg border border-border bg-muted/30 px-4 py-3">
-                  <AyakIcon className="h-5 w-5 text-amber-600 shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground tracking-tight">Toplam Ayak</p>
-                    <p className="text-lg font-semibold text-foreground">{user.totalDownvotesReceived ?? 0}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2.5 rounded-lg border border-border bg-muted/30 px-4 py-3">
-                  <CiviIcon className="h-5 w-5 text-purple-500 shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground tracking-tight">Toplam Çivileme</p>
-                    <p className="text-lg font-semibold text-foreground">{user.totalSavesReceived ?? 0}</p>
-                  </div>
-                </div>
-              </div>
-            )}
             {!isBlockedAny && ((user.bio && user.bio.trim()) || isOwnProfile) && (
-              <div className="mt-4 space-y-2">
-                <h3 className="text-sm font-medium text-muted-foreground">Yazıt</h3>
+              <div className="mt-2 mb-2 space-y-2">
                 {bioEditing ? (
                   <div className="space-y-2">
                     <textarea
@@ -1474,76 +1426,111 @@ export default function UserProfilePage() {
               </div>
             )}
             {!isBlockedAny && (
-            <div className="flex flex-wrap items-center gap-3 mt-4">
-              <button
-                type="button"
-                onClick={() => setFollowersModalOpen(true)}
-                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-              >
-                <span className="font-medium">Takipçi:</span>
-                <span>{user.followerCount ?? 0}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setFollowingModalOpen(true)}
-                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-              >
-                <span className="font-medium">Takip Edilen:</span>
-                <span>{user.followingCount ?? 0}</span>
-              </button>
-              {!isOwnProfile && isLoggedIn && (
-                <Button
-                  size="sm"
-                  variant={user.isFollowedByCurrentUser ? "outline" : "default"}
-                  onClick={handleToggleFollow}
-                  disabled={followLoading}
-                  className="gap-1.5"
-                >
-                  {user.isFollowedByCurrentUser ? (
-                    <>
-                      <UserMinus className="h-4 w-4" />
-                      Takipten Çık
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="h-4 w-4" />
-                      Takip Et
-                    </>
-                  )}
-                </Button>
-              )}
-              {!isOwnProfile && isLoggedIn && (
-                <Button
+              <div className="grid w-full shrink-0 grid-cols-3 gap-3 mt-2 max-w-sm lg:w-max lg:min-w-max">
+                <div className="flex flex-row items-center gap-3 rounded-lg border border-border bg-muted/30 p-4">
+                  <div className="shrink-0">
+                    <Heart className="h-5 w-5 text-rose-500" />
+                  </div>
+                  <div className="flex flex-col items-start justify-center gap-0 whitespace-nowrap">
+                    <span className="text-xs text-muted-foreground">Toplam</span>
+                    <span className="text-sm font-semibold text-foreground">Kalp</span>
+                    <span className="text-lg font-bold text-foreground tabular-nums">{user.totalUpvotesReceived ?? 0}</span>
+                  </div>
+                </div>
+                <div className="flex flex-row items-center gap-3 rounded-lg border border-border bg-muted/30 p-4">
+                  <div className="shrink-0">
+                    <AyakIcon className="h-5 w-5 text-amber-600" />
+                  </div>
+                  <div className="flex flex-col items-start justify-center gap-0 whitespace-nowrap">
+                    <span className="text-xs text-muted-foreground">Toplam</span>
+                    <span className="text-sm font-semibold text-foreground">Ayak</span>
+                    <span className="text-lg font-bold text-foreground tabular-nums">{user.totalDownvotesReceived ?? 0}</span>
+                  </div>
+                </div>
+                <div className="flex flex-row items-center gap-3 rounded-lg border border-border bg-muted/30 p-4">
+                  <div className="shrink-0">
+                    <CiviIcon className="h-5 w-5 text-purple-500" />
+                  </div>
+                  <div className="flex flex-col items-start justify-center gap-0 whitespace-nowrap">
+                    <span className="text-xs text-muted-foreground">Toplam</span>
+                    <span className="text-sm font-semibold text-foreground">Çivileme</span>
+                    <span className="text-lg font-bold text-foreground tabular-nums">{user.totalSavesReceived ?? 0}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            {!isBlockedAny && (
+              <div className="grid w-fit grid-cols-2 gap-x-4 gap-y-3">
+                <button
                   type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => user?.id && router.push(`/mesajlar?chatWith=${encodeURIComponent(user.id)}`)}
-                  className="gap-1.5"
+                  onClick={() => setFollowersModalOpen(true)}
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer text-left"
                 >
-                  <MessageCircle className="h-4 w-4" />
-                  Mesaj Gönder
-                </Button>
-              )}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+                  <Users className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="font-medium">Takipçi:</span>
+                  <span>{user.followerCount ?? 0}</span>
+                </button>
+                <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                  Toplam Entry: {user.totalEntryCount}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setFollowingModalOpen(true)}
+                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer text-left"
+                >
+                  <UserCheck className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="font-medium">Takip Edilen:</span>
+                  <span>{user.followingCount ?? 0}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserTopicsModalOpen(true)}
+                  aria-label={`${user.nickname} kullanıcısının açtığı başlıkları görüntüle`}
+                  className="flex items-center gap-2 text-left text-sm text-muted-foreground hover:text-primary hover:underline underline-offset-4 decoration-dotted cursor-pointer transition-colors focus-visible:outline-none focus-visible:text-primary focus-visible:underline"
+                >
+                  <Hash className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span>
+                    Toplam Başlık: <span className="font-semibold tabular-nums">{user.totalTopicCount ?? 0}</span>
+                  </span>
+                </button>
+              </div>
+            )}
+            {!isBlockedAny && (
+            <div className="mt-auto flex flex-wrap items-center gap-3">
+                {!isOwnProfile && isLoggedIn && (
+                  <Button
+                    size="sm"
+                    variant={user.isFollowedByCurrentUser ? "outline" : "default"}
+                    onClick={handleToggleFollow}
+                    disabled={followLoading}
+                    className="gap-1.5"
+                  >
+                    {user.isFollowedByCurrentUser ? (
+                      <>
+                        <UserMinus className="h-4 w-4" />
+                        Takipten Çık
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="h-4 w-4" />
+                        Takip Et
+                      </>
+                    )}
+                  </Button>
+                )}
+                {!isOwnProfile && isLoggedIn && (
                   <Button
                     type="button"
+                    size="sm"
                     variant="outline"
-                    size="icon"
-                    className="h-8 w-8 shrink-0"
-                    aria-label="Profili paylaş"
+                    onClick={() => user?.id && router.push(`/mesajlar?chatWith=${encodeURIComponent(user.id)}`)}
+                    className="gap-1.5"
                   >
-                    <Share2 className="h-4 w-4" />
+                    <MessageCircle className="h-4 w-4" />
+                    Mesaj Gönder
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="z-[100] min-w-[8rem]">
-                  <ShareMenuItems
-                    url={`${getSiteUrl()}/user/${user.id}`}
-                    title={`Tespit Sözlük'te ${user.nickname} profilini incele`}
-                  />
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {!isOwnProfile && isLoggedIn && (
+                )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -1556,66 +1543,87 @@ export default function UserProfilePage() {
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-[180px]">
-                    <DropdownMenuItem onClick={() => setProfileReportOpen(true)}>
-                      <Flag className="h-4 w-4" />
-                      Şikayet Et
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onClick={() => setBlockUserConfirmOpen(true)}
-                    >
-                      <Ban className="h-4 w-4" />
-                      Kullanıcıyı Engelle
-                    </DropdownMenuItem>
+                  <DropdownMenuContent align="end" className="z-[100] min-w-[180px]">
+                    <ShareMenuSub
+                      url={`${getSiteUrl()}/user/${user.id}`}
+                      title={`Tespit Sözlük'te ${user.nickname} profilini incele`}
+                    />
+                    {!isOwnProfile && isLoggedIn && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => setProfileReportOpen(true)}>
+                          <Flag className="h-4 w-4" />
+                          Şikayet Et
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => setBlockUserConfirmOpen(true)}
+                        >
+                          <Ban className="h-4 w-4" />
+                          Kullanıcıyı Engelle
+                        </DropdownMenuItem>
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
-              )}
-              {isAdmin && !isOwnProfile && (
-                <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setSendMessageOpen(true)}
-                    className="gap-1.5 border-blue-500/50 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 hover:border-blue-500"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    İletişime Geç
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setIsAdminBanOpen(true)}
-                    className="gap-1.5 border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                  >
-                    <ShieldX className="h-4 w-4" />
-                    Kullanıcıyı Uçur
-                  </Button>
-                </>
-              )}
-              <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <FileText className="h-4 w-4" />
-                Toplam Entry: {user.totalEntryCount}
-              </span>
-              <button
-                type="button"
-                onClick={() => setUserTopicsModalOpen(true)}
-                aria-label={`${user.nickname} kullanıcısının açtığı başlıkları görüntüle`}
-                className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary hover:underline underline-offset-4 decoration-dotted cursor-pointer transition-colors focus-visible:outline-none focus-visible:text-primary focus-visible:underline"
-              >
-                <BookOpen className="h-4 w-4" />
-                <span>Toplam Başlık: <span className="font-semibold tabular-nums">{user.totalTopicCount ?? 0}</span></span>
-              </button>
-              {user.email && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/80 text-sm text-muted-foreground border border-border/50">
-                  <Lock className="h-3.5 w-3.5 shrink-0" />
-                  <span>{user.email}</span>
-                  <span className="text-xs text-muted-foreground/80 ml-1">• Sadece sen görebilirsin</span>
-                </span>
-              )}
+                {isAdmin && !isOwnProfile && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setSendMessageOpen(true)}
+                      className="gap-1.5 border-blue-500/50 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 hover:border-blue-500"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      İletişime Geç
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setIsAdminBanOpen(true)}
+                      className="gap-1.5 border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    >
+                      <ShieldX className="h-4 w-4" />
+                      Kullanıcıyı Uçur
+                    </Button>
+                  </>
+                )}
+                {user.email && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/80 text-sm text-muted-foreground border border-border/50">
+                    <Lock className="h-3.5 w-3.5 shrink-0" />
+                    <span>{user.email}</span>
+                    <span className="text-xs text-muted-foreground/80 ml-1">• Sadece sen görebilirsin</span>
+                  </span>
+                )}
             </div>
             )}
+              </div>
+              {!isBlockedAny && (
+                <div className="mr-12 flex w-full shrink-0 flex-col items-end gap-2 pt-0.5 lg:mr-32 lg:w-auto lg:max-w-[min(50%,280px)]">
+                  {id && (
+                    <div className="flex w-full shrink-0 justify-end">
+                      <ProfileBadgeCollection userId={id} />
+                    </div>
+                  )}
+                  {(showAuthorLevelBadge || showProfileNoviceBadge) && (
+                    <div className="flex shrink-0 items-center gap-2 justify-end">
+                      {showAuthorLevelBadge && (
+                        <span
+                          className="text-[15px] font-medium text-muted-foreground"
+                          aria-label={profileLevelLabel}
+                        >
+                          {profileLevelLabel.replace(/\s+yazar\b/gi, "").trim()}
+                        </span>
+                      )}
+                      {showProfileNoviceBadge && (
+                        <NoviceBadge variant="profile" className="shrink-0" />
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

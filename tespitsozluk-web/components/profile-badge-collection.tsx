@@ -31,7 +31,7 @@ function ProfileBadgeChip({ type, count }: ProfileBadgeChipProps) {
     <span
       title={`${meta.label} — ${count}`}
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-1 ring-1 shadow-sm",
+        "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 ring-1 shadow-sm",
         "text-[10px] font-semibold tabular-nums leading-none",
         meta.colorClasses.bg,
         meta.colorClasses.ring,
@@ -81,7 +81,7 @@ export function ProfileBadgeCollection({ userId }: ProfileBadgeCollectionProps) 
   if (orderedGroups.length === 0) return null
 
   return (
-    <div className="flex flex-wrap gap-1 justify-end items-start max-w-[min(100%,260px)]">
+    <div className="flex shrink-0 flex-nowrap gap-1 justify-end items-center">
       <span className="sr-only">
         Kazanılan rozetler: toplam {collection.totalBadges}
       </span>
