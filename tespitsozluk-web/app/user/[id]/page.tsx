@@ -1456,15 +1456,15 @@ export default function UserProfilePage() {
               </div>
             )}
             {!isBlockedAny && (
-              <div className="grid w-fit grid-cols-2 gap-x-4 gap-y-3">
+              <div className="flex w-full max-w-full flex-wrap gap-x-4 gap-y-3">
                 <button
                   type="button"
                   onClick={() => setFollowersModalOpen(true)}
-                  className="-mx-2 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-left text-sm text-muted-foreground transition-all duration-200 hover:bg-secondary/10 hover:text-primary"
+                  className="flex cursor-pointer items-center gap-2 rounded-xl border border-border/50 bg-secondary/5 px-4 py-2 text-left text-sm text-muted-foreground transition-all duration-200 hover:bg-secondary/20 hover:text-primary"
                 >
                   <Users className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                   <span className="font-medium">Takipçi:</span>
-                  <span>{user.followerCount ?? 0}</span>
+                  <span className="tabular-nums text-primary">{user.followerCount ?? 0}</span>
                 </button>
                 <span className="flex items-center gap-2 text-sm text-muted-foreground">
                   <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
@@ -1473,21 +1473,22 @@ export default function UserProfilePage() {
                 <button
                   type="button"
                   onClick={() => setFollowingModalOpen(true)}
-                  className="-mx-2 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-left text-sm text-muted-foreground transition-all duration-200 hover:bg-secondary/10 hover:text-primary"
+                  className="flex cursor-pointer items-center gap-2 rounded-xl border border-border/50 bg-secondary/5 px-4 py-2 text-left text-sm text-muted-foreground transition-all duration-200 hover:bg-secondary/20 hover:text-primary"
                 >
                   <UserCheck className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                   <span className="font-medium">Takip Edilen:</span>
-                  <span>{user.followingCount ?? 0}</span>
+                  <span className="tabular-nums text-primary">{user.followingCount ?? 0}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setUserTopicsModalOpen(true)}
                   aria-label={`${user.nickname} kullanıcısının açtığı başlıkları görüntüle`}
-                  className="-mx-2 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-left text-sm text-muted-foreground transition-all duration-200 hover:bg-secondary/10 hover:text-primary focus-visible:outline-none focus-visible:text-primary"
+                  className="flex cursor-pointer items-center gap-2 rounded-xl border border-border/50 bg-secondary/5 px-4 py-2 text-left text-sm text-muted-foreground transition-all duration-200 hover:bg-secondary/20 hover:text-primary focus-visible:outline-none focus-visible:text-primary"
                 >
                   <Hash className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                   <span>
-                    Toplam Başlık: <span className="font-semibold tabular-nums">{user.totalTopicCount ?? 0}</span>
+                    Toplam Başlık:{" "}
+                    <span className="font-semibold tabular-nums text-primary">{user.totalTopicCount ?? 0}</span>
                   </span>
                 </button>
               </div>
