@@ -270,6 +270,12 @@ export function HomePageContent({ initialTopic }: HomePageContentProps = {}) {
     }
   }, [topicFromUrl, loginFromUrl, registerFromUrl, topicsFromUrl, isSlugRoute, initialTopic])
 
+  // `/baslik/<slug>`: bağlantılar yalnızca `<Link>` ile olduğunda seçim URL/SSR ile hizalı kalsın
+  useEffect(() => {
+    if (!isSlugRoute || !initialTopic?.id) return
+    setSelectedTopicId(initialTopic.id)
+  }, [isSlugRoute, initialTopic?.id])
+
   useEffect(() => {
     if (loginFromUrl !== "1") return
     if (getAuth()) {
@@ -698,7 +704,6 @@ export function HomePageContent({ initialTopic }: HomePageContentProps = {}) {
       <TopicSidebar
         topics={topicsList}
         selectedTopicId={selectedTopicId ?? undefined}
-        onTopicSelect={handleTopicSelect}
         onCreateTopic={() => setShowCreateTopicModal(true)}
         onAllTopicsClick={() => setShowAllTopicsModal(true)}
         onTopicsLoaded={handleTopicsLoaded}

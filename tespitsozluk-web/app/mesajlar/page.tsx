@@ -78,10 +78,6 @@ export default function MesajlarPage() {
 
       <TopicSidebar
         selectedTopicId={undefined}
-        onTopicSelect={(topicId) => {
-          router.push(`/?topic=${topicId}`)
-          setIsMobileMenuOpen(false)
-        }}
         onCreateTopic={() => {
           setIsMobileMenuOpen(false)
           router.push("/")

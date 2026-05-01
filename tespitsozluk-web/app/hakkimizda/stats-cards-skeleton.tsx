@@ -1,13 +1,24 @@
 import { Info } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
-export function StatsCardsSkeleton() {
+type StatsCardsSkeletonProps = {
+  /** true: istatistik kartları bileşeniyle aynı başlık satırı (Info ikonu yok). */
+  compact?: boolean
+}
+
+export function StatsCardsSkeleton({ compact = false }: StatsCardsSkeletonProps) {
+  const header = compact ? (
+    <div className="mb-3 text-sm font-medium text-foreground">Canlı istatistikler</div>
+  ) : (
+    <div className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
+      <Info className="h-4 w-4 text-muted-foreground" />
+      Canlı istatistikler
+    </div>
+  )
+
   return (
     <section aria-label="Canlı istatistikler" className="mb-10">
-      <div className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
-        <Info className="h-4 w-4 text-muted-foreground" />
-        Canlı istatistikler
-      </div>
+      {header}
       <div className="grid gap-4 sm:grid-cols-3">
         {[0, 1, 2].map((i) => (
           <Card

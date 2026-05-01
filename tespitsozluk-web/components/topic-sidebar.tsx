@@ -30,7 +30,6 @@ interface Topic {
 interface TopicSidebarProps {
   topics?: Topic[]
   selectedTopicId?: string
-  onTopicSelect: (topicId: string) => void
   onCreateTopic: () => void
   onAllTopicsClick?: () => void
   onTopicsLoaded?: (topics: Topic[]) => void
@@ -102,7 +101,6 @@ function mapApiTopic(apiTopic: {
 export function TopicSidebar({
   topics: topicsProp,
   selectedTopicId,
-  onTopicSelect,
   onCreateTopic,
   onAllTopicsClick,
   onTopicsLoaded,
@@ -274,10 +272,7 @@ export function TopicSidebar({
                           key={topic.id}
                           href={topicHref(topic)}
                           scroll={false}
-                          onClick={() => {
-                            onTopicSelect(topic.id)
-                            onClose()
-                          }}
+                          onClick={() => onClose()}
                           className={cn(
                             "flex items-start w-full h-auto py-2 px-3 my-0.5 rounded-xl transition-all duration-200 text-left group border-l-[3px]",
                             isSelected

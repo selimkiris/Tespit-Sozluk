@@ -579,13 +579,13 @@ export function EntryCard({
       style={{ backgroundColor: '#252728' }}
     >
       {/* Topic başlığı + sağ üst rozet hapları — overflow kesmesin */}
-      <div className="relative z-[4] mb-4 min-w-0 w-full max-w-full flex flex-row items-start justify-between gap-2 overflow-visible">
+      <div className="relative z-[4] min-w-0 w-full max-w-full flex flex-row items-start justify-between gap-2 overflow-visible">
         <div className="min-w-0 flex-1 pr-2">
           {showTopicTitle && (
             <button
               type="button"
               onClick={() => onTopicClick?.(entry.topicId)}
-              className="select-text text-slate-200 dark:text-slate-300 text-xl font-bold leading-[1.35] tracking-[-0.01em] block text-left w-full min-w-0 max-w-full break-words whitespace-pre-wrap transition-opacity hover:opacity-75"
+              className="select-text text-slate-200 dark:text-slate-300 text-xl font-bold leading-[1.35] tracking-[-0.01em] block text-left w-full min-w-0 max-w-full break-words whitespace-pre-wrap transition-opacity hover:opacity-75 mb-4"
             >
               {entry.topicTitle}
             </button>
@@ -600,8 +600,9 @@ export function EntryCard({
       </div>
 
       {/* Content */}
-      <div className="entry-content mb-4 min-w-0 w-full max-w-full">
+      <div className="entry-content mb-4 mt-0 pt-0 min-w-0 w-full max-w-full">
         <ExpandableHtmlContent
+          className="mt-0 pt-0"
           html={content}
           rendererClassName={ENTRY_BODY_RENDERER_CLASSNAME}
           searchHighlightQuery={searchTerm}

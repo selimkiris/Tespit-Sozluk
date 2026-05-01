@@ -1202,10 +1202,6 @@ export default function UserProfilePage() {
 
       <TopicSidebar
         selectedTopicId={undefined}
-        onTopicSelect={(topicId) => {
-          router.push(`/?topic=${topicId}`)
-          setIsMobileMenuOpen(false)
-        }}
         onCreateTopic={() => setShowCreateTopicModal(true)}
         onAllTopicsClick={() => {
           setIsMobileMenuOpen(false)

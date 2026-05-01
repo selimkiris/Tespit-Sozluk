@@ -1,12 +1,12 @@
-import { Suspense } from "react"
 import Link from "next/link"
 import { Logo } from "@/components/logo"
 import { AboutStatsSection } from "./about-stats-section"
 import { HakkimizdaTabs } from "./hakkimizda-tabs"
-import { StatsCardsSkeleton } from "./stats-cards-skeleton"
 
-export default function HakkimizdaPage() {
-  return (
+/** Canlı rakamlara özgü güncellenebilir sayfa davranışı (istatistik modülü ayrıca istemci + no-store ile yüklenir). */
+export const dynamic = "force-dynamic"
+
+export default function HakkimizdaPage() {  return (
     <div className="min-h-screen bg-background pt-14">
       <div className="mx-auto max-w-4xl px-4 py-10 lg:px-6 lg:py-12">
         <div className="flex flex-col items-start">
@@ -34,9 +34,7 @@ export default function HakkimizdaPage() {
           </div>
         </div>
 
-        <Suspense fallback={<StatsCardsSkeleton />}>
-          <AboutStatsSection />
-        </Suspense>
+        <AboutStatsSection />
 
         <HakkimizdaTabs />
 
