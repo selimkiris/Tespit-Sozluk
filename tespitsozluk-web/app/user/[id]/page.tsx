@@ -1456,24 +1456,25 @@ export default function UserProfilePage() {
               </div>
             )}
             {!isBlockedAny && (
-              <div className="flex w-full max-w-full flex-wrap gap-x-4 gap-y-3">
+              <div className="grid w-full max-w-full grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => setFollowersModalOpen(true)}
-                  className="flex cursor-pointer items-center gap-2 rounded-xl border border-border/50 bg-secondary/5 px-4 py-2 text-left text-sm text-muted-foreground transition-all duration-200 hover:bg-secondary/20 hover:text-primary"
+                  className="flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-border/50 bg-secondary/5 px-4 py-2 text-left text-sm text-muted-foreground transition-all duration-200 hover:bg-secondary/20 hover:text-primary"
                 >
                   <Users className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                   <span className="font-medium">Takipçi:</span>
                   <span className="tabular-nums text-primary">{user.followerCount ?? 0}</span>
                 </button>
-                <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex w-full min-w-0 items-center gap-2 rounded-xl border border-border/50 bg-secondary/5 px-4 py-2 text-left text-sm text-muted-foreground opacity-90">
                   <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                  Toplam Entry: {user.totalEntryCount}
-                </span>
+                  <span className="font-medium">Toplam Entry:</span>
+                  <span className="tabular-nums font-semibold text-primary">{user.totalEntryCount}</span>
+                </div>
                 <button
                   type="button"
                   onClick={() => setFollowingModalOpen(true)}
-                  className="flex cursor-pointer items-center gap-2 rounded-xl border border-border/50 bg-secondary/5 px-4 py-2 text-left text-sm text-muted-foreground transition-all duration-200 hover:bg-secondary/20 hover:text-primary"
+                  className="flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-border/50 bg-secondary/5 px-4 py-2 text-left text-sm text-muted-foreground transition-all duration-200 hover:bg-secondary/20 hover:text-primary"
                 >
                   <UserCheck className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                   <span className="font-medium">Takip Edilen:</span>
@@ -1483,7 +1484,7 @@ export default function UserProfilePage() {
                   type="button"
                   onClick={() => setUserTopicsModalOpen(true)}
                   aria-label={`${user.nickname} kullanıcısının açtığı başlıkları görüntüle`}
-                  className="flex cursor-pointer items-center gap-2 rounded-xl border border-border/50 bg-secondary/5 px-4 py-2 text-left text-sm text-muted-foreground transition-all duration-200 hover:bg-secondary/20 hover:text-primary focus-visible:outline-none focus-visible:text-primary"
+                  className="flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-border/50 bg-secondary/5 px-4 py-2 text-left text-sm text-muted-foreground transition-all duration-200 hover:bg-secondary/20 hover:text-primary focus-visible:outline-none focus-visible:text-primary"
                 >
                   <Hash className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                   <span>
