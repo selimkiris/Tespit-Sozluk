@@ -1460,7 +1460,7 @@ export default function UserProfilePage() {
                 <button
                   type="button"
                   onClick={() => setFollowersModalOpen(true)}
-                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer text-left"
+                  className="-mx-2 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-left text-sm text-muted-foreground transition-all duration-200 hover:bg-secondary/10 hover:text-primary"
                 >
                   <Users className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                   <span className="font-medium">Takipçi:</span>
@@ -1473,7 +1473,7 @@ export default function UserProfilePage() {
                 <button
                   type="button"
                   onClick={() => setFollowingModalOpen(true)}
-                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer text-left"
+                  className="-mx-2 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-left text-sm text-muted-foreground transition-all duration-200 hover:bg-secondary/10 hover:text-primary"
                 >
                   <UserCheck className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                   <span className="font-medium">Takip Edilen:</span>
@@ -1483,7 +1483,7 @@ export default function UserProfilePage() {
                   type="button"
                   onClick={() => setUserTopicsModalOpen(true)}
                   aria-label={`${user.nickname} kullanıcısının açtığı başlıkları görüntüle`}
-                  className="flex items-center gap-2 text-left text-sm text-muted-foreground hover:text-primary hover:underline underline-offset-4 decoration-dotted cursor-pointer transition-colors focus-visible:outline-none focus-visible:text-primary focus-visible:underline"
+                  className="-mx-2 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-left text-sm text-muted-foreground transition-all duration-200 hover:bg-secondary/10 hover:text-primary focus-visible:outline-none focus-visible:text-primary"
                 >
                   <Hash className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                   <span>
