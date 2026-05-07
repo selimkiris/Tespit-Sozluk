@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 using TespitSozluk.API.Data;
 using TespitSozluk.API.Entities;
 
@@ -29,6 +30,13 @@ public class TrafficLoggingMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
+        // Okuma / ön kontroller (5651 için yeterli erişim kaydı): GET, HEAD, OPTIONS DB'ye yazılmaz
+        if (IsNoTrafficLogMethod(context.Request.Method))
+        {
+            await _next(context);
+            return;
+        }
+
         // Pipeline'ı durdurmadan önce zaman damgasını yakala
         var timestampUtc = DateTime.UtcNow;
 
@@ -97,4 +105,9 @@ public class TrafficLoggingMiddleware
         var ext = Path.GetExtension(path);
         return string.IsNullOrEmpty(ext) || !_ignoredExtensions.Contains(ext);
     }
+
+    private static bool IsNoTrafficLogMethod(string method) =>
+        string.Equals(method, HttpMethods.Get, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(method, HttpMethods.Head, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(method, HttpMethods.Options, StringComparison.OrdinalIgnoreCase);
 }
