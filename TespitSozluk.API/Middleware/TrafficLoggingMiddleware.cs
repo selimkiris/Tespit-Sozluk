@@ -64,7 +64,12 @@ public class TrafficLoggingMiddleware
                 ?? context.User.FindFirst(ClaimTypes.Name)?.Value;
         }
 
-        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var forwardedFor = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        string ip;
+        if (string.IsNullOrEmpty(forwardedFor))
+            ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        else
+            ip = forwardedFor.Split(',')[0].Trim();
         var port = context.Connection.RemotePort.ToString();
         var url = $"{path}{context.Request.QueryString}";
 

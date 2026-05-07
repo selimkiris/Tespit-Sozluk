@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
@@ -77,6 +78,14 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders =
+        ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 // ── ASP.NET Core Rate Limiter — VULN-07 ──────────────────────────────────────
 // "interaction" politikası: oy/kaydet/takip gibi yan-etki yaratan endpoint'lere uygulanır.
 // Bölümleme anahtarı: önce JWT kullanıcı ID'si, yoksa bağlantı IP'si.
@@ -112,6 +121,8 @@ builder.Services.AddRateLimiter(limiterOptions =>
 
 // ─────────────────────────────────────────────────────────────────────────────
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 app.UseSwagger();
 app.UseSwaggerUI();
