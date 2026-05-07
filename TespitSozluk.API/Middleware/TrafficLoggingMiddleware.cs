@@ -11,12 +11,17 @@ public class TrafficLoggingMiddleware
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<TrafficLoggingMiddleware> _logger;
 
-    // Loglama dışında tutulacak uzantılar
-    private static readonly HashSet<string> _ignoredExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".js", ".css", ".map", ".ico", ".png", ".jpg", ".jpeg",
-        ".gif", ".svg", ".woff", ".woff2", ".ttf", ".eot", ".webp"
-    };
+    /// <summary>
+    /// 5651: Yalnızca entry / başlık / kimlik (kayıt-giriş) ile ilgili POST'lar.
+    /// Segment sınırı: /api/Auth ile /api/Authentication ayrılır.
+    /// </summary>
+    private static readonly string[] TrafficLogApiPrefixes =
+    [
+        "/api/Entries",
+        "/api/Topics",
+        "/api/Auth",
+        "/api/Users",
+    ];
 
     public TrafficLoggingMiddleware(
         RequestDelegate next,
@@ -30,25 +35,23 @@ public class TrafficLoggingMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        // Okuma / ön kontroller (5651 için yeterli erişim kaydı): GET, HEAD, OPTIONS DB'ye yazılmaz
-        if (IsNoTrafficLogMethod(context.Request.Method))
+        var method = context.Request.Method;
+        if (HttpMethods.IsGet(method) || HttpMethods.IsOptions(method) || HttpMethods.IsHead(method))
         {
             await _next(context);
             return;
         }
 
-        // Pipeline'ı durdurmadan önce zaman damgasını yakala
-        var timestampUtc = DateTime.UtcNow;
+        var path = context.Request.Path.Value ?? string.Empty;
+        if (!HttpMethods.IsPost(method) || !MatchesTrafficLogPrefix(path))
+        {
+            await _next(context);
+            return;
+        }
 
-        // Sonraki middleware/controller'a geç
+        var timestampUtc = DateTime.UtcNow;
         await _next(context);
 
-        // Yalnızca /api/ yollarını logla; statik varlıkları atla
-        var path = context.Request.Path.Value ?? string.Empty;
-        if (!ShouldLog(path))
-            return;
-
-        // Kullanıcı bilgileri pipeline tamamlandıktan sonra (auth işlenmiş) okunur
         Guid? userId = null;
         string? usernameSnapshot = null;
 
@@ -56,8 +59,6 @@ public class TrafficLoggingMiddleware
         if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var parsedId))
         {
             userId = parsedId;
-            // ClaimTypes.Name → GenerateJwtToken'da user.Username olarak set edilir.
-            // Identity.Name da aynı claim'i gösterir; her iki yol da aynı değeri döner.
             usernameSnapshot =
                 context.User.Identity?.Name
                 ?? context.User.FindFirst(ClaimTypes.Name)?.Value;
@@ -65,10 +66,8 @@ public class TrafficLoggingMiddleware
 
         var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         var port = context.Connection.RemotePort.ToString();
-        var method = context.Request.Method;
         var url = $"{path}{context.Request.QueryString}";
 
-        // Fire-and-forget: ana thread'i bloklamadan log yaz
         _ = Task.Run(async () =>
         {
             try
@@ -97,17 +96,20 @@ public class TrafficLoggingMiddleware
         });
     }
 
-    private static bool ShouldLog(string path)
+    private static bool MatchesTrafficLogPrefix(string path)
     {
-        if (!path.StartsWith("/api", StringComparison.OrdinalIgnoreCase))
-            return false;
+        foreach (var prefix in TrafficLogApiPrefixes)
+        {
+            if (!path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                continue;
 
-        var ext = Path.GetExtension(path);
-        return string.IsNullOrEmpty(ext) || !_ignoredExtensions.Contains(ext);
+            if (path.Length == prefix.Length)
+                return true;
+
+            if (path[prefix.Length] == '/')
+                return true;
+        }
+
+        return false;
     }
-
-    private static bool IsNoTrafficLogMethod(string method) =>
-        string.Equals(method, HttpMethods.Get, StringComparison.OrdinalIgnoreCase)
-        || string.Equals(method, HttpMethods.Head, StringComparison.OrdinalIgnoreCase)
-        || string.Equals(method, HttpMethods.Options, StringComparison.OrdinalIgnoreCase);
 }
