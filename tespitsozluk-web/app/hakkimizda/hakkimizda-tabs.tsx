@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react"
 import Link from "next/link"
-import { Info, Instagram, Mail, Scale, Twitter } from "lucide-react"
+import { Info, Instagram, Mail, Phone, Scale, Twitter } from "lucide-react"
 import { aboutConfig } from "@/lib/about.config"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -217,20 +217,34 @@ export function HakkimizdaTabs() {
         <div className="prose prose-neutral dark:prose-invert max-w-none prose-headings:scroll-mt-24">
           <h2>İletişim</h2>
           <p className="text-muted-foreground">
-            Genel sorularınız, önerileriniz, şikayetleriniz, teknik sorunlarınız ve iş birliği için
-            e-posta gönderebilirsiniz.
+            Genel sorularınız, teknik sorunlarınız, önerileriniz, şikayetleriniz ve iş birliği için
+            iletişime geçebilirsiniz.
           </p>
-          <div className="not-prose mt-6">
+          <div className="not-prose mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:max-w-2xl">
             <div className="inline-flex max-w-sm flex-col gap-3 rounded-xl border border-border bg-card px-4 py-3">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Mail className="h-4 w-4 text-muted-foreground" />
-                Genel İletişim
+                E-Posta
               </div>
               <a
                 href={`mailto:${aboutConfig.iletisim.email}`}
                 className="text-sm text-foreground underline-offset-4 hover:underline"
               >
                 {aboutConfig.iletisim.email}
+              </a>
+            </div>
+            <div className="inline-flex max-w-sm flex-col gap-3 rounded-xl border border-border bg-card px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                Telefon Numarası
+              </div>
+              <a
+                href="https://wa.me/447868172608"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-foreground underline-offset-4 hover:underline"
+              >
+                +44 7868 172608 (WhatsApp)
               </a>
             </div>
           </div>
@@ -244,7 +258,7 @@ export function HakkimizdaTabs() {
               </li>
               <li>
                 <span className="text-foreground/90">Adres: </span>
-                Aktepe Mahallesi, Keçiören / Ankara
+                Çünür mahallesi, 5406. sokak, no: 48, Yağız Apt. 2, iç kapı: 25 Merkez / ISPARTA
               </li>
               <li>
                 <span className="text-foreground/90">E-posta: </span>
@@ -253,6 +267,17 @@ export function HakkimizdaTabs() {
                   className="text-foreground underline-offset-4 hover:underline"
                 >
                   {aboutConfig.iletisim.email}
+                </a>
+              </li>
+              <li>
+                <span className="text-foreground/90">Telefon Numarası: </span>
+                <a
+                  href="https://wa.me/447868172608"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-foreground underline-offset-4 hover:underline"
+                >
+                  +44 7868 172608
                 </a>
               </li>
             </ul>
