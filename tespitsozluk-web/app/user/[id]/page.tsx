@@ -1466,11 +1466,6 @@ export default function UserProfilePage() {
                   <span className="font-medium">Takipçi:</span>
                   <span className="tabular-nums font-bold text-white">{user.followerCount ?? 0}</span>
                 </button>
-                <div className="pointer-events-none flex w-fit max-w-full min-w-0 items-center gap-2 rounded-xl border border-border/50 bg-secondary/5 px-4 py-2 text-left text-sm text-muted-foreground opacity-90">
-                  <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                  <span className="font-medium">Toplam Entry:</span>
-                  <span className="tabular-nums font-bold text-white">{user.totalEntryCount}</span>
-                </div>
                 <button
                   type="button"
                   onClick={() => setFollowingModalOpen(true)}
@@ -1492,6 +1487,11 @@ export default function UserProfilePage() {
                     <span className="tabular-nums font-bold text-white">{user.totalTopicCount ?? 0}</span>
                   </span>
                 </button>
+                <div className="pointer-events-none flex w-fit max-w-full min-w-0 items-center gap-2 rounded-xl border border-border/50 bg-secondary/5 px-4 py-2 text-left text-sm text-muted-foreground opacity-90">
+                  <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="font-medium">Toplam Entry:</span>
+                  <span className="tabular-nums font-bold text-white">{user.totalEntryCount}</span>
+                </div>
               </div>
             )}
             {!isBlockedAny && (
