@@ -197,6 +197,8 @@ public class UsersController : ControllerBase
                 u.LastName,
                 u.Email,
                 u.Bio,
+                u.CoverChoiceKey,
+                u.CoverUrl,
                 u.Avatar,
                 u.HasChangedUsername,
                 u.CreatedAt,
@@ -277,6 +279,8 @@ public class UsersController : ControllerBase
             Avatar = user.Avatar,
             HasChangedUsername = user.HasChangedUsername,
             Bio = user.Bio,
+            CoverChoiceKey = user.CoverChoiceKey,
+            CoverUrl = user.CoverUrl,
             CreatedAt = user.CreatedAt,
             TotalEntryCount = user.EntryCount,
             TotalTopicCount = totalTopicCount,
@@ -537,6 +541,103 @@ public class UsersController : ControllerBase
         user.Bio = string.IsNullOrEmpty(bio) ? null : bio;
         await _context.SaveChangesAsync();
         return Ok(new { bio = user.Bio });
+    }
+
+    /// <summary>
+    /// Oturum sahibinin profil kapağını günceller: özel görüntü URL&apos;si veya galeri anahtarı.
+    /// <c>api/Users/me/cover</c> — literal <c>cover</c> ile <c>{id:guid}</c> yönlendirme çakışmalarından kaçınmak için <c>me</c> altında.
+    /// </summary>
+    [HttpPut("me/cover")]
+    [HttpPut("cover")]
+    [Authorize]
+    public async Task<IActionResult> UpdateMyCover([FromBody] UpdateCoverRequest? request)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+        {
+            return NotFound();
+        }
+
+        var urlRaw = request?.CoverUrl?.Trim();
+        var keyRaw = request?.CoverChoiceKey?.Trim();
+
+        if (!string.IsNullOrEmpty(urlRaw))
+        {
+            if (!TryNormalizeCoverImageUrl(urlRaw, out var normalizedUrl, out var urlError))
+            {
+                return BadRequest(new { message = urlError });
+            }
+
+            user.CoverUrl = normalizedUrl;
+            user.CoverChoiceKey = null;
+        }
+        else if (!string.IsNullOrEmpty(keyRaw))
+        {
+            if (keyRaw.Length > 80)
+            {
+                return BadRequest(new { message = "Kapak anahtarı en fazla 80 karakter olabilir." });
+            }
+
+            foreach (var ch in keyRaw)
+            {
+                if (ch is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '-')
+                {
+                    continue;
+                }
+
+                return BadRequest(new { message = "Kapak anahtarı yalnızca küçük harf, rakam ve tire içerebilir." });
+            }
+
+            user.CoverChoiceKey = keyRaw;
+            user.CoverUrl = null;
+        }
+        else
+        {
+            user.CoverUrl = null;
+            user.CoverChoiceKey = null;
+        }
+
+        await _context.SaveChangesAsync();
+        return Ok(new { coverChoiceKey = user.CoverChoiceKey, coverUrl = user.CoverUrl });
+    }
+
+    private static bool TryNormalizeCoverImageUrl(string input, out string? normalized, out string? error)
+    {
+        normalized = null;
+        error = null;
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            error = "URL boş olamaz.";
+            return false;
+        }
+
+        var t = input.Trim();
+        if (t.Length > 2000)
+        {
+            error = "URL en fazla 2000 karakter olabilir.";
+            return false;
+        }
+
+        if (!Uri.TryCreate(t, UriKind.Absolute, out var uri))
+        {
+            error = "Geçersiz URL.";
+            return false;
+        }
+
+        if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+        {
+            error = "Yalnızca http veya https adresleri kabul edilir.";
+            return false;
+        }
+
+        normalized = t;
+        return true;
     }
 
     [Authorize]

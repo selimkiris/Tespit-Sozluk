@@ -13,6 +13,12 @@ public class User
     public string Username { get; set; } = string.Empty;
     /// <summary>Hakkımda metni. Maksimum 500 karakter.</summary>
     public string? Bio { get; set; }
+    /// <summary>Profil kapak galerisi kimliği (en fazla 80 karakter).</summary>
+    public string? CoverChoiceKey { get; set; }
+
+    /// <summary>Özel kapak görseli (ImgBB veya doğrudan HTTPS URL). Galeri anahtarından önceliklidir.</summary>
+    public string? CoverUrl { get; set; }
+
     /// <summary>Emoji veya kısa string avatar.</summary>
     public string? Avatar { get; set; }
     /// <summary>Kullanıcı adı bir kez değiştirildi mi?</summary>

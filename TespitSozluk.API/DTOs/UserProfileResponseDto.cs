@@ -10,6 +10,12 @@ public class UserProfileResponseDto
     public string? Avatar { get; set; }
     public bool HasChangedUsername { get; set; }
     public string? Bio { get; set; }
+    /// <summary>Profil kapak galerisi seçimi (istemci tarafı sabit listeyle eşleşen anahtar).</summary>
+    public string? CoverChoiceKey { get; set; }
+
+    /// <summary>Özel kapak görseli URL (HTTPS). Doluysa galeri anahtarından önce gösterilir.</summary>
+    public string? CoverUrl { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public int TotalEntryCount { get; set; }
     /// <summary>Kullanıcının açtığı toplam başlık sayısı (anonim olmayan).</summary>

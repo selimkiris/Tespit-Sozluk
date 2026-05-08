@@ -68,6 +68,14 @@ public class AppDbContext : DbContext
             .Property(u => u.Bio)
             .HasMaxLength(500);
 
+        modelBuilder.Entity<User>()
+            .Property(u => u.CoverChoiceKey)
+            .HasMaxLength(80);
+
+        modelBuilder.Entity<User>()
+            .Property(u => u.CoverUrl)
+            .HasMaxLength(2000);
+
         modelBuilder.Entity<EntryVote>()
             .HasOne(v => v.Entry)
             .WithMany()

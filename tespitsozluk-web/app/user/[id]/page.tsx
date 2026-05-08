@@ -48,6 +48,8 @@ import { CiviIcon } from "@/components/icons/CiviIcon"
 import { getApiUrl, apiFetch, getSiteUrl } from "@/lib/api"
 import { ENTRY_BODY_RENDERER_CLASSNAME } from "@/lib/entry-body-renderer-classes"
 import { getAuth, clearAuth, updateAuthUser, type AuthData } from "@/lib/auth"
+import { FEED_COLUMN_MAX_WIDTH_CLASS } from "@/lib/feed-layout"
+import { getCoverImageUrl, isValidCoverChoiceId } from "@/lib/cover-choices"
 import { cn } from "@/lib/utils"
 import { formatTurkeyDateTime } from "@/lib/turkey-datetime"
 import { NoviceBadge, shouldShowNoviceBadge } from "@/components/novice-badge"
@@ -66,6 +68,7 @@ import {
 import { DangerConfirmModal } from "@/components/admin/danger-confirm-modal"
 import { ReportDialog } from "@/components/report-dialog"
 import { ProfileBadgeCollection } from "@/components/profile-badge-collection"
+import { ProfileCoverGalleryModal, type CoverApplyPayload } from "@/components/profile-cover-gallery-modal"
 import { HtmlRenderer } from "@/components/html-renderer"
 import { ExpandableHtmlContent } from "@/components/expandable-html-content"
 import { Input } from "@/components/ui/input"
@@ -84,7 +87,7 @@ function formatMemberSince(dateStr: string) {
     const d = new Date(dateStr)
     const month = TURKISH_MONTHS[d.getMonth()]
     const year = d.getFullYear()
-    return `${month} ${year}'den beri yazar`
+    return `${month} ${year}'den beri`
   } catch {
     return ""
   }
@@ -94,6 +97,10 @@ type UserProfile = {
   id: string
   nickname: string
   avatar?: string | null
+  /** API galeri anahtarı — `lib/cover-choices` ile eşleşir. */
+  coverChoiceKey?: string | null
+  /** Özel kapak (ImgBB / doğrudan URL). Doluysa galeriden önce gösterilir. */
+  coverUrl?: string | null
   bio?: string | null
   createdAt?: string
   totalEntryCount: number
@@ -400,6 +407,8 @@ export default function UserProfilePage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [showCreateTopicModal, setShowCreateTopicModal] = useState(false)
   const [topicSidebarRefresh, setTopicSidebarRefresh] = useState(0)
+  const [coverGalleryOpen, setCoverGalleryOpen] = useState(false)
+  const [coverSaving, setCoverSaving] = useState(false)
   const profileTabQuery = searchParams.get("tab")
   const [profileTab, setProfileTab] = useState(() =>
     normalizeProfileTabFromQuery(profileTabQuery, false),
@@ -469,6 +478,14 @@ export default function UserProfilePage() {
         id: String(data.id),
         nickname: data.nickname ?? "Anonim",
         avatar: data.avatar ?? null,
+        coverChoiceKey:
+          typeof data.coverChoiceKey === "string" && data.coverChoiceKey.trim().length > 0
+            ? data.coverChoiceKey.trim()
+            : null,
+        coverUrl:
+          typeof data.coverUrl === "string" && data.coverUrl.trim().length > 0
+            ? data.coverUrl.trim()
+            : null,
         bio: data.bio ?? null,
         createdAt: data.createdAt ?? null,
         totalEntryCount: data.totalEntryCount ?? 0,
@@ -788,6 +805,52 @@ export default function UserProfilePage() {
       setBioSaving(false)
     }
   }, [auth?.token, bioDraft, bioSaving])
+
+  const handleCoverApply = useCallback(
+    async (payload: CoverApplyPayload) => {
+      if (!auth?.token || !id || !isOwnProfile) return
+      if (payload.kind === "gallery" && !isValidCoverChoiceId(payload.coverChoiceKey)) return
+      setCoverSaving(true)
+      try {
+        const body =
+          payload.kind === "custom"
+            ? { coverUrl: payload.coverUrl, coverChoiceKey: null as string | null }
+            : { coverChoiceKey: payload.coverChoiceKey, coverUrl: null as string | null }
+        const res = await apiFetch(getApiUrl("api/Users/me/cover"), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          toast.error(typeof data?.message === "string" ? data.message : "Kapak güncellenemedi.")
+          return
+        }
+        setUser((prev) =>
+          prev
+            ? {
+                ...prev,
+                coverChoiceKey:
+                  typeof data?.coverChoiceKey === "string" && data.coverChoiceKey.length > 0
+                    ? data.coverChoiceKey
+                    : null,
+                coverUrl:
+                  typeof data?.coverUrl === "string" && data.coverUrl.length > 0
+                    ? data.coverUrl
+                    : null,
+              }
+            : null,
+        )
+        setCoverGalleryOpen(false)
+        toast.success("Kapak güncellendi.")
+      } catch {
+        toast.error("Kapak güncellenemedi.")
+      } finally {
+        setCoverSaving(false)
+      }
+    },
+    [auth?.token, id, isOwnProfile],
+  )
 
   const handleToggleFollow = useCallback(async () => {
     if (!id || !auth?.token || followLoading) return
@@ -1156,15 +1219,12 @@ export default function UserProfilePage() {
     )
   }
 
-  const profileLevelLabel = (user.levelName ?? "").trim()
+  const profileLevelMatch = (user.levelName ?? "").trim().match(/\d+/)
+  const profileLevelNumber = profileLevelMatch ? parseInt(profileLevelMatch[0], 10) : 0
   const blockStatus: "None" | "BlockedByMe" | "BlockedByThem" = user.blockStatus ?? "None"
   const isBlockedByMe = blockStatus === "BlockedByMe"
   const isBlockedByThem = blockStatus === "BlockedByThem"
   const isBlockedAny = isBlockedByMe || isBlockedByThem
-  const showAuthorLevelBadge =
-    !isBlockedAny &&
-    profileLevelLabel.length > 0 &&
-    profileLevelLabel !== "Çömez"
   const showProfileNoviceBadge =
     !isBlockedAny && shouldShowNoviceBadge(user.isNovice, undefined)
   return (
@@ -1211,34 +1271,95 @@ export default function UserProfilePage() {
         onClose={() => setIsMobileMenuOpen(false)}
         refreshTrigger={topicSidebarRefresh}
         accentColor="#2c64f6"
-        mobileOnly
       />
 
-      <main className="pt-[6.5rem] md:pt-14">
-        {/* Header / Cover */}
-        <div className="border-b border-border bg-card">
-          <div className="w-full max-w-2xl mx-auto px-4 py-8 md:py-12 lg:max-w-[786px] lg:px-6">
-            <Link href="/">
-              <Button variant="ghost" size="sm" className="mb-4 -ml-2 text-muted-foreground hover:text-foreground">
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                Ana Sayfa
-              </Button>
-            </Link>
+      <main className="flex w-full min-w-0 flex-col pt-[6.5rem] md:pt-14 lg:pl-[312px] xl:pl-[344px]">
+        {/* Header / Cover — kapak + avatar kesişimi (layout / sekmeler / istatistik grid’e dokunulmadı) */}
+        <div className="border-b border-border bg-background">
+          <div className="overflow-hidden rounded-t-xl">
+            <div
+              className={cn(
+                "relative w-full h-32 md:h-48 overflow-hidden rounded-t-xl",
+                isOwnProfile &&
+                  "cursor-pointer transition-opacity hover:opacity-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background",
+              )}
+              onClick={isOwnProfile ? () => setCoverGalleryOpen(true) : undefined}
+              role={isOwnProfile ? "button" : undefined}
+              tabIndex={isOwnProfile ? 0 : undefined}
+              onKeyDown={
+                isOwnProfile
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault()
+                        setCoverGalleryOpen(true)
+                      }
+                    }
+                  : undefined
+              }
+              aria-label={isOwnProfile ? "Kapak galerisini aç" : undefined}
+            >
+              <img
+                src={
+                  user.coverUrl?.trim()
+                    ? user.coverUrl.trim()
+                    : getCoverImageUrl(user.coverChoiceKey)
+                }
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+              <div
+                className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 to-transparent"
+                aria-hidden
+              />
+              <Link
+                href="/"
+                className="absolute left-3 top-3 z-30 md:left-4 md:top-4 pointer-events-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="-ml-1 h-9 border border-white/10 bg-black/30 text-white/90 backdrop-blur-md shadow-none transition-all hover:bg-black/50 hover:text-white"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  Ana Sayfa
+                </Button>
+              </Link>
+              {isOwnProfile && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Kapak değiştir"
+                  className="pointer-events-auto absolute bottom-2 right-3 z-30 hidden h-10 w-10 shrink-0 rounded-full border border-white/10 bg-black/30 p-2 text-white/90 backdrop-blur-md shadow-none transition-all hover:bg-black/50 hover:text-white md:inline-flex"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setCoverGalleryOpen(true)
+                  }}
+                >
+                  <Pencil className="h-4 w-4 shrink-0" aria-hidden />
+                </Button>
+              )}
+            </div>
+          </div>
+          <div className="w-full min-w-0 mx-auto px-4 pb-8 md:pb-12 lg:mx-0 lg:px-6">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch">
               <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
-            <div className="flex justify-start mb-3">
+            <div className="-mt-14 md:-mt-[4.5rem] relative z-10 flex justify-start mb-0">
+              <div className="relative shrink-0">
               {isBlockedAny ? (
                 <span
-                  className="flex h-24 w-24 items-center justify-center rounded-full bg-muted text-muted-foreground border-2 border-border shadow-sm"
+                  className="flex h-28 w-28 md:h-36 md:w-36 items-center justify-center rounded-full bg-muted text-muted-foreground border-4 border-background shadow-sm ring-2 ring-primary/50 ring-offset-2 ring-offset-background transition-all hover:ring-primary/80"
                   aria-label="Engellenmiş kullanıcı"
                 >
-                  <Ban className="h-10 w-10" />
+                  <Ban className="h-10 w-10 md:h-12 md:w-12" />
                 </span>
               ) : isOwnProfile ? (
                 <button
                   type="button"
                   onClick={() => setAvatarDialogOpen(true)}
-                  className="relative group flex h-24 w-24 shrink-0 rounded-full overflow-hidden border-2 border-border shadow-sm transition-opacity hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  className="relative group flex h-28 w-28 md:h-36 md:w-36 shrink-0 rounded-full border-4 border-background shadow-sm ring-2 ring-primary/50 ring-offset-2 ring-offset-background transition-all hover:opacity-95 hover:ring-primary/80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 >
                   {user.avatar ? (
                     user.avatar.startsWith("http") || user.avatar.startsWith("data:image") ? (
@@ -1246,20 +1367,20 @@ export default function UserProfilePage() {
                         src={user.avatar}
                         alt=""
                         referrerPolicy="no-referrer"
-                        className="h-24 w-24 object-cover"
+                        className="h-28 w-28 md:h-36 md:w-36 rounded-full object-cover overflow-hidden"
                       />
                     ) : (
-                      <span className="flex h-24 w-24 items-center justify-center rounded-full bg-secondary/80 text-5xl w-full">
+                      <span className="flex h-28 w-28 md:h-36 md:w-36 items-center justify-center rounded-full bg-secondary/80 text-5xl w-full overflow-hidden md:text-6xl">
                         {user.avatar}
                       </span>
                     )
                   ) : (
-                    <span className="flex h-24 w-24 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                      <PencilLine className="h-10 w-10" />
+                    <span className="flex h-28 w-28 md:h-36 md:w-36 items-center justify-center rounded-full bg-muted text-muted-foreground overflow-hidden">
+                      <PencilLine className="h-10 w-10 md:h-12 md:w-12" />
                     </span>
                   )}
-                  <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-                    <PencilLine className="h-8 w-8 text-white" />
+                  <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none">
+                    <PencilLine className="h-8 w-8 text-white md:h-9 md:w-9" />
                   </span>
                 </button>
               ) : user.avatar ? (
@@ -1268,26 +1389,32 @@ export default function UserProfilePage() {
                     src={user.avatar}
                     alt=""
                     referrerPolicy="no-referrer"
-                    className="h-24 w-24 rounded-full object-cover border-2 border-border shadow-sm"
+                    className="h-28 w-28 md:h-36 md:w-36 rounded-full object-cover border-4 border-background shadow-sm ring-2 ring-primary/50 ring-offset-2 ring-offset-background transition-all hover:ring-primary/80"
                   />
                 ) : (
-                  <span className="flex h-24 w-24 items-center justify-center rounded-full bg-secondary/80 text-5xl border-2 border-border shadow-sm">
+                  <span className="flex h-28 w-28 md:h-36 md:w-36 items-center justify-center rounded-full bg-secondary/80 text-5xl border-4 border-background shadow-sm ring-2 ring-primary/50 ring-offset-2 ring-offset-background transition-all hover:ring-primary/80 md:text-6xl">
                     {user.avatar}
                   </span>
                 )
               ) : (
-                <span className="flex h-24 w-24 items-center justify-center rounded-full bg-muted text-muted-foreground border-2 border-border shadow-sm">
-                  <User className="h-10 w-10" />
+                <span className="flex h-28 w-28 md:h-36 md:w-36 items-center justify-center rounded-full bg-muted text-muted-foreground border-4 border-background shadow-sm ring-2 ring-primary/50 ring-offset-2 ring-offset-background transition-all hover:ring-primary/80">
+                  <User className="h-10 w-10 md:h-12 md:w-12" />
                 </span>
               )}
+              {!isBlockedAny && (
+                <div className="absolute bottom-0 right-0 md:bottom-1 md:right-1 z-20 rounded-full border-[3px] border-background bg-gradient-to-br from-indigo-500 to-purple-600 px-2 py-[2px] text-[10px] md:text-xs font-extrabold text-white shadow-lg opacity-85">
+                  Lv.{profileLevelNumber || 0}
+                </div>
+              )}
+              </div>
             </div>
-            <div className="flex items-baseline gap-3 min-w-0">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 min-w-0 pt-1">
                 <h1 className="text-2xl md:text-3xl font-bold text-foreground min-w-0 break-words">
                   {user.nickname}
                 </h1>
                 {!isBlockedAny && user.createdAt && (
-                  <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-                    <CalendarDays className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  <span className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground">
+                    <CalendarDays className="h-4 w-4 shrink-0" aria-hidden />
                     {formatMemberSince(user.createdAt)}
                   </span>
                 )}
@@ -1392,7 +1519,9 @@ export default function UserProfilePage() {
                     </div>
                   </div>
                 ) : user.bio && user.bio.trim() ? (
-                  <p className="text-sm text-foreground whitespace-pre-wrap">{user.bio}</p>
+                  <p className="border-l-4 border-primary pl-4 py-1 my-4 italic text-foreground/90 font-medium whitespace-pre-wrap leading-relaxed">
+                    {user.bio}
+                  </p>
                 ) : isOwnProfile ? (
                   <button
                     type="button"
@@ -1604,19 +1733,9 @@ export default function UserProfilePage() {
                       <ProfileBadgeCollection userId={id} />
                     </div>
                   )}
-                  {(showAuthorLevelBadge || showProfileNoviceBadge) && (
+                  {showProfileNoviceBadge && (
                     <div className="flex shrink-0 items-center gap-2 justify-end">
-                      {showAuthorLevelBadge && (
-                        <span
-                          className="text-[15px] font-medium text-muted-foreground"
-                          aria-label={profileLevelLabel}
-                        >
-                          {profileLevelLabel.replace(/\s+yazar\b/gi, "").trim()}
-                        </span>
-                      )}
-                      {showProfileNoviceBadge && (
-                        <NoviceBadge variant="profile" className="shrink-0" />
-                      )}
+                      <NoviceBadge variant="profile" className="shrink-0" />
                     </div>
                   )}
                 </div>
@@ -1625,9 +1744,14 @@ export default function UserProfilePage() {
           </div>
         </div>
 
-        {/* Tabs: Entryler / Kalpler / Çiviler / Rozetler / Taslaklar */}
+        {/* Tabs: Entryler / Kalpler / Çiviler / Rozetler / Taslaklar — ana sayfa feed ile aynı max genişlik */}
         {!isBlockedAny && (
-        <div className="w-full max-w-2xl mx-auto px-4 py-6 lg:max-w-[786px] lg:px-6">
+        <div
+          className={cn(
+            "w-full min-w-0 mx-auto px-4 py-6 lg:mx-0 lg:px-6",
+            FEED_COLUMN_MAX_WIDTH_CLASS,
+          )}
+        >
           <Tabs value={profileTab} onValueChange={handleProfileTabChange} className="w-full">
             <div className="-mx-4 px-4 lg:-mx-6 lg:px-6 mb-8 flex overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-hide">
               <TabsList
@@ -2908,6 +3032,16 @@ export default function UserProfilePage() {
           router.push("/?login=1")
         }}
       />
+      {user && isOwnProfile && (
+        <ProfileCoverGalleryModal
+          open={coverGalleryOpen}
+          onOpenChange={setCoverGalleryOpen}
+          selectedKey={user.coverChoiceKey}
+          customCoverUrl={user.coverUrl}
+          saving={coverSaving}
+          onApply={handleCoverApply}
+        />
+      )}
       {user && id && !isOwnProfile && isLoggedIn && (
         <ReportDialog
           open={profileReportOpen}
