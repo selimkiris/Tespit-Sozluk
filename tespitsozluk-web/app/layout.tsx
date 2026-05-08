@@ -27,6 +27,7 @@ export const metadata: Metadata = {
   title: SITE_TITLE,
   description: DEFAULT_DESCRIPTION,
   applicationName: 'Tespit Sözlük',
+  appleWebApp: { title: 'Tespit Sözlük' },
   robots: {
     index: true,
     follow: true,
@@ -38,7 +39,7 @@ export const metadata: Metadata = {
       { url: '/icon.png', type: 'image/png' },
     ],
     shortcut: '/icon.svg',
-    apple: '/apple-icon.png',
+    apple: [{ url: '/icon.png' }],
   },
   openGraph: {
     type: 'website',

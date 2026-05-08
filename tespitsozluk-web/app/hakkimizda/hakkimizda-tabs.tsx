@@ -258,7 +258,7 @@ export function HakkimizdaTabs() {
               </li>
               <li>
                 <span className="text-foreground/90">Adres: </span>
-                Çünür mahallesi, 5406. sokak, no: 48, Yağız Apt. 2, iç kapı: 25 Merkez / ISPARTA
+                Çünür mahallesi, 102. Cadde, No: 160, İç Kapı: 3, Merkez / Isparta
               </li>
               <li>
                 <span className="text-foreground/90">E-posta: </span>
