@@ -1277,27 +1277,7 @@ export default function UserProfilePage() {
         {/* Header / Cover — kapak + avatar kesişimi */}
         <div className="border-b border-border bg-background">
           <div className="overflow-hidden rounded-t-xl">
-            <div
-              className={cn(
-                "relative w-full h-32 md:h-48 overflow-hidden rounded-t-xl",
-                isOwnProfile &&
-                  "cursor-pointer transition-opacity hover:opacity-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background",
-              )}
-              onClick={isOwnProfile ? () => setCoverGalleryOpen(true) : undefined}
-              role={isOwnProfile ? "button" : undefined}
-              tabIndex={isOwnProfile ? 0 : undefined}
-              onKeyDown={
-                isOwnProfile
-                  ? (e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault()
-                        setCoverGalleryOpen(true)
-                      }
-                    }
-                  : undefined
-              }
-              aria-label={isOwnProfile ? "Kapak galerisini aç" : undefined}
-            >
+            <div className="relative w-full h-32 md:h-48 overflow-hidden rounded-t-xl">
               <img
                 src={
                   user.coverUrl?.trim()
@@ -1314,8 +1294,7 @@ export default function UserProfilePage() {
               />
               <Link
                 href="/"
-                className="absolute left-3 top-3 z-30 md:left-4 md:top-4 pointer-events-auto"
-                onClick={(e) => e.stopPropagation()}
+                className="absolute left-3 top-3 z-30 md:left-4 md:top-4"
               >
                 <Button
                   variant="ghost"
@@ -1326,27 +1305,24 @@ export default function UserProfilePage() {
                   Ana Sayfa
                 </Button>
               </Link>
-              {isOwnProfile && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Kapak değiştir"
-                  className="pointer-events-auto absolute bottom-2 right-3 z-30 inline-flex h-10 w-10 shrink-0 rounded-full border border-white/10 bg-black/30 p-2 text-white/90 backdrop-blur-md shadow-none transition-all hover:bg-black/50 hover:text-white"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setCoverGalleryOpen(true)
-                  }}
-                >
-                  <Pencil className="h-4 w-4 shrink-0" aria-hidden />
-                </Button>
-              )}
             </div>
           </div>
           <div className="w-full min-w-0 mx-auto px-4 pb-8 md:pb-12 lg:mx-0 lg:px-6">
             <div className="flex flex-col gap-5">
               <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
             <div className="-mt-14 md:-mt-[4.5rem] relative z-10 mb-0 flex flex-col gap-3">
+              {isOwnProfile && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Kapak değiştir"
+                  className="absolute -right-2 top-2 z-50 md:top-6 lg:-right-4 inline-flex h-10 w-10 shrink-0 rounded-full border border-white/10 bg-black/30 p-2 text-white/90 backdrop-blur-md shadow-none transition-all hover:bg-black/50 hover:text-white"
+                  onClick={() => setCoverGalleryOpen(true)}
+                >
+                  <Pencil className="h-4 w-4 shrink-0" aria-hidden />
+                </Button>
+              )}
               <div className="flex w-full min-w-0 flex-row items-end justify-start gap-4">
               <div className="relative aspect-square h-28 w-28 shrink-0 rounded-full border-4 border-background md:h-36 md:w-36">
               {isBlockedAny ? (
