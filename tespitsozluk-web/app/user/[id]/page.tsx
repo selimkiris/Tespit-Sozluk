@@ -3,7 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo } from "react"
 import type { ReactNode } from "react"
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, Lock, Pencil, Trash2, Send, Plus, User, UserPlus, UserMinus, Users, UserCheck, MessageSquare, Hash, CalendarDays, Heart, Save, PencilLine, ShieldX, CheckCircle2, Clock, AlertTriangle, RotateCcw, Flag, Trash, BadgeCheck, Mail, ShieldAlert, MessageCircle, FileEdit, Search, Medal, Ban, MoreHorizontal } from "lucide-react"
+import { ArrowLeft, Lock, Pencil, Trash2, Send, Plus, User, UserPlus, UserMinus, Users, UserCheck, MessageSquare, Hash, CalendarDays, Heart, Save, PencilLine, ShieldX, CheckCircle2, Clock, AlertTriangle, RotateCcw, Flag, Trash, BadgeCheck, Mail, ShieldAlert, MessageCircle, FileEdit, Search, Medal, Ban, MoreHorizontal, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
 import { Navbar } from "@/components/navbar"
@@ -1274,7 +1274,7 @@ export default function UserProfilePage() {
       />
 
       <main className="flex w-full min-w-0 flex-col pt-[6.5rem] md:pt-14 lg:pl-[312px] xl:pl-[344px]">
-        {/* Header / Cover — kapak + avatar kesişimi (layout / sekmeler / istatistik grid’e dokunulmadı) */}
+        {/* Header / Cover — kapak + avatar kesişimi */}
         <div className="border-b border-border bg-background">
           <div className="overflow-hidden rounded-t-xl">
             <div
@@ -1332,7 +1332,7 @@ export default function UserProfilePage() {
                   variant="ghost"
                   size="icon"
                   aria-label="Kapak değiştir"
-                  className="pointer-events-auto absolute bottom-2 right-3 z-30 hidden h-10 w-10 shrink-0 rounded-full border border-white/10 bg-black/30 p-2 text-white/90 backdrop-blur-md shadow-none transition-all hover:bg-black/50 hover:text-white md:inline-flex"
+                  className="pointer-events-auto absolute bottom-2 right-3 z-30 inline-flex h-10 w-10 shrink-0 rounded-full border border-white/10 bg-black/30 p-2 text-white/90 backdrop-blur-md shadow-none transition-all hover:bg-black/50 hover:text-white"
                   onClick={(e) => {
                     e.stopPropagation()
                     setCoverGalleryOpen(true)
@@ -1344,13 +1344,14 @@ export default function UserProfilePage() {
             </div>
           </div>
           <div className="w-full min-w-0 mx-auto px-4 pb-8 md:pb-12 lg:mx-0 lg:px-6">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-stretch">
+            <div className="flex flex-col gap-5">
               <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
-            <div className="-mt-14 md:-mt-[4.5rem] relative z-10 flex justify-start mb-0">
-              <div className="relative shrink-0">
+            <div className="-mt-14 md:-mt-[4.5rem] relative z-10 mb-0 flex flex-col gap-3">
+              <div className="flex w-full min-w-0 flex-row items-end justify-start gap-4">
+              <div className="relative aspect-square h-28 w-28 shrink-0 rounded-full border-4 border-background md:h-36 md:w-36">
               {isBlockedAny ? (
                 <span
-                  className="flex h-28 w-28 md:h-36 md:w-36 items-center justify-center rounded-full bg-muted text-muted-foreground border-4 border-background shadow-sm ring-2 ring-primary/50 ring-offset-2 ring-offset-background transition-all hover:ring-primary/80"
+                  className="flex size-full items-center justify-center rounded-full bg-muted text-muted-foreground shadow-sm ring-2 ring-primary/50 ring-offset-2 ring-offset-background transition-all hover:ring-primary/80"
                   aria-label="Engellenmiş kullanıcı"
                 >
                   <Ban className="h-10 w-10 md:h-12 md:w-12" />
@@ -1359,7 +1360,7 @@ export default function UserProfilePage() {
                 <button
                   type="button"
                   onClick={() => setAvatarDialogOpen(true)}
-                  className="relative group flex h-28 w-28 md:h-36 md:w-36 shrink-0 rounded-full border-4 border-background shadow-sm ring-2 ring-primary/50 ring-offset-2 ring-offset-background transition-all hover:opacity-95 hover:ring-primary/80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  className="relative group flex size-full shrink-0 rounded-full hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
                   {user.avatar ? (
                     user.avatar.startsWith("http") || user.avatar.startsWith("data:image") ? (
@@ -1367,15 +1368,15 @@ export default function UserProfilePage() {
                         src={user.avatar}
                         alt=""
                         referrerPolicy="no-referrer"
-                        className="h-28 w-28 md:h-36 md:w-36 rounded-full object-cover overflow-hidden"
+                        className="size-full rounded-full object-cover ring-2 ring-primary/50 ring-offset-2 ring-offset-background transition-all group-hover:ring-primary/80"
                       />
                     ) : (
-                      <span className="flex h-28 w-28 md:h-36 md:w-36 items-center justify-center rounded-full bg-secondary/80 text-5xl w-full overflow-hidden md:text-6xl">
+                      <span className="flex size-full items-center justify-center overflow-hidden rounded-full border-4 border-background bg-secondary/80 text-5xl leading-none ring-2 ring-primary/50 ring-offset-2 ring-offset-background transition-all group-hover:ring-primary/80 md:text-6xl">
                         {user.avatar}
                       </span>
                     )
                   ) : (
-                    <span className="flex h-28 w-28 md:h-36 md:w-36 items-center justify-center rounded-full bg-muted text-muted-foreground overflow-hidden">
+                    <span className="flex size-full flex-col items-center justify-center rounded-full bg-muted text-muted-foreground ring-2 ring-primary/50 ring-offset-2 ring-offset-background transition-all group-hover:ring-primary/80 overflow-hidden">
                       <PencilLine className="h-10 w-10 md:h-12 md:w-12" />
                     </span>
                   )}
@@ -1389,15 +1390,15 @@ export default function UserProfilePage() {
                     src={user.avatar}
                     alt=""
                     referrerPolicy="no-referrer"
-                    className="h-28 w-28 md:h-36 md:w-36 rounded-full object-cover border-4 border-background shadow-sm ring-2 ring-primary/50 ring-offset-2 ring-offset-background transition-all hover:ring-primary/80"
+                    className="size-full rounded-full object-cover ring-2 ring-primary/50 ring-offset-2 ring-offset-background transition-all hover:ring-primary/80"
                   />
                 ) : (
-                  <span className="flex h-28 w-28 md:h-36 md:w-36 items-center justify-center rounded-full bg-secondary/80 text-5xl border-4 border-background shadow-sm ring-2 ring-primary/50 ring-offset-2 ring-offset-background transition-all hover:ring-primary/80 md:text-6xl">
+                  <span className="flex size-full items-center justify-center overflow-hidden rounded-full border-4 border-background bg-secondary/80 text-5xl ring-2 ring-primary/50 ring-offset-2 ring-offset-background transition-all hover:ring-primary/80 md:text-6xl">
                     {user.avatar}
                   </span>
                 )
               ) : (
-                <span className="flex h-28 w-28 md:h-36 md:w-36 items-center justify-center rounded-full bg-muted text-muted-foreground border-4 border-background shadow-sm ring-2 ring-primary/50 ring-offset-2 ring-offset-background transition-all hover:ring-primary/80">
+                <span className="flex size-full flex-col items-center justify-center rounded-full border-4 border-background bg-muted text-muted-foreground ring-2 ring-primary/50 ring-offset-2 ring-offset-background transition-all hover:ring-primary/80 overflow-hidden">
                   <User className="h-10 w-10 md:h-12 md:w-12" />
                 </span>
               )}
@@ -1407,8 +1408,14 @@ export default function UserProfilePage() {
                 </div>
               )}
               </div>
-            </div>
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 min-w-0 pt-1">
+              {!isBlockedAny && (
+                <div className="ml-5 flex flex-row flex-wrap items-center gap-2 pb-2 md:pb-4">
+                  {showProfileNoviceBadge && <NoviceBadge variant="profile" className="shrink-0" />}
+                  {id && <ProfileBadgeCollection userId={id} className="justify-start" />}
+                </div>
+              )}
+              </div>
+              <div className="mt-2 flex min-w-0 w-full flex-wrap items-baseline gap-x-3 gap-y-1 md:mt-3">
                 <h1 className="text-2xl md:text-3xl font-bold text-foreground min-w-0 break-words">
                   {user.nickname}
                 </h1>
@@ -1419,6 +1426,7 @@ export default function UserProfilePage() {
                   </span>
                 )}
               </div>
+            </div>
             {!isBlockedAny && isAdmin && !isOwnProfile && viewedUserEmail && (
               <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm">
                 <Mail className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
@@ -1534,113 +1542,46 @@ export default function UserProfilePage() {
                     Kendinden bahsetmek ister misin? (Maksimum 500 karakter)
                   </button>
                 ) : null}
-                {isOwnProfile && user.bio && user.bio.trim() && !bioEditing && (
+              </div>
+            )}
+            {!isBlockedAny && (
+              <div className="mt-3 flex w-full max-w-xl flex-wrap items-center gap-3">
+                {isOwnProfile && user.bio && user.bio.trim() && (
                   <Button
-                    variant="ghost"
+                    type="button"
+                    variant="outline"
                     size="sm"
-                    className="gap-1.5 -ml-1 text-muted-foreground hover:text-foreground"
+                    className="h-9 gap-2 rounded-full border-border/60 bg-background/80 px-4 text-sm font-medium shadow-sm transition-all hover:border-border hover:bg-muted/50"
                     onClick={() => {
                       setBioDraft(user.bio ?? "")
                       setBioEditing(true)
                     }}
                   >
-                    <Pencil className="h-3.5 w-3.5" />
-                    Düzenle
+                    <PencilLine className="h-4 w-4 shrink-0" />
+                    Yazıtı düzenle
                   </Button>
                 )}
-              </div>
-            )}
-            {!isBlockedAny && (
-              <div className="grid w-full shrink-0 grid-cols-3 gap-3 mt-2 max-w-sm lg:w-max lg:min-w-max">
-                <div className="flex flex-row items-center gap-3 rounded-lg border border-border bg-muted/30 p-4">
-                  <div className="shrink-0">
-                    <Heart className="h-5 w-5 text-rose-500" />
-                  </div>
-                  <div className="flex flex-col items-start justify-center gap-0 whitespace-nowrap">
-                    <span className="text-xs text-muted-foreground">Toplam</span>
-                    <span className="text-sm font-semibold text-foreground">Kalp</span>
-                    <span className="text-lg font-bold text-foreground tabular-nums">{user.totalUpvotesReceived ?? 0}</span>
-                  </div>
-                </div>
-                <div className="flex flex-row items-center gap-3 rounded-lg border border-border bg-muted/30 p-4">
-                  <div className="shrink-0">
-                    <AyakIcon className="h-5 w-5 text-amber-600" />
-                  </div>
-                  <div className="flex flex-col items-start justify-center gap-0 whitespace-nowrap">
-                    <span className="text-xs text-muted-foreground">Toplam</span>
-                    <span className="text-sm font-semibold text-foreground">Ayak</span>
-                    <span className="text-lg font-bold text-foreground tabular-nums">{user.totalDownvotesReceived ?? 0}</span>
-                  </div>
-                </div>
-                <div className="flex flex-row items-center gap-3 rounded-lg border border-border bg-muted/30 p-4">
-                  <div className="shrink-0">
-                    <CiviIcon className="h-5 w-5 text-purple-500" />
-                  </div>
-                  <div className="flex flex-col items-start justify-center gap-0 whitespace-nowrap">
-                    <span className="text-xs text-muted-foreground">Toplam</span>
-                    <span className="text-sm font-semibold text-foreground">Çivileme</span>
-                    <span className="text-lg font-bold text-foreground tabular-nums">{user.totalSavesReceived ?? 0}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-            {!isBlockedAny && (
-              <div className="grid w-full shrink-0 grid-cols-2 gap-3 max-w-sm justify-items-start self-start lg:w-max lg:min-w-max">
-                <button
-                  type="button"
-                  onClick={() => setFollowersModalOpen(true)}
-                  className="flex w-fit max-w-full min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-border/50 bg-secondary/5 px-4 py-2 text-left text-sm text-muted-foreground transition-all duration-200 hover:bg-secondary/20 hover:text-primary"
-                >
-                  <Users className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                  <span className="font-medium">Takipçi:</span>
-                  <span className="tabular-nums font-bold text-white">{user.followerCount ?? 0}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFollowingModalOpen(true)}
-                  className="flex w-fit max-w-full min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-border/50 bg-secondary/5 px-4 py-2 text-left text-sm text-muted-foreground transition-all duration-200 hover:bg-secondary/20 hover:text-primary"
-                >
-                  <UserCheck className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                  <span className="font-medium">Takip Edilen:</span>
-                  <span className="tabular-nums font-bold text-white">{user.followingCount ?? 0}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUserTopicsModalOpen(true)}
-                  aria-label={`${user.nickname} kullanıcısının açtığı başlıkları görüntüle`}
-                  className="flex w-fit max-w-full min-w-0 cursor-pointer items-center gap-2 rounded-xl border border-border/50 bg-secondary/5 px-4 py-2 text-left text-sm text-muted-foreground transition-all duration-200 hover:bg-secondary/20 hover:text-primary focus-visible:outline-none focus-visible:text-primary"
-                >
-                  <Hash className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                  <span>
-                    Toplam Başlık:{" "}
-                    <span className="tabular-nums font-bold text-white">{user.totalTopicCount ?? 0}</span>
-                  </span>
-                </button>
-                <div className="pointer-events-none flex w-fit max-w-full min-w-0 items-center gap-2 rounded-xl border border-border/50 bg-secondary/5 px-4 py-2 text-left text-sm text-muted-foreground opacity-90">
-                  <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                  <span className="font-medium">Toplam Entry:</span>
-                  <span className="tabular-nums font-bold text-white">{user.totalEntryCount}</span>
-                </div>
-              </div>
-            )}
-            {!isBlockedAny && (
-            <div className="mt-auto flex flex-wrap items-center gap-3">
                 {!isOwnProfile && isLoggedIn && (
                   <Button
                     size="sm"
                     variant={user.isFollowedByCurrentUser ? "outline" : "default"}
                     onClick={handleToggleFollow}
                     disabled={followLoading}
-                    className="gap-1.5"
+                    className={cn(
+                      "h-9 gap-2 rounded-full px-4 text-sm font-medium shadow-sm transition-all",
+                      user.isFollowedByCurrentUser
+                        ? "border-border/60 bg-background/80 hover:bg-muted/50"
+                        : "border-primary/20 shadow-primary/10",
+                    )}
                   >
                     {user.isFollowedByCurrentUser ? (
                       <>
-                        <UserMinus className="h-4 w-4" />
+                        <UserMinus className="h-4 w-4 shrink-0" />
                         Takipten Çık
                       </>
                     ) : (
                       <>
-                        <UserPlus className="h-4 w-4" />
+                        <UserPlus className="h-4 w-4 shrink-0" />
                         Takip Et
                       </>
                     )}
@@ -1652,9 +1593,9 @@ export default function UserProfilePage() {
                     size="sm"
                     variant="outline"
                     onClick={() => user?.id && router.push(`/mesajlar?chatWith=${encodeURIComponent(user.id)}`)}
-                    className="gap-1.5"
+                    className="h-9 gap-2 rounded-full border-border/60 bg-background/80 px-4 text-sm font-medium shadow-sm transition-all hover:border-border hover:bg-muted/50"
                   >
-                    <MessageCircle className="h-4 w-4" />
+                    <MessageCircle className="h-4 w-4 shrink-0" />
                     Mesaj Gönder
                   </Button>
                 )}
@@ -1664,7 +1605,7 @@ export default function UserProfilePage() {
                       type="button"
                       variant="outline"
                       size="icon"
-                      className="h-8 w-8 shrink-0"
+                      className="h-9 w-9 shrink-0 rounded-full border-border/60 bg-background/80 shadow-sm transition-all hover:bg-muted/50"
                       aria-label="Daha fazla"
                     >
                       <MoreHorizontal className="h-4 w-4" />
@@ -1683,10 +1624,7 @@ export default function UserProfilePage() {
                           Şikayet Et
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={() => setBlockUserConfirmOpen(true)}
-                        >
+                        <DropdownMenuItem variant="destructive" onClick={() => setBlockUserConfirmOpen(true)}>
                           <Ban className="h-4 w-4" />
                           Kullanıcıyı Engelle
                         </DropdownMenuItem>
@@ -1700,46 +1638,121 @@ export default function UserProfilePage() {
                       size="sm"
                       variant="outline"
                       onClick={() => setSendMessageOpen(true)}
-                      className="gap-1.5 border-blue-500/50 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 hover:border-blue-500"
+                      className="h-9 gap-2 rounded-full border-blue-500/40 px-4 text-sm font-medium text-blue-600 shadow-sm transition-all hover:border-blue-500 hover:bg-blue-500/10 dark:text-blue-400"
                     >
-                      <MessageCircle className="h-4 w-4" />
+                      <MessageCircle className="h-4 w-4 shrink-0" />
                       İletişime Geç
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => setIsAdminBanOpen(true)}
-                      className="gap-1.5 border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                      className="h-9 gap-2 rounded-full border-destructive/40 px-4 text-sm font-medium text-destructive shadow-sm transition-all hover:bg-destructive hover:text-destructive-foreground"
                     >
-                      <ShieldX className="h-4 w-4" />
+                      <ShieldX className="h-4 w-4 shrink-0" />
                       Kullanıcıyı Uçur
                     </Button>
                   </>
                 )}
                 {user.email && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted/80 text-sm text-muted-foreground border border-border/50">
-                    <Lock className="h-3.5 w-3.5 shrink-0" />
-                    <span>{user.email}</span>
-                    <span className="text-xs text-muted-foreground/80 ml-1">• Sadece sen görebilirsin</span>
+                  <span className="inline-flex min-w-0 max-w-full items-center gap-2 rounded-full border border-border/50 bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+                    <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    <span className="min-w-0 truncate font-medium text-foreground/90">{user.email}</span>
+                    <span className="hidden shrink-0 text-[10px] text-muted-foreground/80 sm:inline">
+                      • Sadece sen görebilirsin
+                    </span>
                   </span>
                 )}
-            </div>
+              </div>
+            )}
+            {!isBlockedAny && (
+              <>
+                <div className="mt-4 w-full max-w-xl rounded-2xl border border-border/50 bg-muted/30 p-4 shadow-sm dark:shadow-none">
+                  <div className="flex min-w-0 divide-x divide-border/45">
+                    <div className="flex min-w-0 flex-1 flex-row items-center justify-center gap-4 px-2 py-1 sm:px-3">
+                      <Heart className="h-5 w-5 shrink-0 text-rose-500" aria-hidden />
+                      <span className="text-lg font-bold tabular-nums leading-none text-foreground sm:text-xl">
+                        {user.totalUpvotesReceived ?? 0}
+                      </span>
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-row items-center justify-center gap-4 px-2 py-1 sm:px-3">
+                      <AyakIcon className="h-5 w-5 shrink-0 text-amber-600" aria-hidden />
+                      <span className="text-lg font-bold tabular-nums leading-none text-foreground sm:text-xl">
+                        {user.totalDownvotesReceived ?? 0}
+                      </span>
+                    </div>
+                    <div className="flex min-w-0 flex-1 flex-row items-center justify-center gap-4 px-2 py-1 sm:px-3">
+                      <CiviIcon className="h-5 w-5 shrink-0 text-purple-500" aria-hidden />
+                      <span className="text-lg font-bold tabular-nums leading-none text-foreground sm:text-xl">
+                        {user.totalSavesReceived ?? 0}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="my-4 h-px w-full shrink-0 bg-border/45" aria-hidden />
+                  <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setFollowersModalOpen(true)}
+                      className="flex min-w-0 cursor-pointer items-center justify-between rounded-xl border border-border/80 bg-secondary/80 p-3 text-left text-xs shadow-md transition-colors hover:bg-secondary dark:bg-secondary/60 dark:hover:bg-secondary/80 sm:text-sm"
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <Users className="h-4 w-4 shrink-0 text-foreground/85 opacity-95" aria-hidden />
+                        <span className="min-w-0 shrink font-medium text-foreground/90">Takipçi</span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-1">
+                        <span className="tabular-nums text-sm font-semibold text-foreground sm:text-base">
+                          {user.followerCount ?? 0}
+                        </span>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-foreground/80 opacity-80" aria-hidden />
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFollowingModalOpen(true)}
+                      className="flex min-w-0 cursor-pointer items-center justify-between rounded-xl border border-border/80 bg-secondary/80 p-3 text-left text-xs shadow-md transition-colors hover:bg-secondary dark:bg-secondary/60 dark:hover:bg-secondary/80 sm:text-sm"
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <UserCheck className="h-4 w-4 shrink-0 text-foreground/85 opacity-95" aria-hidden />
+                        <span className="min-w-0 shrink font-medium text-foreground/90">Takip edilen</span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-1">
+                        <span className="tabular-nums text-sm font-semibold text-foreground sm:text-base">
+                          {user.followingCount ?? 0}
+                        </span>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-foreground/80 opacity-80" aria-hidden />
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUserTopicsModalOpen(true)}
+                      aria-label={`${user.nickname} kullanıcısının açtığı başlıkları görüntüle`}
+                      className="flex min-w-0 cursor-pointer items-center justify-between rounded-xl border border-border/80 bg-secondary/80 p-3 text-left text-xs shadow-md transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-secondary/60 dark:hover:bg-secondary/80 sm:text-sm"
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <Hash className="h-4 w-4 shrink-0 text-foreground/85 opacity-95" aria-hidden />
+                        <span className="min-w-0 shrink font-medium text-foreground/90">Başlık</span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-1">
+                        <span className="tabular-nums text-sm font-semibold text-foreground sm:text-base">
+                          {user.totalTopicCount ?? 0}
+                        </span>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-foreground/80 opacity-80" aria-hidden />
+                      </span>
+                    </button>
+                    <div className="flex min-w-0 items-center justify-between rounded-xl border border-border/80 bg-secondary/80 p-3 text-left text-xs shadow-md transition-colors hover:bg-secondary dark:bg-secondary/60 dark:hover:bg-secondary/80 sm:text-sm">
+                      <span className="flex min-w-0 items-center gap-2">
+                        <MessageSquare className="h-4 w-4 shrink-0 text-foreground/85 opacity-95" aria-hidden />
+                        <span className="min-w-0 shrink font-medium text-foreground/90">Entry</span>
+                      </span>
+                      <span className="tabular-nums text-sm font-semibold text-foreground sm:text-base">
+                        {user.totalEntryCount}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </>
             )}
               </div>
-              {!isBlockedAny && (
-                <div className="mr-12 flex w-full shrink-0 flex-col items-end gap-2 pt-0.5 lg:mr-32 lg:w-auto lg:max-w-[min(50%,280px)]">
-                  {id && (
-                    <div className="flex w-full shrink-0 justify-end">
-                      <ProfileBadgeCollection userId={id} />
-                    </div>
-                  )}
-                  {showProfileNoviceBadge && (
-                    <div className="flex shrink-0 items-center gap-2 justify-end">
-                      <NoviceBadge variant="profile" className="shrink-0" />
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -1753,9 +1766,9 @@ export default function UserProfilePage() {
           )}
         >
           <Tabs value={profileTab} onValueChange={handleProfileTabChange} className="w-full">
-            <div className="-mx-4 px-4 lg:-mx-6 lg:px-6 mb-8 flex overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-hide">
+            <div className="-mx-4 mb-8 flex overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-hide px-4 lg:-mx-6 lg:px-6">
               <TabsList
-                className="flex w-max min-w-full flex-nowrap justify-start bg-transparent p-0 h-auto rounded-none border-b-2 border-border gap-0"
+                className="flex h-auto w-max min-w-full flex-nowrap justify-start gap-0 rounded-none border-b-2 border-border bg-transparent p-0"
               >
               {/* ─── Entryler ─── */}
               <TabsTrigger

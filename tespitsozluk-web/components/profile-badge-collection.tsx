@@ -46,12 +46,14 @@ function ProfileBadgeChip({ type, count }: ProfileBadgeChipProps) {
 
 interface ProfileBadgeCollectionProps {
   userId: string
+  /** Dış düzen için (profil kartı içi hizalama vb.) — chip iç tasarımını değiştirmez */
+  className?: string
 }
 
 /**
- * Profil başlığı sağ üstünde kompakt rozet vitrinı.
+ * Profil başlığında kompakt rozet vitrinı (işaretçiye göre yerleştirilir).
  */
-export function ProfileBadgeCollection({ userId }: ProfileBadgeCollectionProps) {
+export function ProfileBadgeCollection({ userId, className }: ProfileBadgeCollectionProps) {
   const [collection, setCollection] = useState<UserBadgeCollectionNormalized | null>(null)
   const [loaded, setLoaded] = useState(false)
 
@@ -81,7 +83,12 @@ export function ProfileBadgeCollection({ userId }: ProfileBadgeCollectionProps) 
   if (orderedGroups.length === 0) return null
 
   return (
-    <div className="flex shrink-0 flex-nowrap gap-1 justify-end items-center">
+    <div
+      className={cn(
+        "flex shrink-0 flex-wrap gap-1.5 justify-end items-center min-w-0",
+        className,
+      )}
+    >
       <span className="sr-only">
         Kazanılan rozetler: toplam {collection.totalBadges}
       </span>
