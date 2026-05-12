@@ -239,12 +239,12 @@ export function HakkimizdaTabs() {
                 Telefon Numarası
               </div>
               <a
-                href="https://wa.me/447868172608"
+                href="https://wa.me/905527989872"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-foreground underline-offset-4 hover:underline"
               >
-                +44 7868 172608 (WhatsApp)
+                +90 552 798 9872 (WhatsApp)
               </a>
             </div>
           </div>
@@ -272,12 +272,12 @@ export function HakkimizdaTabs() {
               <li>
                 <span className="text-foreground/90">Telefon Numarası: </span>
                 <a
-                  href="https://wa.me/447868172608"
+                  href="https://wa.me/905527989872"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-foreground underline-offset-4 hover:underline"
                 >
-                  +44 7868 172608
+                  +90 552 798 9872
                 </a>
               </li>
             </ul>
