@@ -23,7 +23,7 @@ export function ExpandableHtmlContent({
   html,
   className,
   rendererClassName,
-  maxLines = 11,
+  maxLines = 8,
   searchHighlightQuery,
 }: ExpandableHtmlContentProps) {
   const [expanded, setExpanded] = useState(false)
@@ -121,7 +121,43 @@ export function ExpandableHtmlContent({
             style={{ color: "#8a8d96", fontStyle: "italic", fontSize: "14px" }}
             onClick={() => setExpanded((prev) => !prev)}
           >
-            {expanded ? "Daralt" : "Devamını oku"}
+            {expanded ? (
+              <>
+                {"Daralt "}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ display: "inline", verticalAlign: "middle", marginLeft: "3px" }}
+                >
+                  <polyline points="6 15 12 9 18 15" />
+                </svg>
+              </>
+            ) : (
+              <>
+                {"... devamını oku "}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ display: "inline", verticalAlign: "middle", marginLeft: "3px" }}
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </>
+            )}
           </Button>
         </div>
       )}
