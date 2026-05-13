@@ -391,10 +391,10 @@ export function Navbar({
       {/* Ana toolbar: h-14 = 3.5rem (56px) */}
       <div className="flex h-14 items-center justify-between px-4 lg:px-6">
         {/* Left: Logo + Mobile Menu */}
-        <div className="flex items-center gap-3 self-stretch">
+        <div className="flex flex-1 items-center gap-3 self-stretch min-w-0 truncate sm:flex-none">
           <button
             onClick={onMenuClick}
-            className="lg:hidden p-1.5 -ml-1.5 text-muted-foreground hover:text-foreground transition-colors"
+            className="lg:hidden shrink-0 p-1.5 -ml-1.5 text-muted-foreground hover:text-foreground transition-colors"
             aria-label="Toggle menu"
           >
             {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -402,13 +402,13 @@ export function Navbar({
           <button
             type="button"
             onClick={handleLogoClick}
-            className="flex h-full items-center hover:opacity-80 transition-opacity ml-9 lg:ml-10"
+            className="flex h-full min-w-0 max-w-full flex-1 items-center hover:opacity-80 transition-opacity ml-9 sm:flex-initial lg:ml-10"
           >
-            <span className="inline-flex h-full max-h-full items-center dark:invert">
+            <span className="inline-flex h-full max-h-full min-w-0 max-w-full items-center dark:invert">
               <img
                 src="/marka.svg"
                 alt="Tespit Sözlük"
-                className="h-11 w-auto"
+                className="h-11 w-auto max-w-full"
               />
             </span>
           </button>
@@ -482,7 +482,7 @@ export function Navbar({
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           {isLoggedIn && (
             <Button
               variant="ghost"
@@ -906,9 +906,12 @@ export function Navbar({
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground h-8 px-3 text-sm">
-                <Link href="/hakkimizda">Hakkımızda</Link>
+            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+              <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground h-8 px-1.5 sm:px-4 min-w-0 w-auto sm:w-auto text-sm">
+                <Link href="/hakkimizda" className="inline-flex items-center justify-center gap-0" aria-label="Hakkımızda">
+                  <Info className="h-5 w-5 sm:hidden shrink-0" aria-hidden />
+                  <span className="hidden sm:inline">Hakkımızda</span>
+                </Link>
               </Button>
               <Button
                 variant="ghost"

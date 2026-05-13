@@ -753,155 +753,161 @@ export function EntryCard({
         </div>
 
         {/* RIGHT GROUP: Author info + date + share + options — sıra: rozet (çömez) | avatar | ad */}
-        <div className="flex items-center gap-1.5 min-w-0 shrink">
-          {!isAnonymousEntry && shouldShowNoviceBadge(localIsNovice, localAuthor.role) && (
-            <NoviceBadge className="shrink-0" />
-          )}
-          {/* Avatar */}
-          <div className="shrink-0">
-            {isAnonymousEntry ? (
-              <Avatar className="h-5 w-5">
-                <AvatarFallback className="bg-muted text-muted-foreground text-[10px]">
-                  <User className="h-3 w-3" />
-                </AvatarFallback>
-              </Avatar>
-            ) : localAuthor?.avatar?.startsWith("http") ? (
-              <img
-                src={localAuthor.avatar}
-                alt=""
-                referrerPolicy="no-referrer"
-                className="h-5 w-5 rounded-full object-cover border border-border/60"
-              />
-            ) : localAuthor?.avatar ? (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary/80 text-sm border border-border/60 leading-none">
-                {localAuthor.avatar}
-              </span>
-            ) : (
-              <Avatar className="h-5 w-5">
-                <AvatarFallback className="bg-muted text-muted-foreground text-[10px]">
-                  {(localAuthor?.nickname?.charAt(0) ?? "?").toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-            )}
-          </div>
-
-          {/* Author name */}
-          {isAnonymousEntry ? (
-            <span className="text-sm font-normal text-slate-200 max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap inline-block">
-              {shouldApplyEntrySearchHighlight(searchTerm)
-                ? highlightText(localAuthor?.nickname ?? "Anonim", searchTerm!)
-                : (localAuthor?.nickname ?? "Anonim")}
-            </span>
-          ) : (
-            <Link
-              href={`/user/${localAuthor.id}`}
-              className="inline-flex items-center gap-0.5 text-sm font-normal text-slate-200 hover:text-[#c2c6cf] transition-colors max-w-[min(100%,220px)] min-w-0 overflow-hidden"
-            >
-              <span className="min-w-0 truncate">
-                {shouldApplyEntrySearchHighlight(searchTerm)
-                  ? highlightText(localAuthor.nickname, searchTerm!)
-                  : localAuthor.nickname}
-              </span>
-              {localAuthor.role === "Admin" && (
-                <BadgeCheck className="w-3.5 h-3.5 text-blue-500 fill-blue-500/20 ml-0.5 shrink-0" />
+        <div className="flex items-start sm:items-center gap-1 sm:gap-1.5 min-w-0 shrink ml-auto">
+          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-0.5 sm:gap-1.5 min-w-0">
+            <div className="flex items-center justify-end gap-1.5 min-w-0 max-w-full">
+              {!isAnonymousEntry && shouldShowNoviceBadge(localIsNovice, localAuthor.role) && (
+                <NoviceBadge className="shrink-0" />
               )}
-            </Link>
-          )}
+              {/* Avatar */}
+              <div className="shrink-0">
+                {isAnonymousEntry ? (
+                  <Avatar className="h-5 w-5">
+                    <AvatarFallback className="bg-muted text-muted-foreground text-[10px]">
+                      <User className="h-3 w-3" />
+                    </AvatarFallback>
+                  </Avatar>
+                ) : localAuthor?.avatar?.startsWith("http") ? (
+                  <img
+                    src={localAuthor.avatar}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="h-5 w-5 rounded-full object-cover border border-border/60"
+                  />
+                ) : localAuthor?.avatar ? (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary/80 text-sm border border-border/60 leading-none">
+                    {localAuthor.avatar}
+                  </span>
+                ) : (
+                  <Avatar className="h-5 w-5">
+                    <AvatarFallback className="bg-muted text-muted-foreground text-[10px]">
+                      {(localAuthor?.nickname?.charAt(0) ?? "?").toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+              </div>
 
-          <span className="text-[#7c8190]/45 text-[13px] shrink-0">·</span>
+              {/* Author name */}
+              {isAnonymousEntry ? (
+                <span className="text-sm font-normal text-slate-200 max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap inline-block">
+                  {shouldApplyEntrySearchHighlight(searchTerm)
+                    ? highlightText(localAuthor?.nickname ?? "Anonim", searchTerm!)
+                    : (localAuthor?.nickname ?? "Anonim")}
+                </span>
+              ) : (
+                <Link
+                  href={`/user/${localAuthor.id}`}
+                  className="inline-flex items-center gap-0.5 text-sm font-normal text-slate-200 hover:text-[#c2c6cf] transition-colors max-w-[min(100%,220px)] min-w-0 overflow-hidden"
+                >
+                  <span className="min-w-0 truncate">
+                    {shouldApplyEntrySearchHighlight(searchTerm)
+                      ? highlightText(localAuthor.nickname, searchTerm!)
+                      : localAuthor.nickname}
+                  </span>
+                  {localAuthor.role === "Admin" && (
+                    <BadgeCheck className="w-3.5 h-3.5 text-blue-500 fill-blue-500/20 ml-0.5 shrink-0" />
+                  )}
+                </Link>
+              )}
+            </div>
 
-          {/* Tarih + Edit: (alt alta) — tüm genişliklerde görünür; sm+ yerleşimi aynı */}
-          <div className="flex flex-col items-end shrink-0 gap-0.5 text-right min-w-0 ml-1.5 sm:ml-0">
-            <span className="text-[#7c8190] text-[13px] leading-tight tabular-nums">
-              {formatDate(entry.date)}
-            </span>
-            {editLineText !== "" && (
-              <span className="text-[#7c8190] text-[13px] italic leading-tight break-words text-right max-w-[min(100%,14rem)] sm:max-w-none">
-                Edit: {editLineText}
+            <span className="text-[#7c8190]/45 text-[13px] shrink-0 hidden sm:inline">·</span>
+
+            {/* Tarih + Edit: (alt alta) — tüm genişliklerde görünür; sm+ yerleşimi aynı */}
+            <div className="flex flex-col items-end shrink-0 gap-0.5 text-right min-w-0 ml-0">
+              <span className="text-[#7c8190] text-[13px] leading-tight tabular-nums">
+                {formatDate(entry.date)}
               </span>
-            )}
+              {editLineText !== "" && (
+                <span className="text-[#7c8190] text-[13px] italic leading-tight break-words text-right max-w-[min(100%,14rem)] sm:max-w-none">
+                  Edit: {editLineText}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Options: tek menü — Paylaş + sahibiyse yönetim + şikayet + admin sil */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                className="flex items-center justify-center h-7 w-7 rounded-lg text-[#7c8190] hover:text-[#c2c6cf] hover:bg-muted/60 transition-colors"
-                aria-label="Diğer seçenekler"
-              >
-                <MoreHorizontal className="h-3.5 w-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[170px]">
-              {canManage && (
-                <>
-                  <DropdownMenuItem onClick={() => setIsLikersOpen(true)}>
-                    <Users className="h-4 w-4" />
-                    Kalp atanları gör
-                  </DropdownMenuItem>
+          <div className="shrink-0 pt-0.5 sm:pt-0">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="flex items-center justify-center h-7 w-7 rounded-lg text-[#7c8190] hover:text-[#c2c6cf] hover:bg-muted/60 transition-colors"
+                  aria-label="Diğer seçenekler"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[170px]">
+                {canManage && (
+                  <>
+                    <DropdownMenuItem onClick={() => setIsLikersOpen(true)}>
+                      <Users className="h-4 w-4" />
+                      Kalp atanları gör
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setEditBaseline(entry.content)
+                        const currentAnon = entry.isAnonymous ?? false
+                        setEditIsAnonymous(currentAnon)
+                        setEditAnonBaseline(currentAnon)
+                        const initialPoll = pollComposerValueFromApiPoll(localPoll ?? entry.poll ?? null)
+                        setEditPoll(initialPoll)
+                        setEditPollBaseline(initialPoll)
+                        setIsEditOpen(true)
+                        setEditError(null)
+                      }}
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Düzenle
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onClick={() => { setIsDeleteOpen(true); setDeleteError(null) }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Sil
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <ShareMenuSub
+                  url={`${getSiteUrl()}/entry/${entry.id}`}
+                  title={`${entry.topicTitle} - ${localAuthor?.nickname ?? "Anonim"} | Tespit Sözlük`}
+                />
+                {showSendMessage && (
                   <DropdownMenuItem
-                    onClick={() => {
-                      setEditBaseline(entry.content)
-                      const currentAnon = entry.isAnonymous ?? false
-                      setEditIsAnonymous(currentAnon)
-                      setEditAnonBaseline(currentAnon)
-                      const initialPoll = pollComposerValueFromApiPoll(localPoll ?? entry.poll ?? null)
-                      setEditPoll(initialPoll)
-                      setEditPollBaseline(initialPoll)
-                      setIsEditOpen(true)
-                      setEditError(null)
-                    }}
+                    className="cursor-pointer"
+                    onClick={() => setSendMessageOpen(true)}
                   >
-                    <Pencil className="h-4 w-4" />
-                    Düzenle
+                    <MessageCircle className="h-4 w-4" />
+                    Mesaj Gönder
                   </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={() => setIsReportOpen(true)}>
+                  <Flag className="h-4 w-4" />
+                  Şikayet Et
+                </DropdownMenuItem>
+                {canBlockUser && (
                   <DropdownMenuItem
                     variant="destructive"
-                    onClick={() => { setIsDeleteOpen(true); setDeleteError(null) }}
+                    onClick={() => setIsBlockUserOpen(true)}
                   >
-                    <Trash2 className="h-4 w-4" />
-                    Sil
+                    <Ban className="h-4 w-4" />
+                    Kullanıcıyı Engelle
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
-              )}
-              <ShareMenuSub
-                url={`${getSiteUrl()}/entry/${entry.id}`}
-                title={`${entry.topicTitle} - ${localAuthor?.nickname ?? "Anonim"} | Tespit Sözlük`}
-              />
-              {showSendMessage && (
-                <DropdownMenuItem
-                  className="cursor-pointer"
-                  onClick={() => setSendMessageOpen(true)}
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  Mesaj Gönder
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onClick={() => setIsReportOpen(true)}>
-                <Flag className="h-4 w-4" />
-                Şikayet Et
-              </DropdownMenuItem>
-              {canBlockUser && (
-                <DropdownMenuItem
-                  variant="destructive"
-                  onClick={() => setIsBlockUserOpen(true)}
-                >
-                  <Ban className="h-4 w-4" />
-                  Kullanıcıyı Engelle
-                </DropdownMenuItem>
-              )}
-              {isAdmin && (
-                <DropdownMenuItem
-                  variant="destructive"
-                  onClick={() => setIsAdminDeleteOpen(true)}
-                >
-                  <ShieldX className="h-4 w-4" />
-                  Admin: Kalıcı Sil
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                )}
+                {isAdmin && (
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => setIsAdminDeleteOpen(true)}
+                  >
+                    <ShieldX className="h-4 w-4" />
+                    Admin: Kalıcı Sil
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
 
