@@ -27,6 +27,7 @@ public class TopicsController : ControllerBase
     private readonly IEntryInteractionNotificationService _entryInteractionNotifications;
     private readonly IPollService _pollService;
     private readonly INoviceStatusService _noviceStatus;
+    private readonly IAlphabeticalTopicsCache _alphabeticalTopicsCache;
     private readonly ILogger<TopicsController> _logger;
 
     public TopicsController(
@@ -36,6 +37,7 @@ public class TopicsController : ControllerBase
         IEntryInteractionNotificationService entryInteractionNotifications,
         IPollService pollService,
         INoviceStatusService noviceStatus,
+        IAlphabeticalTopicsCache alphabeticalTopicsCache,
         ILogger<TopicsController> logger)
     {
         _context = context;
@@ -44,6 +46,7 @@ public class TopicsController : ControllerBase
         _entryInteractionNotifications = entryInteractionNotifications;
         _pollService = pollService;
         _noviceStatus = noviceStatus;
+        _alphabeticalTopicsCache = alphabeticalTopicsCache;
         _logger = logger;
     }
 
@@ -485,6 +488,13 @@ public class TopicsController : ControllerBase
         if (pageSize > 100) pageSize = 100;
 
         var userId = GetCurrentUserId();
+
+        var cached = await _alphabeticalTopicsCache.TryGetAsync(page, pageSize, userId, HttpContext.RequestAborted);
+        if (cached != null)
+        {
+            return cached;
+        }
+
         var followedIds = userId.HasValue ? await GetFollowedTopicIdsAsync(userId.Value) : new HashSet<Guid>();
 
         var query = _context.Topics.AsNoTracking()
@@ -555,7 +565,7 @@ public class TopicsController : ControllerBase
 
         var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
 
-        return new PagedTopicsDto
+        var alphabeticalResult = new PagedTopicsDto
         {
             Items = items,
             Page = page,
@@ -565,6 +575,10 @@ public class TopicsController : ControllerBase
             HasPreviousPage = page > 1,
             HasNextPage = page < totalPages
         };
+
+        await _alphabeticalTopicsCache.TrySetAsync(page, pageSize, userId, alphabeticalResult, HttpContext.RequestAborted);
+
+        return alphabeticalResult;
     }
 
     [AllowAnonymous]
