@@ -2064,16 +2064,16 @@ export default function UserProfilePage() {
                             </div>
                           </TooltipTrigger>
                           <TooltipContent side="top">
-                            Rozet alan anonim entrylerini göster (yalnızca kendi profilinizde).
+                            Anonim entryleri göster
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
                     )}
                     {receivedBadgesIncludeAnonymous && isOwnProfile && (
                       <div className="text-xs text-muted-foreground flex flex-col gap-1">
-                        <p>Anonim entryleri başkası göremez.</p>
+                        <p>Anonim entryleri diğer kullanıcılar göremez.</p>
                         <p>
-                          Anonim entryleri de dahil edince toplam rozet sayınız:{" "}
+                          Anonim entryleri de dahil edince toplam alınan rozet sayınız:{" "}
                           {user.badgesReceivedTotalCount ?? 0}
                         </p>
                       </div>

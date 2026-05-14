@@ -1,23 +1,24 @@
-import { getSiteUrl } from "@/lib/api"
-
 const SITE_NAME = "Tespit Sözlük"
+/** Yapısal veri ve Google site name için kanonik köken (metadataBase ile uyumlu prod domain). */
+const CANONICAL_SITE_ORIGIN = "https://tespitsozluk.com"
+/** WebSite şeması `url` alanı — Google arama sonuçlarında site adı için beklenen ana sayfa URL'si. */
+const WEB_SITE_SCHEMA_URL = "https://tespitsozluk.com/"
 
 /**
  * Google ve diğer arama motorları için Organization + WebSite JSON-LD (Schema.org).
  * Müdahale yok, yalnızca head/structured data.
  */
 export function SiteIdentityJsonLd() {
-  const siteUrl = getSiteUrl()
-  const logoUrl = new URL("icon.png", `${siteUrl}/`).toString()
+  const logoUrl = new URL("icon.png", WEB_SITE_SCHEMA_URL).toString()
 
   const data = {
     "@context": "https://schema.org",
     "@graph": [
       {
         "@type": "Organization",
-        "@id": `${siteUrl}/#organization`,
+        "@id": `${CANONICAL_SITE_ORIGIN}/#organization`,
         name: SITE_NAME,
-        url: siteUrl,
+        url: CANONICAL_SITE_ORIGIN,
         logo: {
           "@type": "ImageObject",
           url: logoUrl,
@@ -25,11 +26,11 @@ export function SiteIdentityJsonLd() {
       },
       {
         "@type": "WebSite",
-        "@id": `${siteUrl}/#website`,
+        "@id": `${CANONICAL_SITE_ORIGIN}/#website`,
         name: SITE_NAME,
-        url: siteUrl,
+        url: WEB_SITE_SCHEMA_URL,
         inLanguage: "tr-TR",
-        publisher: { "@id": `${siteUrl}/#organization` },
+        publisher: { "@id": `${CANONICAL_SITE_ORIGIN}/#organization` },
       },
     ],
   }
