@@ -404,9 +404,9 @@ export function Navbar({
             onClick={handleLogoClick}
             className="flex h-full min-w-0 max-w-full flex-1 items-center hover:opacity-80 transition-opacity ml-9 sm:flex-initial lg:ml-10"
           >
-            <span className="inline-flex h-full max-h-full min-w-0 max-w-full items-center dark:invert">
+            <span className="inline-flex h-full max-h-full min-w-0 max-w-full items-center">
               <img
-                src="/marka.svg"
+                src="/marka.png"
                 alt="Tespit Sözlük"
                 className="h-11 w-auto max-w-full"
               />

@@ -6,9 +6,9 @@ export function Logo({
   ...props
 }: ComponentProps<"span">) {
   return (
-    <span className={cn("inline-flex items-center dark:invert")} {...props}>
+    <span className={cn("inline-flex items-center")} {...props}>
       <img
-        src="/marka.svg"
+        src="/marka.png"
         alt="Tespit Sözlük"
         className={cn("h-8 w-auto", className)}
         draggable={false}
