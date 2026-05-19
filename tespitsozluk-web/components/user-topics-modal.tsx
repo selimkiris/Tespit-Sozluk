@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { MessageSquareText, Users, FileText, BookOpen, EyeOff } from "lucide-react"
+import { FileText, BookOpen, EyeOff } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -10,15 +10,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getApiUrl, apiFetch } from "@/lib/api"
 import { topicHref } from "@/lib/topic-href"
-import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
 /**
  * API: GET /api/Users/{id}/topics  (UserTopicListItemDto)
- * Sunucu tarafında zaten alfabetik (A→Z) sıralı gelir; ikinci bir sıralama yapılmaz.
+ * Sıralama istemci tarafında yapılır; API sözleşmesi değiştirilmez.
  */
 type ApiUserTopic = {
   id: string
@@ -35,9 +46,11 @@ type UserTopic = {
   title: string
   slug: string
   entryCount: number
-  followerCount: number
   isAnonymous: boolean
+  createdAt: string
 }
+
+type SortMode = "chronological" | "alphabetical"
 
 type UserTopicsModalProps = {
   open: boolean
@@ -52,6 +65,25 @@ type UserTopicsModalProps = {
 const FETCH_ERROR_MSG =
   "Başlıklar yüklenirken bir sorun oluştu. Biraz sonra tekrar dener misin?"
 
+function sortUserTopics(topics: UserTopic[], mode: SortMode): UserTopic[] {
+  const copy = [...topics]
+  if (mode === "chronological") {
+    return copy.sort((a, b) => {
+      const ta = Date.parse(a.createdAt)
+      const tb = Date.parse(b.createdAt)
+      const aTime = Number.isFinite(ta) ? ta : 0
+      const bTime = Number.isFinite(tb) ? tb : 0
+      if (bTime !== aTime) return bTime - aTime
+      return a.id.localeCompare(b.id)
+    })
+  }
+  return copy.sort((a, b) => {
+    const cmp = a.title.localeCompare(b.title, "tr-TR", { sensitivity: "base" })
+    if (cmp !== 0) return cmp
+    return a.id.localeCompare(b.id)
+  })
+}
+
 export function UserTopicsModal({
   open,
   onOpenChange,
@@ -62,6 +94,7 @@ export function UserTopicsModal({
   const [topics, setTopics] = React.useState<UserTopic[]>([])
   const [loading, setLoading] = React.useState(false)
   const [errored, setErrored] = React.useState(false)
+  const [sortMode, setSortMode] = React.useState<SortMode>("chronological")
 
   React.useEffect(() => {
     if (!open || !userId) return
@@ -83,8 +116,11 @@ export function UserTopicsModal({
               title: t.title ?? "",
               slug: typeof t.slug === "string" ? t.slug : "",
               entryCount: Number.isFinite(t.entryCount) ? Number(t.entryCount) : 0,
-              followerCount: Number.isFinite(t.followerCount) ? Number(t.followerCount) : 0,
               isAnonymous: Boolean(t.isAnonymous),
+              createdAt:
+                typeof t.createdAt === "string" && t.createdAt.length > 0
+                  ? t.createdAt
+                  : "",
             }))
           : []
         setTopics(normalized)
@@ -101,6 +137,11 @@ export function UserTopicsModal({
 
     return () => controller.abort()
   }, [open, userId, isOwnProfile])
+
+  const sortedTopics = React.useMemo(
+    () => sortUserTopics(topics, sortMode),
+    [topics, sortMode],
+  )
 
   const title = isOwnProfile ? "Açtığınız başlıklar" : "Açtığı Başlıklar"
 
@@ -119,10 +160,30 @@ export function UserTopicsModal({
               </span>
             )}
           </DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">
-            Alfabetik sırayla listelenmiştir.
+          <DialogDescription className="sr-only">
+            Kullanıcının açtığı başlıklar listesi
           </DialogDescription>
         </DialogHeader>
+
+        {!loading && !errored && topics.length > 0 && (
+          <div className="flex items-center gap-2 px-5 py-3 border-b border-border/60 bg-muted/20">
+            <span className="text-xs font-medium text-muted-foreground shrink-0">
+              Sıralama:
+            </span>
+            <Select
+              value={sortMode}
+              onValueChange={(v) => setSortMode(v as SortMode)}
+            >
+              <SelectTrigger className="h-8 w-[160px] text-xs" size="sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="chronological">Kronolojik</SelectItem>
+                <SelectItem value="alphabetical">Alfabetik</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <div className="max-h-[min(70vh,600px)] overflow-y-auto px-2 sm:px-3 py-2">
           {loading ? (
@@ -138,41 +199,39 @@ export function UserTopicsModal({
             </div>
           ) : (
             <ul className="py-1">
-              {topics.map((t) => (
+              {sortedTopics.map((t) => (
                 <li key={t.id}>
                   <Link
                     href={topicHref(t)}
                     onClick={() => onOpenChange(false)}
-                    className="group flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 rounded-lg px-3 py-2.5 hover:bg-muted/60 focus-visible:bg-muted/60 outline-none transition-colors"
+                    className="group flex items-start gap-3 py-3 -mx-2 px-2 rounded-md hover:bg-muted/30 focus-visible:bg-muted/30 outline-none transition-colors duration-200"
                   >
-                    <span className="flex-1 min-w-0 flex items-center gap-2">
-                      <span className="font-medium text-foreground group-hover:text-primary group-hover:underline underline-offset-4 decoration-primary/40 truncate">
+                    <span className="flex-1 min-w-0 flex flex-wrap items-center gap-2">
+                      <span className="font-medium text-foreground whitespace-normal break-words leading-snug transition-opacity group-hover:opacity-70">
                         {t.title || "(Başlıksız)"}
                       </span>
                       {t.isAnonymous && (
-                        <span
-                          title="Anonim başlık"
-                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                        >
-                          <EyeOff className="h-3 w-3" aria-hidden />
-                          Anonim
-                        </span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 dark:bg-zinc-800/40 dark:text-zinc-500 border border-transparent opacity-80 cursor-default"
+                            >
+                              <EyeOff className="h-3 w-3" aria-hidden />
+                              Anonim
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            Bunu diğer kullanıcılar göremez.
+                          </TooltipContent>
+                        </Tooltip>
                       )}
                     </span>
 
-                    <span className="flex items-center gap-1.5 shrink-0">
-                      <StatBadge
-                        icon={<MessageSquareText className="h-3.5 w-3.5" aria-hidden />}
-                        label={`${t.entryCount} entry`}
-                        tone="entry"
-                        value={t.entryCount}
-                      />
-                      <StatBadge
-                        icon={<Users className="h-3.5 w-3.5" aria-hidden />}
-                        label={`${t.followerCount} takipçi`}
-                        tone="follower"
-                        value={t.followerCount}
-                      />
+                    <span
+                      className="shrink-0 whitespace-nowrap inline-flex items-center justify-center min-w-[1.75rem] text-xs font-semibold px-2 py-0.5 rounded-full mt-0.5 tabular-nums bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                      aria-label={`${t.entryCount} entry`}
+                    >
+                      {t.entryCount}
                     </span>
                   </Link>
                 </li>
@@ -185,54 +244,16 @@ export function UserTopicsModal({
   )
 }
 
-/**
- * Entry ve Takipçi rozetleri tasarımsal olarak birbirinden net ayrılsın diye
- * farklı renk paletleri kullanılır:
- *   • entry    → mavi tonları (MessageSquare ikon)
- *   • follower → yeşil tonları (Users ikon)
- * Böylece renk körü kullanıcılarda bile simge + etiket kombinasyonu koruyucu olur.
- */
-function StatBadge({
-  icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: React.ReactNode
-  label: string
-  value: number
-  tone: "entry" | "follower"
-}) {
-  return (
-    <span
-      aria-label={label}
-      title={label}
-      className={cn(
-        "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
-        tone === "entry"
-          ? "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300"
-          : "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-      )}
-    >
-      {icon}
-      <span>{value}</span>
-    </span>
-  )
-}
-
 function SkeletonList() {
   return (
-    <ul className="py-1 space-y-1">
+    <ul className="py-1">
       {Array.from({ length: 6 }).map((_, i) => (
         <li
           key={i}
-          className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 rounded-lg px-3 py-2.5"
+          className="flex items-start gap-3 py-3 -mx-2 px-2"
         >
-          <Skeleton className="h-4 flex-1 max-w-[60%]" />
-          <div className="flex items-center gap-1.5 shrink-0">
-            <Skeleton className="h-5 w-14 rounded-md" />
-            <Skeleton className="h-5 w-16 rounded-md" />
-          </div>
+          <Skeleton className="h-4 flex-1 max-w-[70%]" />
+          <Skeleton className="h-5 w-8 rounded-full shrink-0" />
         </li>
       ))}
     </ul>
