@@ -215,7 +215,12 @@ export function HomePageContent({ initialTopic }: HomePageContentProps = {}) {
       const list = Array.isArray(data?.items) ? data.items.map(mapApiEntry) : []
       setFeedHasNextPage(data?.hasNextPage ?? false)
       setFeedPage(pageNum)
-      setEntries((prev) => (append ? [...prev, ...list] : list))
+      setEntries((prev) => {
+        if (!append) return list
+        const existingIds = new Set(prev.map((e) => e.id))
+        const unique = list.filter((e) => !existingIds.has(e.id))
+        return [...prev, ...unique]
+      })
     } catch {
       if (!append) setEntries([])
     } finally {
@@ -427,12 +432,12 @@ export function HomePageContent({ initialTopic }: HomePageContentProps = {}) {
     const fetchedMatch = fetchedTopicForUrl?.id === topicId ? fetchedTopicForUrl : undefined
     const slug = known?.slug || initialMatch?.slug || fetchedMatch?.slug
     if (slug) {
-      router.replace(`/baslik/${slug}`, { scroll: false })
+      router.push(`/baslik/${slug}`, { scroll: false })
       return
     }
     const params = new URLSearchParams()
     params.set("topic", topicId)
-    router.replace(`/?${params.toString()}`, { scroll: false })
+    router.push(`/?${params.toString()}`, { scroll: false })
   }, [router, topics, initialTopic, fetchedTopicForUrl])
 
   const handleTopicEntriesPageUrlChange = useCallback(

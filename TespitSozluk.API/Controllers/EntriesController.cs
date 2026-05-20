@@ -27,6 +27,7 @@ public class EntriesController : ControllerBase
     private readonly IEntryMentionService _entryMentionService;
     private readonly IPollService _pollService;
     private readonly INoviceStatusService _noviceStatus;
+    private readonly IDiscoverFeedService _discoverFeed;
     private readonly ILogger<EntriesController> _logger;
 
     public EntriesController(
@@ -37,6 +38,7 @@ public class EntriesController : ControllerBase
         IEntryMentionService entryMentionService,
         IPollService pollService,
         INoviceStatusService noviceStatus,
+        IDiscoverFeedService discoverFeed,
         ILogger<EntriesController> logger)
     {
         _context = context;
@@ -46,6 +48,7 @@ public class EntriesController : ControllerBase
         _entryMentionService = entryMentionService;
         _pollService = pollService;
         _noviceStatus = noviceStatus;
+        _discoverFeed = discoverFeed;
         _logger = logger;
     }
 
@@ -144,21 +147,16 @@ public class EntriesController : ControllerBase
                 break;
 
             case "discover":
-                var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
-                var pool = await baseQuery
-                    .Where(e => e.CreatedAt >= thirtyDaysAgo)
-                    .OrderByDescending(e => e.CreatedAt)
-                    .Take(500)
-                    .Select(e => new FeedEntryData(e.Id, e.Content, e.Upvotes, e.Downvotes, e.TopicId, e.Topic!.Title,
-                        e.AuthorId, e.Author!.FirstName + " " + e.Author.LastName, e.Author!.Avatar, e.Author!.Role, e.CreatedAt, e.UpdatedAt, e.IsAnonymous))
-                    .ToListAsync();
-                var shuffled = pool.OrderBy(_ => Guid.NewGuid()).ToList();
-                var discoverTake = Math.Min(20, Math.Max(10, pageSize));
-                effectivePageSize = discoverTake;
-                totalCount = shuffled.Count;
-                entries = shuffled
-                    .Skip(discoverTake * (page - 1))
-                    .Take(discoverTake)
+                var discoverSessionKey = userId?.ToString()
+                    ?? HttpContext.Connection.RemoteIpAddress?.ToString()
+                    ?? "anonymous";
+                var discoverPage = await _discoverFeed.GetPageAsync(
+                    _context, userId, discoverSessionKey, page, pageSize, HttpContext.RequestAborted);
+                effectivePageSize = discoverPage.EffectivePageSize;
+                totalCount = discoverPage.TotalCount;
+                entries = discoverPage.Entries
+                    .Select(e => new FeedEntryData(e.Id, e.Content, e.Upvotes, e.Downvotes, e.TopicId, e.TopicTitle,
+                        e.AuthorId, e.AuthorName, e.AuthorAvatar, e.AuthorRole, e.CreatedAt, e.UpdatedAt, e.IsAnonymous))
                     .ToList();
                 break;
 

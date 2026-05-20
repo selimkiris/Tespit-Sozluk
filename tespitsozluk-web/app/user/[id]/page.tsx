@@ -3,7 +3,7 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useMemo } from "react"
 import type { ReactNode } from "react"
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, Lock, Pencil, Trash2, Send, Plus, User, UserPlus, UserMinus, Users, UserCheck, MessageSquare, Hash, CalendarDays, Heart, Save, PencilLine, ShieldX, CheckCircle2, Clock, AlertTriangle, RotateCcw, Flag, Trash, BadgeCheck, Mail, ShieldAlert, MessageCircle, FileEdit, Search, Medal, Ban, MoreHorizontal, ChevronRight } from "lucide-react"
+import { ArrowLeft, Lock, Pencil, Trash2, Send, Plus, User, UserPlus, UserMinus, Users, UserCheck, Hash, CalendarDays, Heart, Save, PencilLine, ShieldX, CheckCircle2, Clock, AlertTriangle, RotateCcw, Flag, Trash, BadgeCheck, Mail, ShieldAlert, MessageCircle, FileEdit, Search, Medal, Ban, MoreHorizontal, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
 import { Navbar } from "@/components/navbar"
@@ -1717,7 +1717,7 @@ export default function UserProfilePage() {
                     </button>
                     <div className="flex min-w-0 items-center justify-between rounded-xl border border-border/80 bg-secondary/80 p-3 text-left text-xs shadow-md transition-colors hover:bg-secondary dark:bg-secondary/60 dark:hover:bg-secondary/80 sm:text-sm">
                       <span className="flex min-w-0 items-center gap-2">
-                        <MessageSquare className="h-4 w-4 shrink-0 text-foreground/85 opacity-95" aria-hidden />
+                        <PencilLine className="h-4 w-4 shrink-0 text-foreground/85 opacity-95" aria-hidden />
                         <span className="min-w-0 shrink font-medium text-foreground/90">Entry</span>
                       </span>
                       <span className="tabular-nums text-sm font-semibold text-foreground sm:text-base">

@@ -427,7 +427,10 @@ export function SettingsDialog({
             </TabsTrigger>
             <TabsTrigger value="blocked" className="gap-1 text-[11px] sm:text-sm px-1 sm:px-2">
               <Ban className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">Engellenenler</span>
+              <span className="truncate">
+                <span className="md:hidden">Engel</span>
+                <span className="hidden md:inline">Engellenenler</span>
+              </span>
             </TabsTrigger>
           </TabsList>
 

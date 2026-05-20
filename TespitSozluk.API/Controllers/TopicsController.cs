@@ -481,7 +481,8 @@ public class TopicsController : ControllerBase
     [HttpGet("alphabetical")]
     public async Task<ActionResult<PagedTopicsDto>> GetAlphabetical(
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 50)
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string sortBy = "alphabetical")
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 50;
@@ -489,17 +490,29 @@ public class TopicsController : ControllerBase
 
         var userId = GetCurrentUserId();
 
-        var cached = await _alphabeticalTopicsCache.TryGetAsync(page, pageSize, userId, HttpContext.RequestAborted);
-        if (cached != null)
+        var effectiveSort = NormalizeTopicsListSort(sortBy);
+        var useAlphabeticalCache = effectiveSort == "alphabetical";
+
+        if (useAlphabeticalCache)
         {
-            return cached;
+            var cached = await _alphabeticalTopicsCache.TryGetAsync(page, pageSize, userId, HttpContext.RequestAborted);
+            if (cached != null)
+            {
+                return cached;
+            }
         }
 
         var followedIds = userId.HasValue ? await GetFollowedTopicIdsAsync(userId.Value) : new HashSet<Guid>();
 
-        var query = _context.Topics.AsNoTracking()
-            .ApplyBlockFilter(_context, userId)
-            .OrderBy(t => t.Title);
+        var filtered = _context.Topics.AsNoTracking()
+            .ApplyBlockFilter(_context, userId);
+
+        var query = effectiveSort switch
+        {
+            "chronological" => filtered.OrderByDescending(t => t.CreatedAt),
+            "entrycount" => filtered.OrderByDescending(t => t.Entries.Count()),
+            _ => filtered.OrderBy(t => t.Title),
+        };
 
         var totalCount = await query.CountAsync();
 
@@ -576,9 +589,22 @@ public class TopicsController : ControllerBase
             HasNextPage = page < totalPages
         };
 
-        await _alphabeticalTopicsCache.TrySetAsync(page, pageSize, userId, alphabeticalResult, HttpContext.RequestAborted);
+        if (useAlphabeticalCache)
+        {
+            await _alphabeticalTopicsCache.TrySetAsync(page, pageSize, userId, alphabeticalResult, HttpContext.RequestAborted);
+        }
 
         return alphabeticalResult;
+    }
+
+    private static string NormalizeTopicsListSort(string? sortBy)
+    {
+        return (sortBy ?? "alphabetical").ToLowerInvariant() switch
+        {
+            "chronological" or "kronolojik" => "chronological",
+            "entrycount" or "entry_count" or "entry-count" or "entries" => "entrycount",
+            _ => "alphabetical",
+        };
     }
 
     [AllowAnonymous]

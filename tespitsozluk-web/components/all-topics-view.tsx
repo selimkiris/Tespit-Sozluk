@@ -4,6 +4,13 @@ import { useState, useMemo, useEffect, useCallback } from "react"
 import { X, Search, Hash, ChevronDown, Loader2 } from "lucide-react"
 import { getApiUrl, apiFetch } from "@/lib/api"
 import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 interface Topic {
   id: string
@@ -12,6 +19,8 @@ interface Topic {
   slug?: string
   entryCount: number
 }
+
+type SortMode = "alphabetical" | "chronological" | "entryCount"
 
 function mapApiTopic(t: { id: string; title: string; slug?: string | null; entryCount?: number }): Topic {
   return {
@@ -38,6 +47,7 @@ export function AllTopicsView({
   initialSearchQuery,
 }: AllTopicsViewProps) {
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery ?? "")
+  const [sortMode, setSortMode] = useState<SortMode>("alphabetical")
   const [topics, setTopics] = useState<Topic[]>([])
   const [page, setPage] = useState(1)
   const [hasNextPage, setHasNextPage] = useState(false)
@@ -45,14 +55,16 @@ export function AllTopicsView({
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [totalTopicsCount, setTotalTopicsCount] = useState<number | null>(null)
 
-  const fetchTopics = useCallback(async (pageNum: number, append: boolean) => {
+  const fetchTopics = useCallback(async (pageNum: number, append: boolean, sort: SortMode) => {
     if (append) {
       setIsLoadingMore(true)
     } else {
       setIsLoading(true)
     }
     try {
-      const res = await apiFetch(getApiUrl(`api/Topics/alphabetical?page=${pageNum}&pageSize=50`))
+      const res = await apiFetch(
+        getApiUrl(`api/Topics/alphabetical?page=${pageNum}&pageSize=50&sortBy=${sort}`)
+      )
       if (!res.ok) throw new Error("Başlıklar yüklenemedi")
       const data = await res.json()
       const items = data?.items ?? []
@@ -77,46 +89,61 @@ export function AllTopicsView({
     if (isOpen) {
       setPage(1)
       setTotalTopicsCount(null)
-      fetchTopics(1, false)
+      fetchTopics(1, false, sortMode)
       if (initialSearchQuery != null) {
         setSearchQuery(initialSearchQuery)
       }
     }
-  }, [isOpen, fetchTopics, initialSearchQuery])
+  }, [isOpen, fetchTopics, initialSearchQuery, sortMode])
 
   const handleLoadMore = useCallback(() => {
-    fetchTopics(page + 1, true)
-  }, [page, fetchTopics])
+    fetchTopics(page + 1, true, sortMode)
+  }, [page, fetchTopics, sortMode])
 
   const displayTopics = topics.length > 0 ? topics : (topicsProp ?? [])
 
-  const sortedTopics = useMemo(() => {
-    return [...displayTopics].sort((a, b) => a.title.localeCompare(b.title, "tr"))
-  }, [displayTopics])
-
   const filteredTopics = useMemo(() => {
-    if (!searchQuery.trim()) return sortedTopics
-    return sortedTopics.filter((topic) =>
+    if (!searchQuery.trim()) return displayTopics
+    return displayTopics.filter((topic) =>
       topic.title.toLowerCase().includes(searchQuery.toLowerCase())
     )
-  }, [sortedTopics, searchQuery])
+  }, [displayTopics, searchQuery])
 
   const groupedTopics = useMemo(() => {
+    if (sortMode !== "alphabetical") return null
     const groups: Record<string, Topic[]> = {}
     filteredTopics.forEach((topic) => {
-      const firstChar = topic.title[0].toUpperCase()
+      const firstChar = topic.title[0]?.toUpperCase() ?? "#"
       if (!groups[firstChar]) {
         groups[firstChar] = []
       }
       groups[firstChar].push(topic)
     })
     return groups
-  }, [filteredTopics])
+  }, [filteredTopics, sortMode])
 
   const handleTopicClick = (topicId: string) => {
     onTopicSelect(topicId)
     onClose()
   }
+
+  const renderTopicRow = (topic: Topic) => (
+    <button
+      key={topic.id}
+      onClick={() => handleTopicClick(topic.id)}
+      className="flex items-start justify-between w-full px-3 py-2.5 text-left rounded-lg hover:bg-secondary/70 transition-colors group"
+    >
+      <div className="flex items-start gap-2 flex-1 min-w-0">
+        <Hash className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0 mt-0.5" />
+        <span className="text-sm text-foreground break-words hyphens-auto whitespace-pre-wrap min-w-0">
+          {topic.title}
+        </span>
+      </div>
+      <span className="text-xs text-muted-foreground tabular-nums shrink-0 whitespace-nowrap ml-3 mt-0.5">
+        {topic.entryCount} entry
+      </span>
+    </button>
+  )
 
   if (!isOpen) return null
 
@@ -135,8 +162,8 @@ export function AllTopicsView({
           </button>
         </div>
 
-        {/* Search */}
-        <div className="p-4 border-b border-border shrink-0">
+        {/* Search + sort */}
+        <div className="p-4 border-b border-border shrink-0 space-y-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
@@ -147,37 +174,46 @@ export function AllTopicsView({
               className="w-full h-10 pl-9 pr-4 bg-secondary/50 border-0 rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 transition-all"
             />
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            {searchQuery.trim() ? (
-              <>
-                {filteredTopics.length} başlık alfabetik sırayla listelendi
-              </>
-            ) : isLoading && !isLoadingMore ? (
-              <span className="inline-flex items-center gap-1.5">
-                <Loader2 className="h-3 w-3 animate-spin shrink-0" aria-hidden />
-                <span>başlık alfabetik sırayla listelendi</span>
-              </span>
-            ) : totalTopicsCount !== null ? (
-              <>
-                {totalTopicsCount} başlık alfabetik sırayla listelendi
-              </>
-            ) : (
-              <>
-                <span className="tabular-nums">…</span> başlık alfabetik sırayla listelendi
-              </>
-            )}
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              {isLoading && !isLoadingMore ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <Loader2 className="h-3 w-3 animate-spin shrink-0" aria-hidden />
+                  <span>Toplam başlık: …</span>
+                </span>
+              ) : totalTopicsCount !== null ? (
+                <>Toplam başlık: {totalTopicsCount.toLocaleString("tr-TR")}</>
+              ) : (
+                <>Toplam başlık: …</>
+              )}
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground shrink-0">Sıralama:</span>
+              <Select
+                value={sortMode}
+                onValueChange={(v) => setSortMode(v as SortMode)}
+                disabled={isLoading && !isLoadingMore}
+              >
+                <SelectTrigger className="h-8 w-[160px] text-xs" size="sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="alphabetical">Alfabetik</SelectItem>
+                  <SelectItem value="chronological">Kronolojik</SelectItem>
+                  <SelectItem value="entryCount">Entry Sayısı</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
 
-        {/* Topics List - max-h ve overflow ile scroll */}
+        {/* Topics List */}
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          <div
-            className="flex-1 min-h-0 overflow-y-auto max-h-[60vh] scrollbar-thin pr-2"
-          >
+          <div className="flex-1 min-h-0 overflow-y-auto max-h-[60vh] pr-2">
             <div className="p-4 space-y-6">
               {isLoading ? (
                 <div className="text-center py-12 text-muted-foreground">Yükleniyor...</div>
-              ) : (
+              ) : groupedTopics ? (
                 <>
                   {Object.keys(groupedTopics)
                     .sort((a, b) => a.localeCompare(b, "tr"))
@@ -188,24 +224,21 @@ export function AllTopicsView({
                           <div className="flex-1 h-px bg-border" />
                         </div>
                         <div className="grid gap-1">
-                          {groupedTopics[letter].map((topic) => (
-                            <button
-                              key={topic.id}
-                              onClick={() => handleTopicClick(topic.id)}
-                              className="flex items-start justify-between w-full px-3 py-2.5 text-left rounded-lg hover:bg-secondary/70 transition-colors group"
-                            >
-                              <div className="flex items-start gap-2 flex-1 min-w-0">
-                                <Hash className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0 mt-0.5" />
-                                <span className="text-sm text-foreground break-words hyphens-auto whitespace-pre-wrap min-w-0">{topic.title}</span>
-                              </div>
-                              <span className="text-xs text-muted-foreground tabular-nums shrink-0 whitespace-nowrap ml-3 mt-0.5">
-                                {topic.entryCount} entry
-                              </span>
-                            </button>
-                          ))}
+                          {groupedTopics[letter].map((topic) => renderTopicRow(topic))}
                         </div>
                       </div>
                     ))}
+                  {!isLoading && filteredTopics.length === 0 && (
+                    <div className="text-center py-12">
+                      <p className="text-muted-foreground">Başlık bulunamadı</p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="grid gap-1">
+                    {filteredTopics.map((topic) => renderTopicRow(topic))}
+                  </div>
                   {!isLoading && filteredTopics.length === 0 && (
                     <div className="text-center py-12">
                       <p className="text-muted-foreground">Başlık bulunamadı</p>
